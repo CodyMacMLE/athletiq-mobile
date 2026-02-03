@@ -1,10 +1,12 @@
-import { User } from "@/types";
+import { Organization, User } from "@/types";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
 import {
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,6 +30,11 @@ const AVATAR_SIZE = 45;
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 // Mock data - from API
+const organizations: Organization[] = [
+  { id: "1", name: "Shenderey" },
+  { id: "2", name: "Downtown Athletics" },
+  { id: "3", name: "Peak Performance" },
+];
 const trainingDays = [true, true, true, true, true, false, false]; // Mon-Fri are training days
 const checkedInDays = [true, true, false, true, true, false, false]; // Mon-Sun check-ins
 const recentActivity = [
@@ -39,6 +46,8 @@ const recentActivity = [
 
 export default function Index() {
   const router = useRouter();
+  const [selectedOrg, setSelectedOrg] = useState(organizations[0]);
+  const [orgPickerVisible, setOrgPickerVisible] = useState(false);
 
   return (
     <LinearGradient
@@ -47,14 +56,64 @@ export default function Index() {
       locations={[0.1, 0.6, 1]}
     >
       <StatusBar style="light" />
+
+      {/* Organization Picker Modal */}
+      <Modal
+        visible={orgPickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOrgPickerVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setOrgPickerVisible(false)}
+        >
+          <View style={styles.orgPickerContainer}>
+            <Text style={styles.orgPickerTitle}>Select Organization</Text>
+            {organizations.map((org) => (
+              <Pressable
+                key={org.id}
+                style={({ pressed }) => [
+                  styles.orgPickerItem,
+                  pressed && styles.orgPickerItemPressed,
+                  selectedOrg.id === org.id && styles.orgPickerItemSelected,
+                ]}
+                onPress={() => {
+                  setSelectedOrg(org);
+                  setOrgPickerVisible(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.orgPickerItemText,
+                    selectedOrg.id === org.id && styles.orgPickerItemTextSelected,
+                  ]}
+                >
+                  {org.name}
+                </Text>
+                {selectedOrg.id === org.id && (
+                  <Feather name="check" size={18} color="#a855f7" />
+                )}
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.title}>Dashboard</Text>
-          <View style={styles.subtitleContainer}>
-            <Text style={styles.subtitle}>Shenderey</Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.subtitleContainer,
+              pressed && styles.subtitlePressed,
+            ]}
+            onPress={() => setOrgPickerVisible(true)}
+          >
+            <Text style={styles.subtitle}>{selectedOrg.name}</Text>
             <Feather name="chevron-down" size={16} color="white" />
-          </View>
+          </Pressable>
         </View>
 
         {user.image ? (
@@ -228,11 +287,68 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     alignItems: "center",
     gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginLeft: -8,
+    borderRadius: 8,
+  },
+  subtitlePressed: {
+    backgroundColor: "rgba(255,255,255,0.1)",
   },
   subtitle: {
     color: "white",
     fontSize: 16,
     fontWeight: "500",
+  },
+
+  // Organization Picker Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  orgPickerContainer: {
+    backgroundColor: "#2a2550",
+    borderRadius: 16,
+    width: "100%",
+    maxWidth: 320,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  orgPickerTitle: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 13,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  orgPickerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+  },
+  orgPickerItemPressed: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  orgPickerItemSelected: {
+    backgroundColor: "rgba(168,85,247,0.15)",
+  },
+  orgPickerItemText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  orgPickerItemTextSelected: {
+    color: "#a855f7",
   },
   avatar: {
     width: AVATAR_SIZE,
