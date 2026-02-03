@@ -8,13 +8,14 @@ import {
   FlatList,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
   ViewToken,
 } from "react-native";
 
-type EventType = "practice" | "game" | "meeting" | "rest";
+type EventType = "practice" | "event" | "meeting" | "rest";
 
 type CalendarEvent = {
   id: string;
@@ -47,13 +48,20 @@ const MONTHS = [
 ];
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Mock events data
+// Helper to get date relative to today
+function getRelativeDate(daysFromNow: number): Date {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromNow);
+  return date;
+}
+
+// Mock events data - using relative dates so they always show upcoming
 const mockEvents: CalendarEvent[] = [
   {
     id: "1",
     title: "Team Practice",
     type: "practice",
-    date: new Date(2025, 1, 3),
+    date: getRelativeDate(0), // Today
     startTime: "6:00 PM",
     endTime: "8:00 PM",
     location: "Main Gym",
@@ -61,82 +69,82 @@ const mockEvents: CalendarEvent[] = [
   },
   {
     id: "2",
+    title: "Recovery Day",
+    type: "rest",
+    date: getRelativeDate(1), // Tomorrow
+    startTime: "",
+    endTime: "",
+    description: "Active recovery and stretching.",
+  },
+  {
+    id: "3",
+    title: "Team Practice",
+    type: "practice",
+    date: getRelativeDate(2),
+    startTime: "6:00 PM",
+    endTime: "8:00 PM",
+    location: "Main Gym",
+  },
+  {
+    id: "4",
     title: "Game vs Eagles",
-    type: "game",
-    date: new Date(2025, 1, 8),
+    type: "event",
+    date: getRelativeDate(4),
     startTime: "7:00 PM",
     endTime: "9:00 PM",
     location: "Home Arena",
     description: "League game against the Eagles. Arrive 1 hour early for warmup.",
   },
   {
-    id: "3",
+    id: "5",
     title: "Team Meeting",
     type: "meeting",
-    date: new Date(2025, 1, 10),
+    date: getRelativeDate(5),
     startTime: "5:00 PM",
     endTime: "6:00 PM",
     location: "Conference Room A",
     description: "Strategy review and upcoming schedule discussion.",
   },
   {
-    id: "4",
-    title: "Team Practice",
-    type: "practice",
-    date: new Date(2025, 1, 5),
-    startTime: "6:00 PM",
-    endTime: "8:00 PM",
-    location: "Main Gym",
-  },
-  {
-    id: "5",
-    title: "Recovery Day",
-    type: "rest",
-    date: new Date(2025, 1, 9),
-    startTime: "",
-    endTime: "",
-    description: "Active recovery and stretching.",
-  },
-  {
     id: "6",
     title: "Team Practice",
     type: "practice",
-    date: new Date(2025, 1, 12),
+    date: getRelativeDate(7),
     startTime: "6:00 PM",
     endTime: "8:00 PM",
     location: "Main Gym",
   },
   {
     id: "7",
-    title: "Team Practice",
-    type: "practice",
-    date: new Date(2025, 1, 17),
-    startTime: "6:00 PM",
-    endTime: "8:00 PM",
-    location: "Main Gym",
-  },
-  {
-    id: "8",
     title: "Game vs Thunder",
-    type: "game",
-    date: new Date(2025, 1, 22),
+    type: "event",
+    date: getRelativeDate(10),
     startTime: "3:00 PM",
     endTime: "5:00 PM",
     location: "Away - Thunder Arena",
     description: "Away game. Bus departs at 12:00 PM from main parking lot.",
   },
+  {
+    id: "8",
+    title: "Team Practice",
+    type: "practice",
+    date: getRelativeDate(14),
+    startTime: "6:00 PM",
+    endTime: "8:00 PM",
+    location: "Main Gym",
+  },
 ];
 
 const EVENT_COLORS: Record<EventType, string> = {
   practice: "#6c5ce7",
-  game: "#e74c3c",
+  event: "#e74c3c",
   meeting: "#f39c12",
   rest: "#27ae60",
 };
 
 const EVENT_ICONS: Record<EventType, string> = {
   practice: "target",
-  game: "award",
+  event: "award",
   meeting: "users",
   rest: "coffee",
 };
@@ -169,6 +177,30 @@ function getEventsForDate(date: Date): CalendarEvent[] {
       event.date.getMonth() === date.getMonth() &&
       event.date.getDate() === date.getDate()
   );
+}
+
+function getUpcomingEvents(limit: number = 5): CalendarEvent[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return mockEvents
+    .filter((event) => event.date >= today)
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(0, limit);
+}
+
+function formatRelativeDate(date: Date): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const eventDate = new Date(date);
+  eventDate.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.floor((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
+  if (diffDays < 7) return date.toLocaleDateString("en-US", { weekday: "long" });
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function generateMonthsList() {
@@ -302,8 +334,10 @@ export default function Calendar() {
       e.date.getMonth() === currentMonth.month
   );
   const practiceCount = currentMonthEvents.filter((e) => e.type === "practice").length;
-  const gameCount = currentMonthEvents.filter((e) => e.type === "game").length;
+  const eventCount = currentMonthEvents.filter((e) => e.type === "event").length;
   const meetingCount = currentMonthEvents.filter((e) => e.type === "meeting").length;
+
+  const upcomingEvents = getUpcomingEvents(4);
 
   return (
     <LinearGradient
@@ -489,8 +523,8 @@ export default function Calendar() {
           <Text style={styles.statText}>{practiceCount} Practices</Text>
         </View>
         <View style={styles.statItem}>
-          <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.game }]} />
-          <Text style={styles.statText}>{gameCount} Games</Text>
+          <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.event }]} />
+          <Text style={styles.statText}>{eventCount} Events</Text>
         </View>
         <View style={styles.statItem}>
           <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.meeting }]} />
@@ -518,25 +552,74 @@ export default function Calendar() {
         style={styles.calendarList}
       />
 
-      {/* Legend */}
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: EVENT_COLORS.practice }]} />
-          <Text style={styles.legendText}>Practice</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: EVENT_COLORS.game }]} />
-          <Text style={styles.legendText}>Game</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: EVENT_COLORS.meeting }]} />
-          <Text style={styles.legendText}>Meeting</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: EVENT_COLORS.rest }]} />
-          <Text style={styles.legendText}>Rest</Text>
-        </View>
+      {/* Upcoming Events */}
+      <View style={styles.upcomingSection}>
+        <Text style={styles.upcomingTitle}>Upcoming</Text>
       </View>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.upcomingList}>
+          {upcomingEvents.length === 0 ? (
+            <View style={styles.noEventsCard}>
+              <Feather name="calendar" size={20} color="rgba(255,255,255,0.3)" />
+              <Text style={styles.noEventsText}>No upcoming events</Text>
+            </View>
+          ) : (
+            upcomingEvents.map((event) => (
+              <Pressable
+                key={event.id}
+                style={({ pressed }) => [
+                  styles.upcomingCard,
+                  pressed && { opacity: 0.8 },
+                ]}
+                onPress={() => {
+                  setSelectedEvent(event);
+                  setModalVisible(true);
+                }}
+              >
+                <View
+                  style={[
+                    styles.upcomingCardAccent,
+                    { backgroundColor: EVENT_COLORS[event.type] },
+                  ]}
+                />
+                <View style={styles.upcomingCardContent}>
+                  <View style={styles.upcomingCardHeader}>
+                    <Text style={styles.upcomingCardTitle} numberOfLines={1}>
+                      {event.title}
+                    </Text>
+                    <Text style={styles.upcomingCardDate}>
+                      {formatRelativeDate(event.date)}
+                    </Text>
+                  </View>
+                  <View style={styles.upcomingCardDetails}>
+                    {event.startTime && (
+                      <View style={styles.upcomingCardDetail}>
+                        <Feather name="clock" size={12} color="rgba(255,255,255,0.5)" />
+                        <Text style={styles.upcomingCardDetailText}>
+                          {event.startTime}
+                        </Text>
+                      </View>
+                    )}
+                    {event.location && (
+                      <View style={styles.upcomingCardDetail}>
+                        <Feather name="map-pin" size={12} color="rgba(255,255,255,0.5)" />
+                        <Text style={styles.upcomingCardDetailText} numberOfLines={1}>
+                          {event.location}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.3)" />
+              </Pressable>
+            ))
+          )}
+        </View>
+      </ScrollView>
     </LinearGradient>
   );
 }
@@ -544,6 +627,12 @@ export default function Calendar() {
 const styles = StyleSheet.create({
   gradient: {
     flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100,
   },
   header: {
     flexDirection: "row",
@@ -650,7 +739,7 @@ const styles = StyleSheet.create({
 
   // Calendar
   calendarList: {
-    flex: 1,
+    flexGrow: 0,
   },
   monthContainer: {
     width: SCREEN_WIDTH,
@@ -676,10 +765,9 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     width: (SCREEN_WIDTH - 40) / 7,
-    height: 52,
+    height: 40,
     alignItems: "center",
     justifyContent: "flex-start",
-    paddingTop: 4,
   },
   dayCellWithEvent: {
     // Slight highlight for days with events
@@ -713,28 +801,82 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
 
-  // Legend
-  legend: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 16,
-    paddingVertical: 16,
-    paddingBottom: 100,
+  // Upcoming Events
+  upcomingSection: {
+    paddingHorizontal: 20,
+    marginTop: 4,
   },
-  legendItem: {
+  upcomingTitle: {
+    color: "white",
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  upcomingList: {
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  upcomingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  upcomingCardAccent: {
+    width: 4,
+    alignSelf: "stretch",
+  },
+  upcomingCardContent: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  upcomingCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  upcomingCardTitle: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "600",
+    flex: 1,
+    marginRight: 8,
+  },
+  upcomingCardDate: {
+    color: "#a855f7",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  upcomingCardDetails: {
+    flexDirection: "row",
+    gap: 14,
+  },
+  upcomingCardDetail: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
+  upcomingCardDetailText: {
     color: "rgba(255,255,255,0.5)",
-    fontSize: 11,
-    fontWeight: "500",
+    fontSize: 12,
+  },
+  noEventsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 12,
+    paddingVertical: 20,
+  },
+  noEventsText: {
+    color: "rgba(255,255,255,0.3)",
+    fontSize: 14,
   },
 
   // Modal
