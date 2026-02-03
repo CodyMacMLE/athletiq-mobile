@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// User & Authentication
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  firstName String
+  lastName  String
+  phone     String?
+  address   String?
+  city      String?
+  country   String?
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  memberships    TeamMember[]
+  checkIns       CheckIn[]
+  excuseRequests ExcuseRequest[]
+}
+
+// ============================================
+// Organization & Teams
+// ============================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  image     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  teams  Team[]
+  events Event[]
+}
+
+model Team {
+  id             String       @id @default(cuid())
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  members TeamMember[]
+  events  Event[]
+
+  @@index([organizationId])
+}
+
+model TeamMember {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  teamId        String
+  team          Team     @relation(fields: [teamId], references: [id])
+  role          TeamRole @default(MEMBER)
+  hoursRequired Float    @default(0) // Required hours per period
+  joinedAt      DateTime @default(now())
+
+  @@unique([userId, teamId])
+  @@index([teamId])
+  @@index([userId])
+}
+
+enum TeamRole {
+  MEMBER
+  CAPTAIN
+  COACH
+  ADMIN
+}
+
+// ============================================
+// Events & Calendar
+// ============================================
+
+model Event {
+  id             String       @id @default(cuid())
+  title          String
+  type           EventType
+  date           DateTime
+  startTime      String // e.g., "6:00 PM"
+  endTime        String // e.g., "8:00 PM"
+  location       String?
+  description    String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  teamId         String?
+  team           Team?        @relation(fields: [teamId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  checkIns       CheckIn[]
+  excuseRequests ExcuseRequest[]
+
+  @@index([organizationId])
+  @@index([teamId])
+  @@index([date])
+}
+
+enum EventType {
+  PRACTICE
+  EVENT
+  MEETING
+  REST
+}
+
+// ============================================
+// Attendance & Check-ins
+// ============================================
+
+model CheckIn {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id])
+  eventId      String
+  event        Event            @relation(fields: [eventId], references: [id])
+  status       AttendanceStatus
+  checkInTime  DateTime?
+  checkOutTime DateTime?
+  hoursLogged  Float?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([userId, eventId])
+  @@index([userId])
+  @@index([eventId])
+}
+
+enum AttendanceStatus {
+  ON_TIME
+  LATE
+  ABSENT
+  EXCUSED
+}
+
+model ExcuseRequest {
+  id        String              @id @default(cuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id])
+  eventId   String
+  event     Event               @relation(fields: [eventId], references: [id])
+  reason    String
+  status    ExcuseRequestStatus @default(PENDING)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@unique([userId, eventId])
+  @@index([userId])
+  @@index([eventId])
+}
+
+enum ExcuseRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
