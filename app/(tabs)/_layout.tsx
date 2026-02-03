@@ -11,7 +11,7 @@ const TAB_ICONS: Record<string, IconName> = {
   index: "home",
   analytics: "trending-up",
   calendar: "calendar",
-  messages: "message-circle",
+  messages: "activity",
   profile: "user",
 };
 
