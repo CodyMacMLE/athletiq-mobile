@@ -9,9 +9,20 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NFCReaderUsageDescription": "This app uses NFC to check in to your gym",
+        "com.apple.developer.nfc.readersession.iso7816.select-identifiers": [
+          "",
+          ""
+        ]
+      },
+      "bundleIdentifier": "com.anonymous.athletiq"
     },
     "android": {
+      "permissions": [
+        "android.permission.NFC"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -19,7 +30,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.athletiq"
     },
     "web": {
       "output": "static",
@@ -27,6 +39,7 @@
     },
     "plugins": [
       "expo-router",
+      "react-native-nfc-manager",
       [
         "expo-splash-screen",
         {

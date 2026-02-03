@@ -1,98 +1,410 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { User } from "@/types";
+import { Feather } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const user: User = {
+  image: undefined,
+  firstName: "Cody",
+  lastName: "MacDonald",
+  email: "cody@example.com",
+  phone: "123-456-7890",
+  address: "123 Main St",
+  city: "",
+  country: "",
+};
 
-export default function HomeScreen() {
+const AVATAR_SIZE = 45;
+
+const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+// Mock data
+const checkedInDays = [true, true, false, true, true, false, false]; // Mon-Sun
+const recentActivity = [
+  { name: "Cody MacDonald", time: "8:02 AM", type: "check-in" as const },
+  { name: "Sarah Chen", time: "7:45 AM", type: "check-in" as const },
+  { name: "Marcus Lee", time: "7:30 AM", type: "check-in" as const },
+  { name: "Ava Torres", time: "6:55 AM", type: "check-in" as const },
+];
+
+export default function Index() {
+  const router = useRouter();
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <LinearGradient
+      colors={["#302b6f", "#4d2a69", "#302b6f"]}
+      style={styles.gradient}
+      locations={[0.1, 0.6, 1]}
+    >
+      <StatusBar style="light" />
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.title}>Dashboard</Text>
+          <View style={styles.subtitleContainer}>
+            <Text style={styles.subtitle}>Shenderey</Text>
+            <Feather name="chevron-down" size={16} color="white" />
+          </View>
+        </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        {user.image ? (
+          <Image
+            source={user.image}
+            style={[styles.avatar, styles.avatarImage]}
+          />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {user.firstName.charAt(0)}
+              {user.lastName.charAt(0)}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Check-In Button */}
+        <Pressable
+          onPress={() => router.push("/checkin")}
+          style={({ pressed }) => [
+            styles.checkInButton,
+            pressed && styles.checkInButtonPressed,
+          ]}
+        >
+          <LinearGradient
+            colors={["#6c5ce7", "#a855f7"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.checkInGradient}
+          >
+            <Feather name="check-circle" size={28} color="white" />
+            <Text style={styles.checkInText}>Check In</Text>
+            <Text style={styles.checkInSubtext}>
+              Tap to record your attendance
+            </Text>
+          </LinearGradient>
+        </Pressable>
+
+        {/* Stats Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>24</Text>
+            <Text style={styles.statLabel}>Today</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>5</Text>
+            <Text style={styles.statLabel}>Day Streak</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>87%</Text>
+            <Text style={styles.statLabel}>This Month</Text>
+          </View>
+        </View>
+
+        {/* Weekly Overview */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>This Week</Text>
+          <View style={styles.weekRow}>
+            {WEEK_DAYS.map((day, i) => (
+              <View key={day} style={styles.dayColumn}>
+                <View
+                  style={[
+                    styles.dayDot,
+                    checkedInDays[i]
+                      ? styles.dayDotActive
+                      : styles.dayDotInactive,
+                  ]}
+                >
+                  {checkedInDays[i] && (
+                    <Feather name="check" size={14} color="white" />
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.dayLabel,
+                    checkedInDays[i] && styles.dayLabelActive,
+                  ]}
+                >
+                  {day}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Recent Activity */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <Text style={styles.seeAll}>See All</Text>
+          </View>
+          <View style={styles.activityList}>
+            {recentActivity.map((item, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.activityItem,
+                  i < recentActivity.length - 1 && styles.activityItemBorder,
+                ]}
+              >
+                <View style={styles.activityIcon}>
+                  <Feather name="log-in" size={16} color="#a855f7" />
+                </View>
+                <View style={styles.activityInfo}>
+                  <Text style={styles.activityName}>{item.name}</Text>
+                  <Text style={styles.activityTime}>{item.time}</Text>
+                </View>
+                <View style={styles.activityBadge}>
+                  <Text style={styles.activityBadgeText}>Checked In</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  gradient: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    paddingTop: 80,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  headerLeft: {
+    flexDirection: "column",
+    justifyContent: "flex-start",
+    alignItems: "flex-start",
+    gap: 4,
+  },
+  title: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+  subtitleContainer: {
+    flexDirection: "row",
+    justifyContent: "flex-start",
+    alignItems: "center",
+    gap: 4,
+  },
+  subtitle: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  avatar: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    backgroundColor: "#241e4a",
+    borderWidth: 0.5,
+    borderColor: "#463e70",
+  },
+  avatarImage: {
+    backgroundColor: "transparent",
+  },
+  avatarText: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+
+  // Check-In CTA
+  checkInButton: {
+    marginTop: 28,
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#a855f7",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  checkInButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+  checkInGradient: {
+    paddingVertical: 28,
+    alignItems: "center",
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  checkInText: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "bold",
+    marginTop: 4,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  checkInSubtext: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 14,
+  },
+
+  // Stats
+  statsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 24,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  statValue: {
+    color: "white",
+    fontSize: 24,
+    fontWeight: "bold",
+  },
+  statLabel: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 13,
+    marginTop: 4,
+  },
+
+  // Sections
+  section: {
+    marginTop: 28,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sectionTitle: {
+    color: "white",
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  seeAll: {
+    color: "#a855f7",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  // Weekly overview
+  weekRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  dayColumn: {
+    alignItems: "center",
+    gap: 8,
+  },
+  dayDot: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dayDotActive: {
+    backgroundColor: "#6c5ce7",
+  },
+  dayDotInactive: {
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  dayLabel: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  dayLabelActive: {
+    color: "rgba(255,255,255,0.8)",
+  },
+
+  // Activity list
+  activityList: {
+    marginTop: 16,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  activityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    gap: 12,
+  },
+  activityItemBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.1)",
+  },
+  activityIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(168,85,247,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityName: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  activityTime: {
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 13,
+    marginTop: 2,
+  },
+  activityBadge: {
+    backgroundColor: "rgba(108,92,231,0.2)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  activityBadgeText: {
+    color: "#a855f7",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
