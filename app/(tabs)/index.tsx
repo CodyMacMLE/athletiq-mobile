@@ -27,8 +27,9 @@ const AVATAR_SIZE = 45;
 
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// Mock data
-const checkedInDays = [true, true, false, true, true, false, false]; // Mon-Sun
+// Mock data - from API
+const trainingDays = [true, true, true, true, true, false, false]; // Mon-Fri are training days
+const checkedInDays = [true, true, false, true, true, false, false]; // Mon-Sun check-ins
 const recentActivity = [
   { name: "Cody MacDonald", time: "8:02 AM", type: "check-in" as const },
   { name: "Sarah Chen", time: "7:45 AM", type: "check-in" as const },
@@ -118,30 +119,42 @@ export default function Index() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>This Week</Text>
           <View style={styles.weekRow}>
-            {WEEK_DAYS.map((day, i) => (
-              <View key={day} style={styles.dayColumn}>
-                <View
-                  style={[
-                    styles.dayDot,
-                    checkedInDays[i]
-                      ? styles.dayDotActive
-                      : styles.dayDotInactive,
-                  ]}
-                >
-                  {checkedInDays[i] && (
-                    <Feather name="check" size={14} color="white" />
-                  )}
+            {WEEK_DAYS.map((day, i) => {
+              const isTrainingDay = trainingDays[i];
+              const isCheckedIn = checkedInDays[i];
+
+              return (
+                <View key={day} style={styles.dayColumn}>
+                  <View
+                    style={[
+                      styles.dayDot,
+                      !isTrainingDay
+                        ? styles.dayDotOff
+                        : isCheckedIn
+                          ? styles.dayDotActive
+                          : styles.dayDotInactive,
+                    ]}
+                  >
+                    {!isTrainingDay && (
+                      <Feather name="minus" size={14} color="rgba(255,255,255,0.3)" />
+                    )}
+                    {isTrainingDay && isCheckedIn && (
+                      <Feather name="check" size={14} color="white" />
+                    )}
+                  </View>
+                  <Text
+                    style={[
+                      styles.dayLabel,
+                      !isTrainingDay
+                        ? styles.dayLabelOff
+                        : isCheckedIn && styles.dayLabelActive,
+                    ]}
+                  >
+                    {day}
+                  </Text>
                 </View>
-                <Text
-                  style={[
-                    styles.dayLabel,
-                    checkedInDays[i] && styles.dayLabelActive,
-                  ]}
-                >
-                  {day}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         </View>
 
@@ -347,6 +360,9 @@ const styles = StyleSheet.create({
   dayDotInactive: {
     backgroundColor: "rgba(255,255,255,0.1)",
   },
+  dayDotOff: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
   dayLabel: {
     color: "rgba(255,255,255,0.4)",
     fontSize: 12,
@@ -354,6 +370,9 @@ const styles = StyleSheet.create({
   },
   dayLabelActive: {
     color: "rgba(255,255,255,0.8)",
+  },
+  dayLabelOff: {
+    color: "rgba(255,255,255,0.25)",
   },
 
   // Activity list
