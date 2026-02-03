@@ -11,6 +11,24 @@ export default function RootLayout() {
           animation: "slide_from_bottom",
         }}
       />
+      <Stack.Screen
+        name="activity"
+        options={{
+          animation: "slide_from_right",
+        }}
+      />
+      <Stack.Screen
+        name="checkin-history"
+        options={{
+          animation: "slide_from_right",
+        }}
+      />
+      <Stack.Screen
+        name="leaderboard"
+        options={{
+          animation: "slide_from_right",
+        }}
+      />
     </Stack>
   );
 }

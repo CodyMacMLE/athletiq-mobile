@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
@@ -98,6 +99,7 @@ const teamRankings: Team[] = [
 ];
 
 export default function Analytics() {
+  const router = useRouter();
   const [timeRange, setTimeRange] = useState<TimeRange>("week");
 
   const getPercentColor = (percent: number) => {
@@ -216,7 +218,9 @@ export default function Analytics() {
               <Text style={styles.sectionTitle}>Team Leaderboard</Text>
               <Text style={styles.sectionSubtitle}>{userStats.teamName}</Text>
             </View>
-            <Text style={styles.seeAll}>See All</Text>
+            <Pressable onPress={() => router.push("/leaderboard")}>
+              <Text style={styles.seeAll}>See All</Text>
+            </Pressable>
           </View>
 
           <View style={styles.leaderboardContainer}>

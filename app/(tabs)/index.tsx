@@ -221,7 +221,9 @@ export default function Index() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <Text style={styles.seeAll}>See All</Text>
+            <Pressable onPress={() => router.push("/activity")}>
+              <Text style={styles.seeAll}>See All</Text>
+            </Pressable>
           </View>
           <View style={styles.activityList}>
             {recentActivity.map((item, i) => (

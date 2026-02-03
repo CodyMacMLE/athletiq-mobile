@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
@@ -220,6 +221,7 @@ function formatFutureDate(date: Date): string {
 }
 
 export default function ActivityFeed() {
+  const router = useRouter();
   const [excuseModalVisible, setExcuseModalVisible] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<UpcomingEvent | null>(null);
   const [excuseReason, setExcuseReason] = useState("");
@@ -426,7 +428,9 @@ export default function ActivityFeed() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Check-In History</Text>
-            <Text style={styles.seeAll}>See All</Text>
+            <Pressable onPress={() => router.push("/checkin-history")}>
+              <Text style={styles.seeAll}>See All</Text>
+            </Pressable>
           </View>
 
           <View style={styles.timelineContainer}>
