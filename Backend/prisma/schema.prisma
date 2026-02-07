@@ -25,9 +25,10 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  memberships    TeamMember[]
-  checkIns       CheckIn[]
-  excuseRequests ExcuseRequest[]
+  memberships              TeamMember[]
+  organizationMemberships  OrganizationMember[]
+  checkIns                 CheckIn[]
+  excuseRequests           ExcuseRequest[]
 }
 
 // ============================================
@@ -42,8 +43,11 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   // Relations
-  teams  Team[]
-  events Event[]
+  teams           Team[]
+  events          Event[]
+  members         OrganizationMember[]
+  recurringEvents RecurringEvent[]
+  invites         Invite[]
 }
 
 model Team {
@@ -55,8 +59,10 @@ model Team {
   updatedAt      DateTime     @updatedAt
 
   // Relations
-  members TeamMember[]
-  events  Event[]
+  members             TeamMember[]
+  events              Event[]
+  recurringEvents     RecurringEvent[]
+  participatingEvents Event[]          @relation("EventParticipatingTeams")
 
   @@index([organizationId])
 }
@@ -83,6 +89,28 @@ enum TeamRole {
   ADMIN
 }
 
+enum OrgRole {
+  OWNER
+  MANAGER
+  COACH
+  ATHLETE
+  GUARDIAN
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  role           OrgRole      @default(ATHLETE)
+  joinedAt       DateTime     @default(now())
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
 // ============================================
 // Events & Calendar
 // ============================================
@@ -92,6 +120,7 @@ model Event {
   title          String
   type           EventType
   date           DateTime
+  endDate        DateTime?
   startTime      String // e.g., "6:00 PM"
   endTime        String // e.g., "8:00 PM"
   location       String?
@@ -104,8 +133,11 @@ model Event {
   updatedAt      DateTime     @updatedAt
 
   // Relations
-  checkIns       CheckIn[]
-  excuseRequests ExcuseRequest[]
+  checkIns           CheckIn[]
+  excuseRequests     ExcuseRequest[]
+  recurringEventId   String?
+  recurringEvent     RecurringEvent? @relation(fields: [recurringEventId], references: [id])
+  participatingTeams Team[]          @relation("EventParticipatingTeams")
 
   @@index([organizationId])
   @@index([teamId])
@@ -168,4 +200,65 @@ enum ExcuseRequestStatus {
   PENDING
   APPROVED
   DENIED
+}
+
+// ============================================
+// Invites
+// ============================================
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
+model Invite {
+  id             String       @id @default(cuid())
+  email          String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  role           OrgRole      @default(ATHLETE)
+  teamIds        String[]
+  token          String       @unique @default(cuid())
+  status         InviteStatus @default(PENDING)
+  createdAt      DateTime     @default(now())
+  expiresAt      DateTime
+
+  @@unique([email, organizationId])
+  @@index([token])
+  @@index([organizationId])
+}
+
+// ============================================
+// Recurring Events
+// ============================================
+
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+model RecurringEvent {
+  id             String              @id @default(cuid())
+  title          String
+  type           EventType
+  startTime      String
+  endTime        String
+  location       String?
+  description    String?
+  frequency      RecurrenceFrequency
+  daysOfWeek     Int[]               // 0=Sun..6=Sat, used for WEEKLY/BIWEEKLY
+  startDate      DateTime
+  endDate        DateTime
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  teamId         String?
+  team           Team?               @relation(fields: [teamId], references: [id])
+  events         Event[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([organizationId])
 }

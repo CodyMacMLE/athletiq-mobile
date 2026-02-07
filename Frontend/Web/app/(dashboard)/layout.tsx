@@ -1,0 +1,16 @@
+"use client";
+
+import { Providers } from "@/components/providers/Providers";
+import { Layout } from "@/components/Layout";
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Providers>
+      <Layout>{children}</Layout>
+    </Providers>
+  );
+}

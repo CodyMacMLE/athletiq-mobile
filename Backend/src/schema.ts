@@ -24,6 +24,14 @@ export const typeDefs = `#graphql
     EXCUSED
   }
 
+  enum OrgRole {
+    OWNER
+    MANAGER
+    COACH
+    ATHLETE
+    GUARDIAN
+  }
+
   enum ExcuseRequestStatus {
     PENDING
     APPROVED
@@ -34,6 +42,19 @@ export const typeDefs = `#graphql
     WEEK
     MONTH
     ALL
+  }
+
+  enum RecurrenceFrequency {
+    DAILY
+    WEEKLY
+    BIWEEKLY
+    MONTHLY
+  }
+
+  enum InviteStatus {
+    PENDING
+    ACCEPTED
+    EXPIRED
   }
 
   # ============================================
@@ -53,6 +74,7 @@ export const typeDefs = `#graphql
     createdAt: String!
     updatedAt: String!
     memberships: [TeamMember!]!
+    organizationMemberships: [OrganizationMember!]!
     checkIns: [CheckIn!]!
   }
 
@@ -64,6 +86,8 @@ export const typeDefs = `#graphql
     updatedAt: String!
     teams: [Team!]!
     events: [Event!]!
+    members: [OrganizationMember!]!
+    invites: [Invite!]!
     memberCount: Int!
   }
 
@@ -90,18 +114,48 @@ export const typeDefs = `#graphql
     joinedAt: String!
   }
 
+  type OrganizationMember {
+    id: ID!
+    user: User!
+    organization: Organization!
+    role: OrgRole!
+    joinedAt: String!
+  }
+
   type Event {
     id: ID!
     title: String!
     type: EventType!
     date: String!
+    endDate: String
     startTime: String!
     endTime: String!
     location: String
     description: String
     organization: Organization!
     team: Team
+    participatingTeams: [Team!]!
     checkIns: [CheckIn!]!
+    recurringEvent: RecurringEvent
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type RecurringEvent {
+    id: ID!
+    title: String!
+    type: EventType!
+    startTime: String!
+    endTime: String!
+    location: String
+    description: String
+    frequency: RecurrenceFrequency!
+    daysOfWeek: [Int!]!
+    startDate: String!
+    endDate: String!
+    organization: Organization!
+    team: Team
+    events: [Event!]!
     createdAt: String!
     updatedAt: String!
   }
@@ -126,6 +180,18 @@ export const typeDefs = `#graphql
     status: ExcuseRequestStatus!
     createdAt: String!
     updatedAt: String!
+  }
+
+  type Invite {
+    id: ID!
+    email: String!
+    organization: Organization!
+    role: OrgRole!
+    teamIds: [String!]!
+    token: String!
+    status: InviteStatus!
+    createdAt: String!
+    expiresAt: String!
   }
 
   # ============================================
@@ -208,14 +274,44 @@ export const typeDefs = `#graphql
     hoursRequired: Float
   }
 
+  input AddOrgMemberInput {
+    userId: ID!
+    organizationId: ID!
+    role: OrgRole
+  }
+
+  input CreateInviteInput {
+    email: String!
+    organizationId: ID!
+    role: OrgRole
+    teamIds: [ID!]
+  }
+
   input CreateEventInput {
     title: String!
     type: EventType!
     date: String!
+    endDate: String
     startTime: String!
     endTime: String!
     location: String
     description: String
+    organizationId: ID!
+    teamId: ID
+    participatingTeamIds: [ID!]
+  }
+
+  input CreateRecurringEventInput {
+    title: String!
+    type: EventType!
+    startTime: String!
+    endTime: String!
+    location: String
+    description: String
+    frequency: RecurrenceFrequency!
+    daysOfWeek: [Int!]
+    startDate: String!
+    endDate: String!
     organizationId: ID!
     teamId: ID
   }
@@ -274,6 +370,13 @@ export const typeDefs = `#graphql
     myExcuseRequests(userId: ID!): [ExcuseRequest!]!
     pendingExcuseRequests(organizationId: ID!): [ExcuseRequest!]!
 
+    # Recurring event queries
+    recurringEvent(id: ID!): RecurringEvent
+    recurringEvents(organizationId: ID!): [RecurringEvent!]!
+
+    # Invite queries
+    invite(token: String!): Invite
+
     # Analytics queries
     userStats(userId: ID!, organizationId: ID!, timeRange: TimeRange): UserStats!
     teamLeaderboard(teamId: ID!, timeRange: TimeRange, limit: Int): [LeaderboardEntry!]!
@@ -297,6 +400,11 @@ export const typeDefs = `#graphql
     updateOrganization(id: ID!, name: String, image: String): Organization!
     deleteOrganization(id: ID!): Boolean!
 
+    # Organization member mutations
+    addOrgMember(input: AddOrgMemberInput!): OrganizationMember!
+    updateOrgMemberRole(userId: ID!, organizationId: ID!, role: OrgRole!): OrganizationMember!
+    removeOrgMember(userId: ID!, organizationId: ID!): Boolean!
+
     # Team mutations
     createTeam(input: CreateTeamInput!): Team!
     updateTeam(id: ID!, name: String): Team!
@@ -310,10 +418,20 @@ export const typeDefs = `#graphql
     updateEvent(id: ID!, title: String, type: EventType, date: String, startTime: String, endTime: String, location: String, description: String): Event!
     deleteEvent(id: ID!): Boolean!
 
+    # Recurring event mutations
+    createRecurringEvent(input: CreateRecurringEventInput!): RecurringEvent!
+    deleteRecurringEvent(id: ID!): Boolean!
+
     # Check-in mutations
     checkIn(input: CheckInInput!): CheckIn!
     checkOut(input: CheckOutInput!): CheckIn!
     markAbsent(userId: ID!, eventId: ID!): CheckIn!
+
+    # Invite mutations
+    createInvite(input: CreateInviteInput!): Invite!
+    acceptInvite(token: String!): OrganizationMember!
+    cancelInvite(id: ID!): Boolean!
+    resendInvite(id: ID!): Invite!
 
     # Excuse mutations
     createExcuseRequest(input: CreateExcuseRequestInput!): ExcuseRequest!

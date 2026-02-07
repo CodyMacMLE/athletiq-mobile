@@ -1,5 +1,6 @@
 import { prisma } from "../db.js";
-import { AttendanceStatus, EventType, ExcuseRequestStatus, TeamRole } from "@prisma/client";
+import { AttendanceStatus, EventType, ExcuseRequestStatus, InviteStatus, OrgRole, RecurrenceFrequency, TeamRole } from "@prisma/client";
+import { sendInviteEmail } from "../email.js";
 
 // Helper to calculate date range
 function getDateRange(timeRange: string | undefined) {
@@ -21,6 +22,71 @@ function getDateRange(timeRange: string | undefined) {
   }
 
   return { startDate, endDate: now };
+}
+
+// Generate recurring event dates based on frequency and pattern
+function generateRecurringDates(
+  startDate: Date,
+  endDate: Date,
+  frequency: RecurrenceFrequency,
+  daysOfWeek: number[]
+): Date[] {
+  const dates: Date[] = [];
+  const current = new Date(startDate);
+  current.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+
+  switch (frequency) {
+    case "DAILY":
+      while (current <= end) {
+        dates.push(new Date(current));
+        current.setDate(current.getDate() + 1);
+      }
+      break;
+
+    case "WEEKLY":
+      while (current <= end) {
+        if (daysOfWeek.includes(current.getDay())) {
+          dates.push(new Date(current));
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      break;
+
+    case "BIWEEKLY": {
+      const weekStart = new Date(startDate);
+      weekStart.setHours(0, 0, 0, 0);
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      while (current <= end) {
+        const daysSinceWeekStart = Math.floor(
+          (current.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24)
+        );
+        const weekNumber = Math.floor(daysSinceWeekStart / 7);
+        if (weekNumber % 2 === 0 && daysOfWeek.includes(current.getDay())) {
+          dates.push(new Date(current));
+        }
+        current.setDate(current.getDate() + 1);
+      }
+      break;
+    }
+
+    case "MONTHLY": {
+      const dayOfMonth = startDate.getDate();
+      const currentMonth = new Date(startDate);
+      currentMonth.setHours(0, 0, 0, 0);
+      while (currentMonth <= end) {
+        const targetDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayOfMonth);
+        if (targetDate >= startDate && targetDate <= end && targetDate.getDate() === dayOfMonth) {
+          dates.push(targetDate);
+        }
+        currentMonth.setMonth(currentMonth.getMonth() + 1);
+      }
+      break;
+    }
+  }
+
+  return dates;
 }
 
 export const resolvers = {
@@ -50,13 +116,11 @@ export const resolvers = {
 
     myOrganizations: async (_: unknown, __: unknown, context: { userId?: string }) => {
       if (!context.userId) return [];
-      const memberships = await prisma.teamMember.findMany({
+      const memberships = await prisma.organizationMember.findMany({
         where: { userId: context.userId },
-        include: { team: { include: { organization: true } } },
+        include: { organization: true },
       });
-      const orgs = memberships.map((m) => m.team.organization);
-      // Deduplicate
-      return [...new Map(orgs.map((o) => [o.id, o])).values()];
+      return memberships.map((m) => m.organization);
     },
 
     // Team queries
@@ -100,6 +164,23 @@ export const resolvers = {
         orderBy: { date: "asc" },
         take: limit || 10,
       });
+    },
+
+    // Recurring event queries
+    recurringEvent: async (_: unknown, { id }: { id: string }) => {
+      return prisma.recurringEvent.findUnique({ where: { id } });
+    },
+
+    recurringEvents: async (_: unknown, { organizationId }: { organizationId: string }) => {
+      return prisma.recurringEvent.findMany({
+        where: { organizationId },
+        orderBy: { startDate: "desc" },
+      });
+    },
+
+    // Invite queries
+    invite: async (_: unknown, { token }: { token: string }) => {
+      return prisma.invite.findUnique({ where: { token } });
     },
 
     // Check-in queries
@@ -368,7 +449,11 @@ export const resolvers = {
   Mutation: {
     // User mutations
     createUser: async (_: unknown, { input }: { input: { email: string; firstName: string; lastName: string; phone?: string; address?: string; city?: string; country?: string; image?: string } }) => {
-      return prisma.user.create({ data: input });
+      return prisma.user.upsert({
+        where: { email: input.email },
+        update: {},
+        create: input,
+      });
     },
 
     updateUser: async (_: unknown, { id, input }: { id: string; input: { firstName?: string; lastName?: string; phone?: string; address?: string; city?: string; country?: string; image?: string } }) => {
@@ -381,8 +466,18 @@ export const resolvers = {
     },
 
     // Organization mutations
-    createOrganization: async (_: unknown, { input }: { input: { name: string; image?: string } }) => {
-      return prisma.organization.create({ data: input });
+    createOrganization: async (_: unknown, { input }: { input: { name: string; image?: string } }, context: { userId?: string }) => {
+      const org = await prisma.organization.create({ data: input });
+      if (context.userId) {
+        await prisma.organizationMember.create({
+          data: {
+            userId: context.userId,
+            organizationId: org.id,
+            role: "OWNER",
+          },
+        });
+      }
+      return org;
     },
 
     updateOrganization: async (_: unknown, { id, name, image }: { id: string; name?: string; image?: string }) => {
@@ -394,6 +489,83 @@ export const resolvers = {
 
     deleteOrganization: async (_: unknown, { id }: { id: string }) => {
       await prisma.organization.delete({ where: { id } });
+      return true;
+    },
+
+    // Organization member mutations
+    addOrgMember: async (
+      _: unknown,
+      { input }: { input: { userId: string; organizationId: string; role?: OrgRole } }
+    ) => {
+      return prisma.organizationMember.upsert({
+        where: {
+          userId_organizationId: {
+            userId: input.userId,
+            organizationId: input.organizationId,
+          },
+        },
+        update: {},
+        create: {
+          userId: input.userId,
+          organizationId: input.organizationId,
+          role: input.role || "ATHLETE",
+        },
+      });
+    },
+
+    updateOrgMemberRole: async (
+      _: unknown,
+      { userId, organizationId, role }: { userId: string; organizationId: string; role: OrgRole }
+    ) => {
+      return prisma.organizationMember.update({
+        where: { userId_organizationId: { userId, organizationId } },
+        data: { role },
+      });
+    },
+
+    removeOrgMember: async (_: unknown, { userId, organizationId }: { userId: string; organizationId: string }, context: { userId?: string }) => {
+      // Look up the target member's role
+      const targetMember = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId, organizationId } },
+      });
+      if (!targetMember) throw new Error("Member not found");
+
+      // Owner can never be removed
+      if (targetMember.role === "OWNER") {
+        throw new Error("The organization owner cannot be removed");
+      }
+
+      // Non-owner callers cannot remove other admins (MANAGER) or themselves
+      if (context.userId) {
+        const callerMember = await prisma.organizationMember.findUnique({
+          where: { userId_organizationId: { userId: context.userId, organizationId } },
+        });
+        if (callerMember && callerMember.role !== "OWNER") {
+          if (targetMember.role === "MANAGER") {
+            throw new Error("Only the owner can remove managers");
+          }
+          if (userId === context.userId) {
+            throw new Error("You cannot remove yourself from the organization");
+          }
+        }
+      }
+
+      // Find all teams in this organization
+      const orgTeams = await prisma.team.findMany({
+        where: { organizationId },
+        select: { id: true },
+      });
+      const teamIds = orgTeams.map((t) => t.id);
+
+      // Remove user from all teams in this org, then remove org membership
+      await prisma.$transaction([
+        prisma.teamMember.deleteMany({
+          where: { userId, teamId: { in: teamIds } },
+        }),
+        prisma.organizationMember.delete({
+          where: { userId_organizationId: { userId, organizationId } },
+        }),
+      ]);
       return true;
     },
 
@@ -415,8 +587,15 @@ export const resolvers = {
       _: unknown,
       { input }: { input: { userId: string; teamId: string; role?: TeamRole; hoursRequired?: number } }
     ) => {
-      return prisma.teamMember.create({
-        data: {
+      return prisma.teamMember.upsert({
+        where: {
+          userId_teamId: {
+            userId: input.userId,
+            teamId: input.teamId,
+          },
+        },
+        update: {},
+        create: {
           userId: input.userId,
           teamId: input.teamId,
           role: input.role || "MEMBER",
@@ -452,19 +631,28 @@ export const resolvers = {
           title: string;
           type: EventType;
           date: string;
+          endDate?: string;
           startTime: string;
           endTime: string;
           location?: string;
           description?: string;
           organizationId: string;
           teamId?: string;
+          participatingTeamIds?: string[];
         };
       }
     ) => {
+      const { participatingTeamIds, endDate, ...eventData } = input;
       return prisma.event.create({
         data: {
-          ...input,
+          ...eventData,
           date: new Date(input.date),
+          ...(endDate && { endDate: new Date(endDate) }),
+          ...(participatingTeamIds && participatingTeamIds.length > 0 && {
+            participatingTeams: {
+              connect: participatingTeamIds.map((id) => ({ id })),
+            },
+          }),
         },
       });
     },
@@ -507,6 +695,107 @@ export const resolvers = {
 
     deleteEvent: async (_: unknown, { id }: { id: string }) => {
       await prisma.event.delete({ where: { id } });
+      return true;
+    },
+
+    // Recurring event mutations
+    createRecurringEvent: async (
+      _: unknown,
+      {
+        input,
+      }: {
+        input: {
+          title: string;
+          type: EventType;
+          startTime: string;
+          endTime: string;
+          location?: string;
+          description?: string;
+          frequency: RecurrenceFrequency;
+          daysOfWeek?: number[];
+          startDate: string;
+          endDate: string;
+          organizationId: string;
+          teamId?: string;
+        };
+      }
+    ) => {
+      const start = new Date(input.startDate);
+      const end = new Date(input.endDate);
+
+      if (end <= start) {
+        throw new Error("End date must be after start date");
+      }
+
+      if (
+        (input.frequency === "WEEKLY" || input.frequency === "BIWEEKLY") &&
+        (!input.daysOfWeek || input.daysOfWeek.length === 0)
+      ) {
+        throw new Error("daysOfWeek is required for WEEKLY and BIWEEKLY frequencies");
+      }
+
+      const dates = generateRecurringDates(start, end, input.frequency, input.daysOfWeek || []);
+
+      if (dates.length === 0) {
+        throw new Error("No event occurrences generated for the given parameters");
+      }
+      if (dates.length > 365) {
+        throw new Error("Too many occurrences (max 365). Please shorten the date range.");
+      }
+
+      const recurringEvent = await prisma.$transaction(async (tx) => {
+        const re = await tx.recurringEvent.create({
+          data: {
+            title: input.title,
+            type: input.type,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            location: input.location,
+            description: input.description,
+            frequency: input.frequency,
+            daysOfWeek: input.daysOfWeek || [],
+            startDate: start,
+            endDate: end,
+            organizationId: input.organizationId,
+            teamId: input.teamId,
+          },
+        });
+
+        await tx.event.createMany({
+          data: dates.map((date) => ({
+            title: input.title,
+            type: input.type,
+            date,
+            startTime: input.startTime,
+            endTime: input.endTime,
+            location: input.location,
+            description: input.description,
+            organizationId: input.organizationId,
+            teamId: input.teamId,
+            recurringEventId: re.id,
+          })),
+        });
+
+        return re;
+      });
+
+      return recurringEvent;
+    },
+
+    deleteRecurringEvent: async (_: unknown, { id }: { id: string }) => {
+      await prisma.$transaction(async (tx) => {
+        const eventIds = (
+          await tx.event.findMany({
+            where: { recurringEventId: id },
+            select: { id: true },
+          })
+        ).map((e) => e.id);
+
+        await tx.checkIn.deleteMany({ where: { eventId: { in: eventIds } } });
+        await tx.excuseRequest.deleteMany({ where: { eventId: { in: eventIds } } });
+        await tx.event.deleteMany({ where: { recurringEventId: id } });
+        await tx.recurringEvent.delete({ where: { id } });
+      });
       return true;
     },
 
@@ -567,6 +856,153 @@ export const resolvers = {
       });
     },
 
+    // Invite mutations
+    createInvite: async (
+      _: unknown,
+      { input }: { input: { email: string; organizationId: string; role?: OrgRole; teamIds?: string[] } }
+    ) => {
+      // Check if email is already an active org member
+      const existingMember = await prisma.organizationMember.findFirst({
+        where: {
+          organizationId: input.organizationId,
+          user: { email: input.email },
+        },
+      });
+      if (existingMember) {
+        throw new Error("This email is already a member of the organization");
+      }
+
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const invite = await prisma.invite.upsert({
+        where: {
+          email_organizationId: {
+            email: input.email,
+            organizationId: input.organizationId,
+          },
+        },
+        update: {
+          role: input.role || "ATHLETE",
+          teamIds: input.teamIds || [],
+          status: "PENDING",
+          expiresAt,
+        },
+        create: {
+          email: input.email,
+          organizationId: input.organizationId,
+          role: input.role || "ATHLETE",
+          teamIds: input.teamIds || [],
+          expiresAt,
+        },
+      });
+
+      // Send invite email (non-blocking — admin can resend if it fails)
+      try {
+        const org = await prisma.organization.findUnique({ where: { id: input.organizationId } });
+        if (org) {
+          await sendInviteEmail({
+            to: input.email,
+            organizationName: org.name,
+            role: invite.role,
+            token: invite.token,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to send invite email:", err);
+      }
+
+      return invite;
+    },
+
+    acceptInvite: async (
+      _: unknown,
+      { token }: { token: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const invite = await prisma.invite.findUnique({ where: { token } });
+      if (!invite) throw new Error("Invite not found");
+      if (invite.status !== "PENDING") throw new Error("Invite is no longer valid");
+      if (invite.expiresAt < new Date()) throw new Error("Invite has expired");
+
+      const result = await prisma.$transaction(async (tx) => {
+        // Upsert org membership
+        const orgMember = await tx.organizationMember.upsert({
+          where: {
+            userId_organizationId: {
+              userId: context.userId!,
+              organizationId: invite.organizationId,
+            },
+          },
+          update: {},
+          create: {
+            userId: context.userId!,
+            organizationId: invite.organizationId,
+            role: invite.role,
+          },
+        });
+
+        // Add to teams
+        for (const teamId of invite.teamIds) {
+          await tx.teamMember.upsert({
+            where: { userId_teamId: { userId: context.userId!, teamId } },
+            update: {},
+            create: {
+              userId: context.userId!,
+              teamId,
+              role: "MEMBER",
+            },
+          });
+        }
+
+        // Mark invite as accepted
+        await tx.invite.update({
+          where: { id: invite.id },
+          data: { status: "ACCEPTED" },
+        });
+
+        return orgMember;
+      });
+
+      return result;
+    },
+
+    cancelInvite: async (_: unknown, { id }: { id: string }) => {
+      await prisma.invite.delete({ where: { id } });
+      return true;
+    },
+
+    resendInvite: async (_: unknown, { id }: { id: string }) => {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const invite = await prisma.invite.update({
+        where: { id },
+        data: {
+          status: "PENDING",
+          expiresAt,
+        },
+      });
+
+      try {
+        const org = await prisma.organization.findUnique({ where: { id: invite.organizationId } });
+        if (org) {
+          await sendInviteEmail({
+            to: invite.email,
+            organizationName: org.name,
+            role: invite.role,
+            token: invite.token,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to resend invite email:", err);
+      }
+
+      return invite;
+    },
+
     // Excuse mutations
     createExcuseRequest: async (
       _: unknown,
@@ -616,12 +1052,18 @@ export const resolvers = {
   // Field resolvers
   User: {
     memberships: (parent: { id: string }) => prisma.teamMember.findMany({ where: { userId: parent.id } }),
+    organizationMemberships: (parent: { id: string }) =>
+      prisma.organizationMember.findMany({ where: { userId: parent.id } }),
     checkIns: (parent: { id: string }) => prisma.checkIn.findMany({ where: { userId: parent.id } }),
   },
 
   Organization: {
     teams: (parent: { id: string }) => prisma.team.findMany({ where: { organizationId: parent.id } }),
     events: (parent: { id: string }) => prisma.event.findMany({ where: { organizationId: parent.id } }),
+    members: (parent: { id: string }) =>
+      prisma.organizationMember.findMany({ where: { organizationId: parent.id } }),
+    invites: (parent: { id: string }) =>
+      prisma.invite.findMany({ where: { organizationId: parent.id, status: "PENDING" } }),
     memberCount: async (parent: { id: string }) => {
       const count = await prisma.teamMember.count({
         where: { team: { organizationId: parent.id } },
@@ -634,7 +1076,16 @@ export const resolvers = {
     organization: (parent: { organizationId: string }) =>
       prisma.organization.findUnique({ where: { id: parent.organizationId } }),
     members: (parent: { id: string }) => prisma.teamMember.findMany({ where: { teamId: parent.id } }),
-    events: (parent: { id: string }) => prisma.event.findMany({ where: { teamId: parent.id } }),
+    events: (parent: { id: string }) =>
+      prisma.event.findMany({
+        where: {
+          OR: [
+            { teamId: parent.id },
+            { participatingTeams: { some: { id: parent.id } } },
+          ],
+        },
+        orderBy: { date: "asc" },
+      }),
     memberCount: (parent: { id: string }) => prisma.teamMember.count({ where: { teamId: parent.id } }),
     attendancePercent: async (parent: { id: string }, { timeRange }: { timeRange?: string }) => {
       const { startDate, endDate } = getDateRange(timeRange);
@@ -688,6 +1139,23 @@ export const resolvers = {
     team: (parent: { teamId: string | null }) =>
       parent.teamId ? prisma.team.findUnique({ where: { id: parent.teamId } }) : null,
     checkIns: (parent: { id: string }) => prisma.checkIn.findMany({ where: { eventId: parent.id } }),
+    recurringEvent: (parent: { recurringEventId: string | null }) =>
+      parent.recurringEventId
+        ? prisma.recurringEvent.findUnique({ where: { id: parent.recurringEventId } })
+        : null,
+    participatingTeams: (parent: { id: string }) =>
+      prisma.team.findMany({
+        where: { participatingEvents: { some: { id: parent.id } } },
+      }),
+  },
+
+  RecurringEvent: {
+    organization: (parent: { organizationId: string }) =>
+      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    team: (parent: { teamId: string | null }) =>
+      parent.teamId ? prisma.team.findUnique({ where: { id: parent.teamId } }) : null,
+    events: (parent: { id: string }) =>
+      prisma.event.findMany({ where: { recurringEventId: parent.id }, orderBy: { date: "asc" } }),
   },
 
   CheckIn: {
@@ -698,5 +1166,16 @@ export const resolvers = {
   ExcuseRequest: {
     user: (parent: { userId: string }) => prisma.user.findUnique({ where: { id: parent.userId } }),
     event: (parent: { eventId: string }) => prisma.event.findUnique({ where: { id: parent.eventId } }),
+  },
+
+  OrganizationMember: {
+    user: (parent: { userId: string }) => prisma.user.findUnique({ where: { id: parent.userId } }),
+    organization: (parent: { organizationId: string }) =>
+      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+  },
+
+  Invite: {
+    organization: (parent: { organizationId: string }) =>
+      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
   },
 };
