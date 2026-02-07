@@ -49,11 +49,23 @@ async function main() {
           return {};
         }
 
-        const user = await prisma.user.findUnique({
+        let user = await prisma.user.findUnique({
           where: { email: payload.email },
         });
 
-        return { userId: user?.id };
+        // Auto-create DB record for authenticated Cognito users (handles
+        // cases where registration DB setup failed but Cognito account exists)
+        if (!user) {
+          user = await prisma.user.create({
+            data: {
+              email: payload.email,
+              firstName: (payload.given_name as string) || payload.email.toString().split("@")[0],
+              lastName: (payload.family_name as string) || "",
+            },
+          });
+        }
+
+        return { userId: user.id };
       },
     })
   );

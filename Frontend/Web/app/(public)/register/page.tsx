@@ -157,7 +157,7 @@ export default function RegisterPage() {
       const message =
         err instanceof Error ? err.message : "An unexpected error occurred.";
       setError(
-        `${message} If this persists, please contact support.`
+        `Setup failed: ${message}. Your account was created — you can sign in and create your organization from the profile page.`
       );
       setLoading(false);
     }
@@ -183,9 +183,13 @@ export default function RegisterPage() {
       setStep("Verifying email...");
       const confirmResult = await cognitoConfirmSignUp(form.email, confirmationCode);
       if (!confirmResult.success) {
-        setError(confirmResult.error || "Invalid confirmation code.");
-        setLoading(false);
-        return;
+        // If user was already confirmed (e.g. retrying after a DB setup failure), proceed
+        const alreadyConfirmed = confirmResult.error?.includes("Current status is CONFIRMED");
+        if (!alreadyConfirmed) {
+          setError(confirmResult.error || "Invalid confirmation code.");
+          setLoading(false);
+          return;
+        }
       }
 
       // Sign in

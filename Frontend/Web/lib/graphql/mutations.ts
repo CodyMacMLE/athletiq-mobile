@@ -275,6 +275,27 @@ export const MARK_ABSENT = gql`
   }
 `;
 
+export const ADMIN_CHECK_IN = gql`
+  mutation AdminCheckIn($input: AdminCheckInInput!) {
+    adminCheckIn(input: $input) {
+      id
+      status
+      checkInTime
+      note
+    }
+  }
+`;
+
+export const CHECK_OUT = gql`
+  mutation CheckOut($input: CheckOutInput!) {
+    checkOut(input: $input) {
+      id
+      checkOutTime
+      hoursLogged
+    }
+  }
+`;
+
 // ============================================
 // Excuse Mutations
 // ============================================

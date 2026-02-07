@@ -203,6 +203,45 @@ export const resolvers = {
       });
     },
 
+    eventUncheckedAthletes: async (_: unknown, { eventId }: { eventId: string }) => {
+      const event = await prisma.event.findUnique({
+        where: { id: eventId },
+        include: {
+          participatingTeams: {
+            include: { members: { include: { user: true } } },
+          },
+          team: {
+            include: { members: { include: { user: true } } },
+          },
+        },
+      });
+      if (!event) throw new Error("Event not found");
+
+      // Collect all athletes from participating teams and the direct team
+      type UserRecord = { id: string; email: string; firstName: string; lastName: string; [key: string]: unknown };
+      const userMap = new Map<string, UserRecord>();
+      if (event.team) {
+        for (const member of event.team.members) {
+          userMap.set(member.user.id, member.user);
+        }
+      }
+      for (const team of event.participatingTeams) {
+        for (const member of team.members) {
+          userMap.set(member.user.id, member.user);
+        }
+      }
+
+      // Get already checked-in user IDs
+      const existingCheckIns = await prisma.checkIn.findMany({
+        where: { eventId },
+        select: { userId: true },
+      });
+      const checkedInIds = new Set(existingCheckIns.map((c) => c.userId));
+
+      // Return users not yet checked in
+      return Array.from(userMap.values()).filter((u) => !checkedInIds.has(u.id));
+    },
+
     // Excuse queries
     excuseRequest: async (_: unknown, { id }: { id: string }) => {
       return prisma.excuseRequest.findUnique({ where: { id } });
@@ -449,9 +488,10 @@ export const resolvers = {
   Mutation: {
     // User mutations
     createUser: async (_: unknown, { input }: { input: { email: string; firstName: string; lastName: string; phone?: string; address?: string; city?: string; country?: string; image?: string } }) => {
+      const { email, ...profileFields } = input;
       return prisma.user.upsert({
-        where: { email: input.email },
-        update: {},
+        where: { email },
+        update: profileFields,
         create: input,
       });
     },
@@ -467,16 +507,16 @@ export const resolvers = {
 
     // Organization mutations
     createOrganization: async (_: unknown, { input }: { input: { name: string; image?: string } }, context: { userId?: string }) => {
+      if (!context.userId) throw new Error("Authentication required");
+
       const org = await prisma.organization.create({ data: input });
-      if (context.userId) {
-        await prisma.organizationMember.create({
-          data: {
-            userId: context.userId,
-            organizationId: org.id,
-            role: "OWNER",
-          },
-        });
-      }
+      await prisma.organizationMember.create({
+        data: {
+          userId: context.userId,
+          organizationId: org.id,
+          role: "OWNER",
+        },
+      });
       return org;
     },
 
@@ -891,6 +931,27 @@ export const resolvers = {
         data: {
           checkOutTime: now,
           hoursLogged: Math.round(hoursLogged * 100) / 100, // Round to 2 decimal places
+        },
+      });
+    },
+
+    adminCheckIn: async (
+      _: unknown,
+      { input }: { input: { userId: string; eventId: string; status: AttendanceStatus; note?: string } }
+    ) => {
+      return prisma.checkIn.upsert({
+        where: { userId_eventId: { userId: input.userId, eventId: input.eventId } },
+        create: {
+          userId: input.userId,
+          eventId: input.eventId,
+          status: input.status,
+          checkInTime: input.status !== "EXCUSED" ? new Date() : null,
+          note: input.note,
+        },
+        update: {
+          status: input.status,
+          checkInTime: input.status !== "EXCUSED" ? new Date() : null,
+          note: input.note,
         },
       });
     },

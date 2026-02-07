@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import { useLazyQuery } from "@apollo/client/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { GET_ME } from "@/lib/graphql";
 import {
   cognitoSignIn,
@@ -90,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Fetch user data from GraphQL only when authenticated with Cognito
-  const [fetchMe, { data, loading: userLoading, refetch }] = useLazyQuery(GET_ME, {
+  const [fetchMe, { data, loading: userLoading, called: meCalled, refetch }] = useLazyQuery(GET_ME, {
     errorPolicy: "all",
   });
 
@@ -156,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextType = {
     user,
     cognitoUser,
-    isLoading: authLoading || userLoading,
+    isLoading: authLoading || userLoading || (!!cognitoUser && !meCalled),
     isAuthenticated: !!cognitoUser,
     selectedOrganizationId,
     setSelectedOrganizationId,
@@ -192,7 +193,17 @@ export function RequireAuth({
   children: ReactNode;
   allowedRoles?: OrgRole[];
 }) {
-  const { isAuthenticated, isLoading, currentOrgRole } = useAuth();
+  const { isAuthenticated, isLoading, currentOrgRole, user } = useAuth();
+  const router = useRouter();
+
+  // Redirect to profile if user has no org memberships (e.g. org creation failed during registration)
+  // Also covers the case where DB user record doesn't exist yet (user is null)
+  const needsSetup = isAuthenticated && !isLoading && (!user || user.organizationMemberships?.length === 0);
+  useEffect(() => {
+    if (needsSetup) {
+      router.replace("/profile");
+    }
+  }, [needsSetup, router]);
 
   if (isLoading) {
     return (
@@ -206,7 +217,16 @@ export function RequireAuth({
     return <LoginPage />;
   }
 
-  if (currentOrgRole && !allowedRoles.includes(currentOrgRole)) {
+  if (needsSetup) {
+    // Show loading while redirecting to profile
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
+
+  if (!currentOrgRole || !allowedRoles.includes(currentOrgRole)) {
     return <AppDownloadPage />;
   }
 

@@ -9,6 +9,7 @@ import {
   LEAVE_ORGANIZATION,
   TRANSFER_OWNERSHIP,
   CREATE_INVITE,
+  CREATE_ORGANIZATION,
   GET_ORGANIZATION_USERS,
 } from "@/lib/graphql";
 import {
@@ -18,6 +19,7 @@ import {
   LogOut,
   Loader2,
   X,
+  Plus,
   AlertTriangle,
 } from "lucide-react";
 
@@ -48,6 +50,7 @@ export default function ProfilePage() {
   const { user, isAuthenticated, isLoading, logout, refetch, setSelectedOrganizationId } = useAuth();
 
   const [section, setSection] = useState<Section>("profile");
+  const [initialSectionSet, setInitialSectionSet] = useState(false);
 
   // Profile form
   const [firstName, setFirstName] = useState("");
@@ -68,12 +71,16 @@ export default function ProfilePage() {
   const [guardianError, setGuardianError] = useState("");
   const [selectedNewOwner, setSelectedNewOwner] = useState<string | null>(null);
   const [transferError, setTransferError] = useState("");
+  const [showCreateOrg, setShowCreateOrg] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [createOrgError, setCreateOrgError] = useState("");
 
   // Mutations
   const [updateUser, { loading: saving }] = useMutation(UPDATE_USER);
   const [leaveOrganization, { loading: leaving }] = useMutation(LEAVE_ORGANIZATION);
   const [transferOwnership, { loading: transferring }] = useMutation(TRANSFER_OWNERSHIP);
   const [createInvite, { loading: inviting }] = useMutation(CREATE_INVITE);
+  const [createOrganization, { loading: creatingOrg }] = useMutation(CREATE_ORGANIZATION);
 
   // Lazy query for transfer modal members
   const [fetchOrgUsers, { data: orgUsersData, loading: orgUsersLoading }] = useLazyQuery(GET_ORGANIZATION_USERS);
@@ -96,6 +103,16 @@ export default function ProfilePage() {
       router.push("/");
     }
   }, [isLoading, isAuthenticated, router]);
+
+  // Default to organizations section when user has no orgs (e.g. failed registration setup)
+  useEffect(() => {
+    if (user && !initialSectionSet) {
+      setInitialSectionSet(true);
+      if (user.organizationMemberships?.length === 0) {
+        setSection("organizations");
+      }
+    }
+  }, [user, initialSectionSet]);
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -203,6 +220,22 @@ export default function ProfilePage() {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to send invite";
       setGuardianError(message);
+    }
+  };
+
+  const handleCreateOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateOrgError("");
+    try {
+      await createOrganization({
+        variables: { input: { name: newOrgName } },
+      });
+      setShowCreateOrg(false);
+      setNewOrgName("");
+      refetch();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create organization";
+      setCreateOrgError(message);
     }
   };
 
@@ -414,12 +447,28 @@ export default function ProfilePage() {
         {/* Organizations Section */}
         {section === "organizations" && (
           <div className="max-w-2xl">
-            <h1 className="text-2xl font-bold text-white mb-6">Organizations</h1>
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-2xl font-bold text-white">Organizations</h1>
+              <button
+                onClick={() => { setShowCreateOrg(true); setNewOrgName(""); setCreateOrgError(""); }}
+                className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Create Organization
+              </button>
+            </div>
 
             {orgMemberships.length === 0 ? (
               <div className="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center">
                 <Building2 className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-400">You&apos;re not a member of any organizations yet.</p>
+                <p className="text-gray-400 mb-4">You&apos;re not a member of any organizations yet.</p>
+                <button
+                  onClick={() => { setShowCreateOrg(true); setNewOrgName(""); setCreateOrgError(""); }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Your First Organization
+                </button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -646,6 +695,74 @@ export default function ProfilePage() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Organization Modal */}
+      {showCreateOrg && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white">Create Organization</h2>
+              <button onClick={() => setShowCreateOrg(false)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-gray-400 text-sm mb-4">
+              Create a new organization. You will be the owner.
+            </p>
+
+            <form onSubmit={handleCreateOrg} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Organization Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newOrgName}
+                  onChange={(e) => {
+                    setNewOrgName(e.target.value);
+                    setCreateOrgError("");
+                  }}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  placeholder="e.g. Westside Track Club"
+                  autoFocus
+                />
+              </div>
+
+              {createOrgError && (
+                <div className="px-3 py-2 bg-red-600/20 border border-red-600/30 rounded-lg text-red-400 text-sm">
+                  {createOrgError}
+                </div>
+              )}
+
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateOrg(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingOrg}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {creatingOrg ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create"
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

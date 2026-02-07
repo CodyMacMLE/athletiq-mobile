@@ -168,6 +168,7 @@ export const typeDefs = `#graphql
     checkInTime: String
     checkOutTime: String
     hoursLogged: Float
+    note: String
     createdAt: String!
     updatedAt: String!
   }
@@ -321,6 +322,13 @@ export const typeDefs = `#graphql
     eventId: ID!
   }
 
+  input AdminCheckInInput {
+    userId: ID!
+    eventId: ID!
+    status: AttendanceStatus!
+    note: String
+  }
+
   input CheckOutInput {
     checkInId: ID!
   }
@@ -364,6 +372,7 @@ export const typeDefs = `#graphql
     checkIn(id: ID!): CheckIn
     checkInHistory(userId: ID!, limit: Int): [CheckIn!]!
     eventAttendance(eventId: ID!): [CheckIn!]!
+    eventUncheckedAthletes(eventId: ID!): [User!]!
 
     # Excuse queries
     excuseRequest(id: ID!): ExcuseRequest
@@ -428,6 +437,7 @@ export const typeDefs = `#graphql
     checkIn(input: CheckInInput!): CheckIn!
     checkOut(input: CheckOutInput!): CheckIn!
     markAbsent(userId: ID!, eventId: ID!): CheckIn!
+    adminCheckIn(input: AdminCheckInInput!): CheckIn!
 
     # Invite mutations
     createInvite(input: CreateInviteInput!): Invite!

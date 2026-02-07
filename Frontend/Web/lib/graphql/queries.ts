@@ -208,12 +208,23 @@ export const GET_EVENT_ATTENDANCE = gql`
       checkInTime
       checkOutTime
       hoursLogged
+      note
       user {
         ...UserFields
       }
     }
   }
   ${USER_FRAGMENT}
+`;
+
+export const GET_EVENT_UNCHECKED_ATHLETES = gql`
+  query GetEventUncheckedAthletes($eventId: ID!) {
+    eventUncheckedAthletes(eventId: $eventId) {
+      id
+      firstName
+      lastName
+    }
+  }
 `;
 
 export const GET_PENDING_EXCUSE_REQUESTS = gql`

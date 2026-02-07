@@ -230,9 +230,13 @@ export default function AcceptInvitePage() {
       setStep("Verifying email...");
       const confirmResult = await cognitoConfirmSignUp(regForm.email, confirmationCode);
       if (!confirmResult.success) {
-        setError(confirmResult.error || "Invalid confirmation code.");
-        setProcessing(false);
-        return;
+        // If user was already confirmed (e.g. retrying after a DB setup failure), proceed
+        const alreadyConfirmed = confirmResult.error?.includes("Current status is CONFIRMED");
+        if (!alreadyConfirmed) {
+          setError(confirmResult.error || "Invalid confirmation code.");
+          setProcessing(false);
+          return;
+        }
       }
 
       setStep("Signing in...");
