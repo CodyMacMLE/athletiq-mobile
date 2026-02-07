@@ -24,6 +24,21 @@ function getDateRange(timeRange: string | undefined) {
   return { startDate, endDate: now };
 }
 
+// Parse time strings like "6:00 PM" or "14:00" into hours/minutes
+function parseTimeString(timeStr: string): { hours: number; minutes: number } {
+  const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (match) {
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    const period = match[3].toUpperCase();
+    if (period === "PM" && hours !== 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
+    return { hours, minutes };
+  }
+  const [h, m] = timeStr.split(":").map(Number);
+  return { hours: h, minutes: m };
+}
+
 // Generate recurring event dates based on frequency and pattern
 function generateRecurringDates(
   startDate: Date,
@@ -262,6 +277,72 @@ export const resolvers = {
         },
         orderBy: { createdAt: "asc" },
       });
+    },
+
+    // Attendance log queries
+    attendanceLog: async (
+      _: unknown,
+      { organizationId, limit, offset }: { organizationId: string; limit?: number; offset?: number }
+    ) => {
+      return prisma.checkIn.findMany({
+        where: {
+          event: { organizationId },
+          status: { in: ["ON_TIME", "LATE"] },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit || 30,
+        skip: offset || 0,
+      });
+    },
+
+    absentExcusedLog: async (
+      _: unknown,
+      { organizationId, limit, offset }: { organizationId: string; limit?: number; offset?: number }
+    ) => {
+      return prisma.checkIn.findMany({
+        where: {
+          event: { organizationId },
+          status: { in: ["ABSENT", "EXCUSED"] },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit || 30,
+        skip: offset || 0,
+      });
+    },
+
+    allAttendanceRecords: async (
+      _: unknown,
+      { organizationId, limit, offset }: { organizationId: string; limit?: number; offset?: number }
+    ) => {
+      return prisma.checkIn.findMany({
+        where: {
+          event: { organizationId },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit || 100,
+        skip: offset || 0,
+      });
+    },
+
+    attendanceInsights: async (
+      _: unknown,
+      { organizationId, timeRange }: { organizationId: string; timeRange?: string }
+    ) => {
+      const { startDate, endDate } = getDateRange(timeRange);
+      const where = { event: { organizationId, date: { gte: startDate, lte: endDate } } };
+
+      const [onTimeCount, lateCount, absentCount, excusedCount, eventCount] = await Promise.all([
+        prisma.checkIn.count({ where: { ...where, status: "ON_TIME" } }),
+        prisma.checkIn.count({ where: { ...where, status: "LATE" } }),
+        prisma.checkIn.count({ where: { ...where, status: "ABSENT" } }),
+        prisma.checkIn.count({ where: { ...where, status: "EXCUSED" } }),
+        prisma.event.count({ where: { organizationId, date: { gte: startDate, lte: endDate } } }),
+      ]);
+
+      const totalExpected = onTimeCount + lateCount + absentCount + excusedCount;
+      const attendanceRate = totalExpected > 0 ? (onTimeCount + lateCount) / totalExpected : 0;
+
+      return { totalExpected, onTimeCount, lateCount, absentCount, excusedCount, attendanceRate, eventCount };
     },
 
     // Analytics queries
@@ -893,13 +974,78 @@ export const resolvers = {
     },
 
     // Check-in mutations
+    markAbsentForPastEvents: async (
+      _: unknown,
+      { organizationId }: { organizationId: string }
+    ) => {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      // Find events from the past 7 days
+      const events = await prisma.event.findMany({
+        where: {
+          organizationId,
+          date: { gte: sevenDaysAgo, lte: new Date() },
+        },
+        include: {
+          participatingTeams: {
+            include: { members: { select: { userId: true } } },
+          },
+          team: {
+            include: { members: { select: { userId: true } } },
+          },
+        },
+      });
+
+      const now = new Date();
+      let totalCreated = 0;
+
+      for (const event of events) {
+        // Check if event has ended
+        const eventDate = new Date(event.date);
+        const { hours, minutes } = parseTimeString(event.endTime);
+        eventDate.setHours(hours, minutes, 0, 0);
+
+        if (eventDate >= now) continue; // Event hasn't ended yet
+
+        // Collect all expected user IDs
+        const userIds = new Set<string>();
+        if (event.team) {
+          for (const member of event.team.members) {
+            userIds.add(member.userId);
+          }
+        }
+        for (const team of event.participatingTeams) {
+          for (const member of team.members) {
+            userIds.add(member.userId);
+          }
+        }
+
+        if (userIds.size === 0) continue;
+
+        // Bulk create ABSENT records, skipping duplicates (unique constraint on userId_eventId)
+        const result = await prisma.checkIn.createMany({
+          data: Array.from(userIds).map((userId) => ({
+            userId,
+            eventId: event.id,
+            status: "ABSENT" as const,
+          })),
+          skipDuplicates: true,
+        });
+
+        totalCreated += result.count;
+      }
+
+      return totalCreated;
+    },
+
     checkIn: async (_: unknown, { input }: { input: { userId: string; eventId: string } }) => {
       const event = await prisma.event.findUnique({ where: { id: input.eventId } });
       if (!event) throw new Error("Event not found");
 
       const now = new Date();
       const eventStart = new Date(event.date);
-      const [hours, minutes] = event.startTime.split(":").map(Number);
+      const { hours, minutes } = parseTimeString(event.startTime);
       eventStart.setHours(hours, minutes);
 
       // Determine if on time or late (15 minute grace period)

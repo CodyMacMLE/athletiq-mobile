@@ -28,33 +28,16 @@ export const TEAM_FRAGMENT = gql`
   }
 `;
 
-export const INVITE_FRAGMENT = gql`
-  fragment InviteFields on Invite {
-    id
-    email
-    role
-    teamIds
-    status
-    token
-    createdAt
-    expiresAt
-  }
-`;
-
 export const EVENT_FRAGMENT = gql`
   fragment EventFields on Event {
     id
     title
     type
     date
-    endDate
     startTime
     endTime
     location
     description
-    recurringEvent {
-      id
-    }
   }
 `;
 
@@ -76,14 +59,6 @@ export const GET_ME = gql`
             id
             name
           }
-        }
-      }
-      organizationMemberships {
-        id
-        role
-        organization {
-          id
-          name
         }
       }
     }
@@ -167,10 +142,6 @@ export const GET_TEAM = gql`
       }
       events {
         ...EventFields
-        checkIns {
-          id
-          status
-        }
       }
     }
   }
@@ -184,10 +155,6 @@ export const GET_EVENTS = gql`
     events(organizationId: $organizationId, startDate: $startDate, endDate: $endDate) {
       ...EventFields
       team {
-        id
-        name
-      }
-      participatingTeams {
         id
         name
       }
@@ -208,23 +175,12 @@ export const GET_EVENT_ATTENDANCE = gql`
       checkInTime
       checkOutTime
       hoursLogged
-      note
       user {
         ...UserFields
       }
     }
   }
   ${USER_FRAGMENT}
-`;
-
-export const GET_EVENT_UNCHECKED_ATHLETES = gql`
-  query GetEventUncheckedAthletes($eventId: ID!) {
-    eventUncheckedAthletes(eventId: $eventId) {
-      id
-      firstName
-      lastName
-    }
-  }
 `;
 
 export const GET_PENDING_EXCUSE_REQUESTS = gql`
@@ -279,47 +235,6 @@ export const GET_ORGANIZATION_STATS = gql`
   }
 `;
 
-export const GET_ORGANIZATION_USERS = gql`
-  query GetOrganizationUsers($id: ID!) {
-    organization(id: $id) {
-      id
-      members {
-        id
-        role
-        user {
-          ...UserFields
-          memberships {
-            id
-            role
-            team {
-              id
-              name
-            }
-          }
-        }
-      }
-      invites {
-        ...InviteFields
-      }
-    }
-  }
-  ${USER_FRAGMENT}
-  ${INVITE_FRAGMENT}
-`;
-
-export const GET_INVITE = gql`
-  query GetInvite($token: String!) {
-    invite(token: $token) {
-      ...InviteFields
-      organization {
-        id
-        name
-      }
-    }
-  }
-  ${INVITE_FRAGMENT}
-`;
-
 export const GET_USERS = gql`
   query GetUsers {
     users {
@@ -327,96 +242,4 @@ export const GET_USERS = gql`
     }
   }
   ${USER_FRAGMENT}
-`;
-
-export const GET_ATTENDANCE_LOG = gql`
-  query GetAttendanceLog($organizationId: ID!, $limit: Int, $offset: Int) {
-    attendanceLog(organizationId: $organizationId, limit: $limit, offset: $offset) {
-      id
-      status
-      checkInTime
-      checkOutTime
-      hoursLogged
-      note
-      createdAt
-      user {
-        id
-        firstName
-        lastName
-        image
-      }
-      event {
-        id
-        title
-        date
-        startTime
-        endTime
-      }
-    }
-  }
-`;
-
-export const GET_ABSENT_EXCUSED_LOG = gql`
-  query GetAbsentExcusedLog($organizationId: ID!, $limit: Int, $offset: Int) {
-    absentExcusedLog(organizationId: $organizationId, limit: $limit, offset: $offset) {
-      id
-      status
-      note
-      createdAt
-      user {
-        id
-        firstName
-        lastName
-        image
-      }
-      event {
-        id
-        title
-        date
-        startTime
-        endTime
-      }
-    }
-  }
-`;
-
-export const GET_ALL_ATTENDANCE_RECORDS = gql`
-  query GetAllAttendanceRecords($organizationId: ID!, $limit: Int, $offset: Int) {
-    allAttendanceRecords(organizationId: $organizationId, limit: $limit, offset: $offset) {
-      id
-      status
-      checkInTime
-      checkOutTime
-      hoursLogged
-      note
-      createdAt
-      user {
-        id
-        firstName
-        lastName
-        image
-      }
-      event {
-        id
-        title
-        date
-        startTime
-        endTime
-      }
-    }
-  }
-`;
-
-export const GET_ATTENDANCE_INSIGHTS = gql`
-  query GetAttendanceInsights($organizationId: ID!, $timeRange: TimeRange) {
-    attendanceInsights(organizationId: $organizationId, timeRange: $timeRange) {
-      totalExpected
-      onTimeCount
-      lateCount
-      absentCount
-      excusedCount
-      attendanceRate
-      eventCount
-    }
-  }
 `;

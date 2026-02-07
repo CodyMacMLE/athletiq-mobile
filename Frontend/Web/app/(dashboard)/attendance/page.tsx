@@ -1,18 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  GET_EVENTS,
-  GET_EVENT_ATTENDANCE,
-  GET_EVENT_UNCHECKED_ATHLETES,
-  UPDATE_EXCUSE_REQUEST,
   GET_PENDING_EXCUSE_REQUESTS,
-  ADMIN_CHECK_IN,
+  GET_ALL_ATTENDANCE_RECORDS,
+  UPDATE_EXCUSE_REQUEST,
   CHECK_OUT,
+  MARK_ABSENT_FOR_PAST_EVENTS,
 } from "@/lib/graphql";
-import { CheckCircle, XCircle, Clock, AlertCircle, ChevronDown, UserPlus, LogOut, X, Search } from "lucide-react";
+import {
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertCircle,
+  LogOut,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpDown,
+  Users,
+} from "lucide-react";
+
+// ============================================
+// Types
+// ============================================
 
 type AttendanceRecord = {
   id: string;
@@ -21,32 +36,13 @@ type AttendanceRecord = {
   checkOutTime?: string;
   hoursLogged?: number;
   note?: string;
-  user: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    image?: string;
-  };
+  createdAt: string;
+  user: { id: string; firstName: string; lastName: string; image?: string };
+  event: { id: string; title: string; date: string; startTime: string; endTime: string };
 };
 
-type Event = {
-  id: string;
-  title: string;
-  type: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  team?: {
-    id: string;
-    name: string;
-  };
-};
-
-type UncheckedAthlete = {
-  id: string;
-  firstName: string;
-  lastName: string;
-};
+type SortField = "name" | "event" | "date" | "status" | "checkIn" | "checkOut" | "hours";
+type SortDir = "asc" | "desc";
 
 const STATUS_CONFIG = {
   ON_TIME: { icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/20", label: "On Time" },
@@ -55,247 +51,176 @@ const STATUS_CONFIG = {
   EXCUSED: { icon: AlertCircle, color: "text-purple-500", bg: "bg-purple-500/20", label: "Excused" },
 };
 
-function AdminCheckInModal({
-  eventId,
-  onClose,
+// ============================================
+// Sortable Table Header
+// ============================================
+
+function SortHeader({
+  label,
+  field,
+  currentSort,
+  currentDir,
+  onSort,
 }: {
-  eventId: string;
-  onClose: () => void;
+  label: string;
+  field: SortField;
+  currentSort: SortField;
+  currentDir: SortDir;
+  onSort: (field: SortField) => void;
 }) {
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [status, setStatus] = useState<"ON_TIME" | "LATE" | "EXCUSED">("ON_TIME");
-  const [note, setNote] = useState("");
-  const [search, setSearch] = useState("");
-  const [checkInAnother, setCheckInAnother] = useState(false);
-
-  const { data, loading, refetch: refetchUnchecked } = useQuery(GET_EVENT_UNCHECKED_ATHLETES, {
-    variables: { eventId },
-  });
-
-  const [adminCheckIn, { loading: submitting }] = useMutation(ADMIN_CHECK_IN, {
-    refetchQueries: [
-      { query: GET_EVENT_ATTENDANCE, variables: { eventId } },
-      { query: GET_EVENT_UNCHECKED_ATHLETES, variables: { eventId } },
-    ],
-  });
-
-  const athletes: UncheckedAthlete[] = data?.eventUncheckedAthletes || [];
-  const filtered = athletes.filter((a) =>
-    `${a.firstName} ${a.lastName}`.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const handleSubmit = async () => {
-    if (!selectedUserId) return;
-    try {
-      await adminCheckIn({
-        variables: {
-          input: {
-            userId: selectedUserId,
-            eventId,
-            status,
-            ...(status === "EXCUSED" && note ? { note } : {}),
-          },
-        },
-      });
-      if (checkInAnother) {
-        setSelectedUserId(null);
-        setStatus("ON_TIME");
-        setNote("");
-        setSearch("");
-      } else {
-        onClose();
-      }
-    } catch (error) {
-      console.error("Failed to check in athlete:", error);
-    }
-  };
-
+  const isActive = currentSort === field;
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-md max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Check In Athlete</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="p-6 space-y-5 overflow-y-auto">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search athletes..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-            />
-          </div>
-
-          {/* Athlete List */}
-          <div className="max-h-48 overflow-y-auto space-y-1 border border-gray-700 rounded-lg">
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
-              </div>
-            ) : filtered.length === 0 ? (
-              <p className="text-gray-400 text-sm text-center py-8">
-                {athletes.length === 0 ? "All athletes are checked in" : "No matching athletes"}
-              </p>
-            ) : (
-              filtered.map((athlete) => (
-                <button
-                  key={athlete.id}
-                  onClick={() => setSelectedUserId(athlete.id)}
-                  className={`w-full flex items-center px-4 py-3 text-left transition-colors ${
-                    selectedUserId === athlete.id
-                      ? "bg-purple-600/20 border-l-2 border-purple-500"
-                      : "hover:bg-gray-700/50"
-                  }`}
-                >
-                  <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium shrink-0">
-                    {athlete.firstName[0]}
-                    {athlete.lastName[0]}
-                  </div>
-                  <span className="ml-3 text-white text-sm">
-                    {athlete.firstName} {athlete.lastName}
-                  </span>
-                </button>
-              ))
-            )}
-          </div>
-
-          {/* Status Selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Status</label>
-            <div className="flex gap-2">
-              {(["ON_TIME", "LATE", "EXCUSED"] as const).map((s) => {
-                const colors = {
-                  ON_TIME: selectedUserId && status === s ? "bg-green-600 text-white" : "bg-gray-700 text-green-400 border border-gray-600 hover:bg-green-600/20",
-                  LATE: selectedUserId && status === s ? "bg-yellow-600 text-white" : "bg-gray-700 text-yellow-400 border border-gray-600 hover:bg-yellow-600/20",
-                  EXCUSED: selectedUserId && status === s ? "bg-purple-600 text-white" : "bg-gray-700 text-purple-400 border border-gray-600 hover:bg-purple-600/20",
-                };
-                const labels = { ON_TIME: "On Time", LATE: "Late", EXCUSED: "Excused" };
-                return (
-                  <button
-                    key={s}
-                    onClick={() => setStatus(s)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${colors[s]}`}
-                  >
-                    {labels[s]}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Note (conditional) */}
-          {status === "EXCUSED" && (
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Note (optional)</label>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={2}
-                placeholder="Reason for excused absence..."
-                className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none"
-              />
-            </div>
-          )}
-
-          {/* Check in another toggle */}
-          <label className="flex items-center gap-3 cursor-pointer">
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={checkInAnother}
-                onChange={(e) => setCheckInAnother(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-9 h-5 bg-gray-600 rounded-full peer-checked:bg-purple-600 transition-colors"></div>
-              <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4"></div>
-            </div>
-            <span className="text-sm text-gray-300">Check in another</span>
-          </label>
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-700 flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-300 hover:text-white text-sm font-medium transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!selectedUserId || submitting}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {submitting ? "Checking in..." : "Check In"}
-          </button>
-        </div>
-      </div>
-    </div>
+    <button
+      onClick={() => onSort(field)}
+      className="flex items-center gap-1 text-xs font-medium text-gray-400 uppercase tracking-wider hover:text-white transition-colors"
+    >
+      {label}
+      {isActive ? (
+        currentDir === "asc" ? (
+          <ChevronUp className="w-3.5 h-3.5 text-purple-400" />
+        ) : (
+          <ChevronDown className="w-3.5 h-3.5 text-purple-400" />
+        )
+      ) : (
+        <ArrowUpDown className="w-3 h-3 text-gray-600" />
+      )}
+    </button>
   );
 }
 
+// ============================================
+// Main Attendance Page
+// ============================================
+
 export default function Attendance() {
   const { selectedOrganizationId, canEdit } = useAuth();
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<"attendance" | "excuses">("attendance");
+  const autoAbsentFired = useRef(false);
 
-  const { data: eventsData, loading: eventsLoading } = useQuery(GET_EVENTS, {
-    variables: { organizationId: selectedOrganizationId },
+  // Table state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ON_TIME" | "LATE" | "ABSENT" | "EXCUSED">("ALL");
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Queries
+  const {
+    data: recordsData,
+    loading: recordsLoading,
+    refetch: refetchRecords,
+  } = useQuery(GET_ALL_ATTENDANCE_RECORDS, {
+    variables: { organizationId: selectedOrganizationId, limit: 200 },
     skip: !selectedOrganizationId,
   });
-
-  const { data: attendanceData, loading: attendanceLoading, refetch: refetchAttendance } = useQuery(
-    GET_EVENT_ATTENDANCE,
-    {
-      variables: { eventId: selectedEventId },
-      skip: !selectedEventId,
-    }
-  );
 
   const { data: excusesData, refetch: refetchExcuses } = useQuery(GET_PENDING_EXCUSE_REQUESTS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
+  // Mutations
+  const [markAbsentForPastEvents] = useMutation(MARK_ABSENT_FOR_PAST_EVENTS);
   const [updateExcuseRequest] = useMutation(UPDATE_EXCUSE_REQUEST);
-  const [checkOut] = useMutation(CHECK_OUT, {
-    refetchQueries: selectedEventId
-      ? [{ query: GET_EVENT_ATTENDANCE, variables: { eventId: selectedEventId } }]
-      : [],
-  });
+  const [checkOut] = useMutation(CHECK_OUT);
 
-  const events: Event[] = eventsData?.events || [];
-  const attendance: AttendanceRecord[] = attendanceData?.eventAttendance || [];
+  // Auto-absent on mount
+  useEffect(() => {
+    if (selectedOrganizationId && canEdit && !autoAbsentFired.current) {
+      autoAbsentFired.current = true;
+      markAbsentForPastEvents({
+        variables: { organizationId: selectedOrganizationId },
+      })
+        .then(() => refetchRecords())
+        .catch((err) => console.error("Auto-absent failed:", err));
+    }
+  }, [selectedOrganizationId, canEdit]);
+
+  const allRecords: AttendanceRecord[] = recordsData?.allAttendanceRecords || [];
   const pendingExcuses = excusesData?.pendingExcuseRequests || [];
 
-  const selectedEvent = events.find((e) => e.id === selectedEventId);
+  // Filter + sort
+  const filteredSorted = useMemo(() => {
+    let result = [...allRecords];
 
-  // Stats
-  const stats = {
-    total: attendance.length,
-    onTime: attendance.filter((a) => a.status === "ON_TIME").length,
-    late: attendance.filter((a) => a.status === "LATE").length,
-    absent: attendance.filter((a) => a.status === "ABSENT").length,
-    excused: attendance.filter((a) => a.status === "EXCUSED").length,
+    // Search filter
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (r) =>
+          `${r.user.firstName} ${r.user.lastName}`.toLowerCase().includes(q) ||
+          r.event.title.toLowerCase().includes(q)
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== "ALL") {
+      result = result.filter((r) => r.status === statusFilter);
+    }
+
+    // Sort
+    result.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "name":
+          cmp = `${a.user.firstName} ${a.user.lastName}`.localeCompare(
+            `${b.user.firstName} ${b.user.lastName}`
+          );
+          break;
+        case "event":
+          cmp = a.event.title.localeCompare(b.event.title);
+          break;
+        case "date":
+          cmp = new Date(Number(a.event.date)).getTime() - new Date(Number(b.event.date)).getTime();
+          break;
+        case "status": {
+          const order = { ON_TIME: 0, LATE: 1, ABSENT: 2, EXCUSED: 3 };
+          cmp = order[a.status] - order[b.status];
+          break;
+        }
+        case "checkIn":
+          cmp =
+            (a.checkInTime ? new Date(a.checkInTime).getTime() : 0) -
+            (b.checkInTime ? new Date(b.checkInTime).getTime() : 0);
+          break;
+        case "checkOut":
+          cmp =
+            (a.checkOutTime ? new Date(a.checkOutTime).getTime() : 0) -
+            (b.checkOutTime ? new Date(b.checkOutTime).getTime() : 0);
+          break;
+        case "hours":
+          cmp = (a.hoursLogged || 0) - (b.hoursLogged || 0);
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return result;
+  }, [allRecords, searchQuery, statusFilter, sortField, sortDir]);
+
+  // Reset to first page when filters/search/sort change
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, statusFilter, sortField, sortDir, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / pageSize));
+  const paginatedRecords = filteredSorted.slice(page * pageSize, (page + 1) * pageSize);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
   };
 
   const handleExcuseAction = async (excuseId: string, status: "APPROVED" | "DENIED") => {
     try {
-      await updateExcuseRequest({
-        variables: {
-          input: { id: excuseId, status },
-        },
-      });
+      await updateExcuseRequest({ variables: { input: { id: excuseId, status } } });
       refetchExcuses();
-      if (selectedEventId) refetchAttendance();
+      refetchRecords();
     } catch (error) {
       console.error("Failed to update excuse request:", error);
     }
@@ -304,248 +229,331 @@ export default function Attendance() {
   const handleCheckOut = async (checkInId: string) => {
     try {
       await checkOut({ variables: { input: { checkInId } } });
+      refetchRecords();
     } catch (error) {
       console.error("Failed to check out:", error);
     }
   };
 
-  if (eventsLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
-      </div>
-    );
-  }
+  const refetchAll = () => {
+    refetchRecords();
+    refetchExcuses();
+  };
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">Attendance</h1>
-        <p className="text-gray-400 mt-1">Track and manage event attendance</p>
+      {/* Header */}
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Attendance</h1>
+          <p className="text-gray-400 mt-1">Track and manage event attendance</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column - Event Selection & Attendance */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Event Selector */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
-            <label className="block text-sm font-medium text-gray-400 mb-2">Select Event</label>
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6">
+        <button
+          onClick={() => setActiveTab("attendance")}
+          className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+            activeTab === "attendance"
+              ? "bg-purple-600 text-white"
+              : "bg-gray-800 text-gray-400 hover:text-white"
+          }`}
+        >
+          Attendance
+        </button>
+        <button
+          onClick={() => setActiveTab("excuses")}
+          className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+            activeTab === "excuses"
+              ? "bg-purple-600 text-white"
+              : "bg-gray-800 text-gray-400 hover:text-white"
+          }`}
+        >
+          Pending Excuses
+          {pendingExcuses.length > 0 && (
+            <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              {pendingExcuses.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Attendance Tab */}
+      {activeTab === "attendance" && (
+        <div className="bg-gray-800 rounded-xl border border-gray-700">
+          {/* Toolbar: search + status filter */}
+          <div className="px-6 py-4 border-b border-gray-700 flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name or event..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+              />
+            </div>
             <div className="relative">
               <select
-                value={selectedEventId || ""}
-                onChange={(e) => setSelectedEventId(e.target.value || null)}
-                className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none pr-9 text-sm"
               >
-                <option value="">Choose an event...</option>
-                {events.map((event) => (
-                  <option key={event.id} value={event.id}>
-                    {event.title} - {new Date(event.date).toLocaleDateString()} ({event.startTime})
-                  </option>
-                ))}
+                <option value="ALL">All Statuses</option>
+                <option value="ON_TIME">On Time</option>
+                <option value="LATE">Late</option>
+                <option value="ABSENT">Absent</option>
+                <option value="EXCUSED">Excused</option>
               </select>
-              <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
           </div>
 
-          {selectedEvent && (
-            <>
-              {/* Stats */}
-              <div className="grid grid-cols-5 gap-4">
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 text-center">
-                  <p className="text-2xl font-bold text-white">{stats.total}</p>
-                  <p className="text-gray-400 text-sm">Total</p>
-                </div>
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 text-center">
-                  <p className="text-2xl font-bold text-green-500">{stats.onTime}</p>
-                  <p className="text-gray-400 text-sm">On Time</p>
-                </div>
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 text-center">
-                  <p className="text-2xl font-bold text-yellow-500">{stats.late}</p>
-                  <p className="text-gray-400 text-sm">Late</p>
-                </div>
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 text-center">
-                  <p className="text-2xl font-bold text-red-500">{stats.absent}</p>
-                  <p className="text-gray-400 text-sm">Absent</p>
-                </div>
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4 text-center">
-                  <p className="text-2xl font-bold text-purple-500">{stats.excused}</p>
-                  <p className="text-gray-400 text-sm">Excused</p>
-                </div>
-              </div>
+          {/* Table */}
+          {recordsLoading ? (
+            <div className="flex items-center justify-center h-48">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+            </div>
+          ) : filteredSorted.length === 0 ? (
+            <div className="text-center py-16">
+              <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400">
+                {allRecords.length === 0 ? "No attendance records yet" : "No records match your filters"}
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-700">
+                    <th className="px-6 py-3 text-left">
+                      <SortHeader label="Athlete" field="name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                    </th>
+                    <th className="px-6 py-3 text-left">
+                      <SortHeader label="Event" field="event" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                    </th>
+                    <th className="px-6 py-3 text-left">
+                      <SortHeader label="Date" field="date" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                    </th>
+                    <th className="px-6 py-3 text-left">
+                      <SortHeader label="Status" field="status" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                    </th>
+                    <th className="px-6 py-3 text-left">
+                      <SortHeader label="Check In" field="checkIn" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                    </th>
+                    <th className="px-6 py-3 text-left">
+                      <SortHeader label="Check Out" field="checkOut" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                    </th>
+                    <th className="px-6 py-3 text-left">
+                      <SortHeader label="Hours" field="hours" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
+                    </th>
+                    {canEdit && (
+                      <th className="px-6 py-3 text-left">
+                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</span>
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700/50">
+                  {paginatedRecords.map((record) => {
+                    const config = STATUS_CONFIG[record.status];
+                    const Icon = config.icon;
+                    const canDoCheckOut =
+                      canEdit &&
+                      record.checkInTime &&
+                      !record.checkOutTime &&
+                      (record.status === "ON_TIME" || record.status === "LATE");
 
-              {/* Attendance List */}
-              <div className="bg-gray-800 rounded-xl border border-gray-700">
-                <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-white">{selectedEvent.title}</h2>
-                    <p className="text-gray-400 text-sm">
-                      {new Date(selectedEvent.date).toLocaleDateString("en-US", {
-                        weekday: "long",
-                        month: "long",
-                        day: "numeric",
-                      })}{" "}
-                      • {selectedEvent.startTime} - {selectedEvent.endTime}
-                    </p>
-                  </div>
-                  {canEdit && (
-                    <button
-                      onClick={() => setShowCheckInModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      Check In
-                    </button>
-                  )}
-                </div>
-
-                {attendanceLoading ? (
-                  <div className="flex items-center justify-center h-32">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-                  </div>
-                ) : attendance.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-gray-400">No attendance records yet</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-700">
-                    {attendance.map((record) => {
-                      const config = STATUS_CONFIG[record.status];
-                      const Icon = config.icon;
-                      const canCheckOut =
-                        canEdit &&
-                        record.checkInTime &&
-                        !record.checkOutTime &&
-                        (record.status === "ON_TIME" || record.status === "LATE");
-                      return (
-                        <div key={record.id} className="px-6 py-4 flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium">
+                    return (
+                      <tr key={record.id} className="hover:bg-gray-700/30 transition-colors">
+                        {/* Athlete */}
+                        <td className="px-6 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-medium shrink-0">
                               {record.user.firstName[0]}
                               {record.user.lastName[0]}
                             </div>
-                            <div className="ml-4">
-                              <p className="text-white font-medium">
-                                {record.user.firstName} {record.user.lastName}
-                              </p>
-                              {record.checkInTime && (
-                                <p className="text-gray-400 text-sm">
-                                  In: {new Date(record.checkInTime).toLocaleTimeString("en-US", {
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                  })}
-                                  {record.checkOutTime &&
-                                    ` • Out: ${new Date(record.checkOutTime).toLocaleTimeString("en-US", {
-                                      hour: "numeric",
-                                      minute: "2-digit",
-                                    })}`}
-                                </p>
-                              )}
-                              {record.note && (
-                                <p className="text-gray-500 text-sm italic">{record.note}</p>
-                              )}
-                            </div>
+                            <span className="text-white text-sm font-medium">
+                              {record.user.firstName} {record.user.lastName}
+                            </span>
                           </div>
-                          <div className="flex items-center space-x-4">
-                            {record.hoursLogged != null && record.hoursLogged > 0 && (
-                              <span className="text-gray-400 text-sm">
-                                {record.hoursLogged.toFixed(1)}h
-                              </span>
-                            )}
-                            {canCheckOut && (
+                        </td>
+                        {/* Event */}
+                        <td className="px-6 py-3">
+                          <span className="text-gray-300 text-sm">{record.event.title}</span>
+                        </td>
+                        {/* Date */}
+                        <td className="px-6 py-3">
+                          <span className="text-gray-400 text-sm">
+                            {new Date(Number(record.event.date)).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        </td>
+                        {/* Status */}
+                        <td className="px-6 py-3">
+                          <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg ${config.bg}`}>
+                            <Icon className={`w-3.5 h-3.5 ${config.color}`} />
+                            <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>
+                          </div>
+                        </td>
+                        {/* Check In */}
+                        <td className="px-6 py-3">
+                          <span className="text-gray-400 text-sm">
+                            {record.checkInTime
+                              ? new Date(record.checkInTime).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })
+                              : "—"}
+                          </span>
+                        </td>
+                        {/* Check Out */}
+                        <td className="px-6 py-3">
+                          <span className="text-gray-400 text-sm">
+                            {record.checkOutTime
+                              ? new Date(record.checkOutTime).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })
+                              : "—"}
+                          </span>
+                        </td>
+                        {/* Hours */}
+                        <td className="px-6 py-3">
+                          <span className="text-gray-400 text-sm">
+                            {record.hoursLogged != null && record.hoursLogged > 0
+                              ? `${record.hoursLogged.toFixed(1)}h`
+                              : "—"}
+                          </span>
+                        </td>
+                        {/* Actions */}
+                        {canEdit && (
+                          <td className="px-6 py-3">
+                            {canDoCheckOut && (
                               <button
                                 onClick={() => handleCheckOut(record.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/20 text-orange-400 rounded-lg text-sm font-medium hover:bg-orange-500/30 transition-colors"
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/20 text-orange-400 rounded-lg text-xs font-medium hover:bg-orange-500/30 transition-colors"
                               >
                                 <LogOut className="w-3.5 h-3.5" />
                                 Check Out
                               </button>
                             )}
-                            <div className={`flex items-center px-3 py-1 rounded-lg ${config.bg}`}>
-                              <Icon className={`w-4 h-4 ${config.color} mr-1`} />
-                              <span className={`text-sm font-medium ${config.color}`}>
-                                {config.label}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
 
-          {!selectedEvent && (
-            <div className="bg-gray-800 rounded-xl border border-gray-700 p-12 text-center">
-              <p className="text-gray-400">Select an event to view attendance</p>
+          {/* Pagination */}
+          {!recordsLoading && filteredSorted.length > 0 && (
+            <div className="px-6 py-3 border-t border-gray-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500 text-xs">Show</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-purple-500 appearance-none"
+                >
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span className="text-gray-500 text-xs">
+                  &middot; {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredSorted.length)} of {filteredSorted.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-gray-400 text-xs px-2">
+                  {page + 1} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           )}
         </div>
+      )}
 
-        {/* Right Column - Pending Excuses */}
-        <div>
-          <div className="bg-gray-800 rounded-xl border border-gray-700">
-            <div className="px-6 py-4 border-b border-gray-700">
-              <h2 className="text-lg font-semibold text-white">Pending Excuses</h2>
-              <p className="text-gray-400 text-sm">{pendingExcuses.length} requests</p>
+      {/* Excuses Tab */}
+      {activeTab === "excuses" && (
+        <div className="bg-gray-800 rounded-xl border border-gray-700">
+          <div className="px-6 py-4 border-b border-gray-700">
+            <h2 className="text-lg font-semibold text-white">Pending Excuse Requests</h2>
+            <p className="text-gray-400 text-sm">{pendingExcuses.length} requests awaiting review</p>
+          </div>
+
+          {pendingExcuses.length === 0 ? (
+            <div className="p-12 text-center">
+              <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+              <p className="text-gray-400">All caught up! No pending excuse requests.</p>
             </div>
-
-            {pendingExcuses.length === 0 ? (
-              <div className="p-6 text-center">
-                <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-                <p className="text-gray-400">All caught up!</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-700">
-                {pendingExcuses.map((excuse: any) => (
-                  <div key={excuse.id} className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                          {excuse.user.firstName[0]}
-                          {excuse.user.lastName[0]}
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-white font-medium text-sm">
-                            {excuse.user.firstName} {excuse.user.lastName}
-                          </p>
-                          <p className="text-gray-400 text-xs">{excuse.event.title}</p>
-                        </div>
+          ) : (
+            <div className="divide-y divide-gray-700">
+              {pendingExcuses.map((excuse: any) => (
+                <div key={excuse.id} className="px-6 py-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                        {excuse.user.firstName[0]}
+                        {excuse.user.lastName[0]}
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-white font-medium text-sm">
+                          {excuse.user.firstName} {excuse.user.lastName}
+                        </p>
+                        <p className="text-gray-400 text-xs">
+                          {excuse.event.title} &middot;{" "}
+                          {new Date(Number(excuse.event.date)).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </p>
                       </div>
                     </div>
-                    <p className="text-gray-300 text-sm mb-3">{excuse.reason}</p>
                     {canEdit && (
-                      <div className="flex space-x-2">
+                      <div className="flex gap-2 shrink-0 ml-4">
                         <button
                           onClick={() => handleExcuseAction(excuse.id, "APPROVED")}
-                          className="flex-1 py-2 bg-green-600/20 text-green-500 rounded-lg text-sm font-medium hover:bg-green-600/30 transition-colors"
+                          className="px-4 py-1.5 bg-green-600/20 text-green-500 rounded-lg text-sm font-medium hover:bg-green-600/30 transition-colors"
                         >
                           Approve
                         </button>
                         <button
                           onClick={() => handleExcuseAction(excuse.id, "DENIED")}
-                          className="flex-1 py-2 bg-red-600/20 text-red-500 rounded-lg text-sm font-medium hover:bg-red-600/30 transition-colors"
+                          className="px-4 py-1.5 bg-red-600/20 text-red-500 rounded-lg text-sm font-medium hover:bg-red-600/30 transition-colors"
                         >
                           Deny
                         </button>
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <p className="text-gray-300 text-sm mt-2 ml-[52px]">{excuse.reason}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
-
-      {/* Check In Modal */}
-      {showCheckInModal && selectedEventId && (
-        <AdminCheckInModal
-          eventId={selectedEventId}
-          onClose={() => setShowCheckInModal(false)}
-        />
       )}
+
     </div>
   );
 }

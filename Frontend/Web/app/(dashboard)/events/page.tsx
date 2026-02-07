@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -10,7 +10,23 @@ import {
   DELETE_EVENT,
   DELETE_RECURRING_EVENT,
 } from "@/lib/graphql";
-import { Plus, Calendar, MapPin, Clock, Trash2, X, Repeat, Search, Users } from "lucide-react";
+import {
+  Plus,
+  Calendar,
+  MapPin,
+  Clock,
+  Trash2,
+  X,
+  Repeat,
+  Search,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+
+// ============================================
+// Types
+// ============================================
 
 type Event = {
   id: string;
@@ -22,32 +38,103 @@ type Event = {
   endTime: string;
   location?: string;
   description?: string;
-  team?: {
-    id: string;
-    name: string;
-  };
+  team?: { id: string; name: string };
   participatingTeams: { id: string; name: string }[];
   checkIns: { id: string; status: string }[];
-  recurringEvent?: {
-    id: string;
-  } | null;
+  recurringEvent?: { id: string } | null;
 };
 
+type TabKey = "PRACTICE" | "MEETING" | "EVENT";
+type TimeFilter = "TODAY" | "WEEK" | "MONTH" | "ALL";
+
+const TAB_CONFIG: { key: TabKey; label: string; defaultFilter: TimeFilter }[] = [
+  { key: "PRACTICE", label: "Practices", defaultFilter: "TODAY" },
+  { key: "MEETING", label: "Meetings", defaultFilter: "WEEK" },
+  { key: "EVENT", label: "Events", defaultFilter: "ALL" },
+];
+
+const TIME_FILTERS: { value: TimeFilter; label: string }[] = [
+  { value: "TODAY", label: "Today" },
+  { value: "WEEK", label: "This Week" },
+  { value: "MONTH", label: "This Month" },
+  { value: "ALL", label: "All" },
+];
+
 const EVENT_TYPE_COLORS: Record<string, string> = {
+  PRACTICE: "bg-green-600/20 text-green-400",
   EVENT: "bg-red-600/20 text-red-400",
   MEETING: "bg-yellow-600/20 text-yellow-400",
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
+  PRACTICE: "Practice",
   EVENT: "Tournament",
   MEETING: "Meeting",
 };
 
+function parseDate(dateStr: string) {
+  const num = Number(dateStr);
+  return isNaN(num) ? new Date(dateStr) : new Date(num);
+}
+
+function getDateRange(filter: TimeFilter): { start: Date; end: Date } | null {
+  if (filter === "ALL") return null;
+  const now = new Date();
+  const start = new Date(now);
+  const end = new Date(now);
+
+  switch (filter) {
+    case "TODAY":
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "WEEK": {
+      const day = now.getDay();
+      start.setDate(now.getDate() - day);
+      start.setHours(0, 0, 0, 0);
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      break;
+    }
+    case "MONTH":
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth(end.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+  }
+  return { start, end };
+}
+
+// ============================================
+// Main Page
+// ============================================
+
 export default function Events() {
   const { selectedOrganizationId, canEdit } = useAuth();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [selectedType, setSelectedType] = useState<string>("all");
   const [deleteDialogEvent, setDeleteDialogEvent] = useState<Event | null>(null);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabKey>("PRACTICE");
+  const defaultFilter = TAB_CONFIG.find((t) => t.key === activeTab)!.defaultFilter;
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>(defaultFilter);
+
+  // Pagination
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Reset filter to tab default + reset page when switching tabs
+  const handleTabChange = (tab: TabKey) => {
+    setActiveTab(tab);
+    setTimeFilter(TAB_CONFIG.find((t) => t.key === tab)!.defaultFilter);
+    setPage(0);
+  };
+
+  // Reset page when filter or page size changes
+  useEffect(() => {
+    setPage(0);
+  }, [timeFilter, pageSize]);
 
   const { data, loading, refetch } = useQuery(GET_EVENTS, {
     variables: { organizationId: selectedOrganizationId },
@@ -57,31 +144,42 @@ export default function Events() {
   const [deleteEvent] = useMutation(DELETE_EVENT);
   const [deleteRecurringEvent] = useMutation(DELETE_RECURRING_EVENT);
 
-  const events: Event[] = data?.events || [];
+  const allEvents: Event[] = data?.events || [];
 
-  // Only show org-wide events (no team assigned)
-  const orgEvents = events.filter((e) => !e.team);
+  // Filter by type, then by time range, then sort by date desc
+  const filteredEvents = useMemo(() => {
+    let result = allEvents.filter((e) => e.type === activeTab);
 
-  const filteredEvents = orgEvents.filter(
-    (event) => selectedType === "all" || event.type === selectedType
-  );
+    const range = getDateRange(timeFilter);
+    if (range) {
+      result = result.filter((e) => {
+        const d = parseDate(e.date);
+        return d >= range.start && d <= range.end;
+      });
+    }
 
+    // Sort: newest first
+    result.sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
+    return result;
+  }, [allEvents, activeTab, timeFilter]);
+
+  // Pagination derived values
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
+  const paginatedEvents = filteredEvents.slice(page * pageSize, (page + 1) * pageSize);
+
+  // Separate into upcoming and past for display within the current page
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const parseDate = (dateStr: string) => {
-    const num = Number(dateStr);
-    return isNaN(num) ? new Date(dateStr) : new Date(num);
-  };
-
-  const upcoming = filteredEvents
+  const upcoming = paginatedEvents
     .filter((e) => parseDate(e.date) >= today)
     .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
 
-  const past = filteredEvents
+  const past = paginatedEvents
     .filter((e) => parseDate(e.date) < today)
     .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
 
+  // Delete handlers
   const handleDeleteClick = (event: Event) => {
     if (event.recurringEvent) {
       setDeleteDialogEvent(event);
@@ -130,10 +228,11 @@ export default function Events() {
 
   return (
     <div>
+      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">Events</h1>
-          <p className="text-gray-400 mt-1">Organization-wide events like tournaments and competitions</p>
+          <p className="text-gray-400 mt-1">Manage practices, meetings, and tournaments</p>
         </div>
         {canEdit && (
           <button
@@ -146,37 +245,57 @@ export default function Events() {
         )}
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center space-x-2 mb-6">
-        {[
-          { value: "all", label: "All" },
-          { value: "MEETING", label: "Meeting" },
-          { value: "EVENT", label: "Tournament" },
-        ].map(({ value, label }) => (
+      {/* Tabs */}
+      <div className="flex gap-1 mb-4">
+        {TAB_CONFIG.map(({ key, label }) => {
+          const count = allEvents.filter((e) => e.type === key).length;
+          return (
+            <button
+              key={key}
+              onClick={() => handleTabChange(key)}
+              className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                activeTab === key
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-800 text-gray-400 hover:text-white"
+              }`}
+            >
+              {label}
+              <span
+                className={`text-xs rounded-full px-1.5 py-0.5 ${
+                  activeTab === key ? "bg-purple-500/50 text-white" : "bg-gray-700 text-gray-500"
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Time Range Filters */}
+      <div className="flex items-center gap-2 mb-6">
+        {TIME_FILTERS.map(({ value, label }) => (
           <button
             key={value}
-            onClick={() => setSelectedType(value)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              selectedType === value
-                ? "bg-purple-600 text-white"
-                : "bg-gray-800 text-gray-400 hover:text-white"
+            onClick={() => setTimeFilter(value)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              timeFilter === value
+                ? "bg-gray-600 text-white"
+                : "bg-gray-800 text-gray-500 border border-gray-700 hover:text-gray-300"
             }`}
           >
             {label}
           </button>
         ))}
+        <span className="text-gray-600 text-xs ml-2">
+          {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"}
+        </span>
       </div>
 
       {/* Event List */}
       <div className="space-y-2">
         {upcoming.map((event) => (
-          <EventCard
-            key={event.id}
-            event={event}
-            canEdit={canEdit}
-            onDelete={handleDeleteClick}
-            dimmed={false}
-          />
+          <EventCard key={event.id} event={event} canEdit={canEdit} onDelete={handleDeleteClick} dimmed={false} />
         ))}
 
         {past.length > 0 && upcoming.length > 0 && (
@@ -188,22 +307,57 @@ export default function Events() {
         )}
 
         {past.map((event) => (
-          <EventCard
-            key={event.id}
-            event={event}
-            canEdit={canEdit}
-            onDelete={handleDeleteClick}
-            dimmed
-          />
+          <EventCard key={event.id} event={event} canEdit={canEdit} onDelete={handleDeleteClick} dimmed />
         ))}
 
-        {upcoming.length === 0 && past.length === 0 && (
+        {filteredEvents.length === 0 && (
           <div className="text-center py-12">
             <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">No events found</p>
+            <p className="text-gray-400">No {EVENT_TYPE_LABELS[activeTab]?.toLowerCase() || "event"}s found</p>
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredEvents.length > 0 && (
+        <div className="mt-4 bg-gray-800 rounded-xl border border-gray-700 px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500 text-xs">Show</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-purple-500 appearance-none"
+            >
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-gray-500 text-xs">
+              &middot; {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredEvents.length)} of{" "}
+              {filteredEvents.length}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-gray-400 text-xs px-2">
+              {page + 1} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 transition-colors"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Create Event Modal */}
       {isCreateModalOpen && (
@@ -252,6 +406,10 @@ export default function Events() {
   );
 }
 
+// ============================================
+// EventCard
+// ============================================
+
 function EventCard({
   event,
   canEdit,
@@ -263,14 +421,12 @@ function EventCard({
   onDelete: (event: Event) => void;
   dimmed: boolean;
 }) {
-  const num = Number(event.date);
-  const eventDate = isNaN(num) ? new Date(event.date) : new Date(num);
+  const eventDate = parseDate(event.date);
 
   const isMultiDay = !!event.endDate;
   let dateLabel: string;
   if (isMultiDay) {
-    const endNum = Number(event.endDate);
-    const endDate = isNaN(endNum) ? new Date(event.endDate!) : new Date(endNum);
+    const endDate = parseDate(event.endDate!);
     const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     dateLabel = `${fmt(eventDate)} - ${fmt(endDate)}`;
   } else {
@@ -324,22 +480,25 @@ function EventCard({
                 </div>
               )}
             </div>
+            {event.team && (
+              <div className="flex items-center gap-2 mt-2">
+                <Users className="w-3.5 h-3.5 text-gray-500" />
+                <span className="px-2 py-0.5 bg-purple-600/15 text-purple-400 rounded text-xs">
+                  {event.team.name}
+                </span>
+              </div>
+            )}
             {event.participatingTeams?.length > 0 && (
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <Users className="w-3.5 h-3.5 text-gray-500" />
                 {event.participatingTeams.map((team) => (
-                  <span
-                    key={team.id}
-                    className="px-2 py-0.5 bg-purple-600/15 text-purple-400 rounded text-xs"
-                  >
+                  <span key={team.id} className="px-2 py-0.5 bg-purple-600/15 text-purple-400 rounded text-xs">
                     {team.name}
                   </span>
                 ))}
               </div>
             )}
-            {event.description && (
-              <p className="text-gray-500 text-sm mt-2">{event.description}</p>
-            )}
+            {event.description && <p className="text-gray-500 text-sm mt-2">{event.description}</p>}
           </div>
         </div>
         <div className="flex items-center space-x-4">
@@ -348,10 +507,7 @@ function EventCard({
             <p className="text-gray-400 text-xs">checked in</p>
           </div>
           {canEdit && (
-            <button
-              onClick={() => onDelete(event)}
-              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-            >
+            <button onClick={() => onDelete(event)} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
               <Trash2 className="w-4 h-4" />
             </button>
           )}
@@ -360,6 +516,10 @@ function EventCard({
     </div>
   );
 }
+
+// ============================================
+// CreateEventModal
+// ============================================
 
 function CreateEventModal({
   organizationId,
@@ -372,7 +532,7 @@ function CreateEventModal({
 }) {
   const [formData, setFormData] = useState({
     title: "",
-    type: "EVENT" as "EVENT" | "MEETING",
+    type: "EVENT" as "PRACTICE" | "EVENT" | "MEETING",
     date: "",
     endDate: "",
     isMultiDay: false,
@@ -398,7 +558,6 @@ function CreateEventModal({
       team.name.toLowerCase().includes(teamSearch.toLowerCase())
   );
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -471,9 +630,10 @@ function CreateEventModal({
             <label className="block text-sm font-medium text-gray-400 mb-1">Type</label>
             <select
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as "EVENT" | "MEETING" })}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value as "PRACTICE" | "EVENT" | "MEETING" })}
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
+              <option value="PRACTICE">Practice</option>
               <option value="EVENT">Tournament</option>
               <option value="MEETING">Meeting</option>
             </select>
@@ -566,7 +726,6 @@ function CreateEventModal({
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1">Teams</label>
 
-            {/* Selected teams */}
             {selectedTeams.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
                 {selectedTeams.map((team) => (
@@ -575,11 +734,7 @@ function CreateEventModal({
                     className="flex items-center gap-1 px-2.5 py-1 bg-purple-600/20 text-purple-400 rounded-lg text-sm"
                   >
                     {team.name}
-                    <button
-                      type="button"
-                      onClick={() => removeTeam(team.id)}
-                      className="hover:text-white transition-colors"
-                    >
+                    <button type="button" onClick={() => removeTeam(team.id)} className="hover:text-white transition-colors">
                       <X className="w-3 h-3" />
                     </button>
                   </span>
@@ -587,7 +742,6 @@ function CreateEventModal({
               </div>
             )}
 
-            {/* Search input */}
             <div className="relative" ref={dropdownRef}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -604,7 +758,6 @@ function CreateEventModal({
                 />
               </div>
 
-              {/* Dropdown */}
               {showTeamDropdown && filteredTeams.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
                   {filteredTeams.map((team) => (
@@ -640,17 +793,10 @@ function CreateEventModal({
           </div>
 
           <div className="flex justify-end space-x-3 mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-            >
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">
               Cancel
             </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
+            <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
               Create Event
             </button>
           </div>

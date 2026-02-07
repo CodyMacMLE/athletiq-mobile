@@ -1,5 +1,5 @@
 import { gql } from "@apollo/client";
-import { USER_FRAGMENT, TEAM_FRAGMENT, EVENT_FRAGMENT, INVITE_FRAGMENT } from "./queries";
+import { USER_FRAGMENT, TEAM_FRAGMENT, EVENT_FRAGMENT } from "./queries";
 
 // ============================================
 // User Mutations
@@ -26,25 +26,6 @@ export const UPDATE_USER = gql`
 export const DELETE_USER = gql`
   mutation DeleteUser($id: ID!) {
     deleteUser(id: $id)
-  }
-`;
-
-export const REMOVE_ORG_MEMBER = gql`
-  mutation RemoveOrgMember($userId: ID!, $organizationId: ID!) {
-    removeOrgMember(userId: $userId, organizationId: $organizationId)
-  }
-`;
-
-// ============================================
-// Organization Mutations
-// ============================================
-
-export const CREATE_ORGANIZATION = gql`
-  mutation CreateOrganization($input: CreateOrganizationInput!) {
-    createOrganization(input: $input) {
-      id
-      name
-    }
   }
 `;
 
@@ -115,25 +96,6 @@ export const UPDATE_TEAM_MEMBER_ROLE = gql`
 `;
 
 // ============================================
-// Organization Member Mutations
-// ============================================
-
-export const ADD_ORG_MEMBER = gql`
-  mutation AddOrgMember($input: AddOrgMemberInput!) {
-    addOrgMember(input: $input) {
-      id
-      role
-      user {
-        id
-      }
-      organization {
-        id
-      }
-    }
-  }
-`;
-
-// ============================================
 // Event Mutations
 // ============================================
 
@@ -179,89 +141,6 @@ export const DELETE_EVENT = gql`
   }
 `;
 
-export const CREATE_RECURRING_EVENT = gql`
-  mutation CreateRecurringEvent($input: CreateRecurringEventInput!) {
-    createRecurringEvent(input: $input) {
-      id
-      title
-      frequency
-      daysOfWeek
-      startDate
-      endDate
-      events {
-        ...EventFields
-      }
-    }
-  }
-  ${EVENT_FRAGMENT}
-`;
-
-export const DELETE_RECURRING_EVENT = gql`
-  mutation DeleteRecurringEvent($id: ID!) {
-    deleteRecurringEvent(id: $id)
-  }
-`;
-
-// ============================================
-// Invite Mutations
-// ============================================
-
-export const CREATE_INVITE = gql`
-  mutation CreateInvite($input: CreateInviteInput!) {
-    createInvite(input: $input) {
-      ...InviteFields
-    }
-  }
-  ${INVITE_FRAGMENT}
-`;
-
-export const ACCEPT_INVITE = gql`
-  mutation AcceptInvite($token: String!) {
-    acceptInvite(token: $token) {
-      id
-      role
-      user {
-        id
-      }
-      organization {
-        id
-        name
-      }
-    }
-  }
-`;
-
-export const CANCEL_INVITE = gql`
-  mutation CancelInvite($id: ID!) {
-    cancelInvite(id: $id)
-  }
-`;
-
-export const RESEND_INVITE = gql`
-  mutation ResendInvite($id: ID!) {
-    resendInvite(id: $id) {
-      ...InviteFields
-    }
-  }
-  ${INVITE_FRAGMENT}
-`;
-
-// ============================================
-// Organization Leave / Transfer Mutations
-// ============================================
-
-export const LEAVE_ORGANIZATION = gql`
-  mutation LeaveOrganization($organizationId: ID!) {
-    leaveOrganization(organizationId: $organizationId)
-  }
-`;
-
-export const TRANSFER_OWNERSHIP = gql`
-  mutation TransferOwnership($organizationId: ID!, $newOwnerId: ID!) {
-    transferOwnership(organizationId: $organizationId, newOwnerId: $newOwnerId)
-  }
-`;
-
 // ============================================
 // Attendance Mutations
 // ============================================
@@ -272,33 +151,6 @@ export const MARK_ABSENT = gql`
       id
       status
     }
-  }
-`;
-
-export const ADMIN_CHECK_IN = gql`
-  mutation AdminCheckIn($input: AdminCheckInInput!) {
-    adminCheckIn(input: $input) {
-      id
-      status
-      checkInTime
-      note
-    }
-  }
-`;
-
-export const CHECK_OUT = gql`
-  mutation CheckOut($input: CheckOutInput!) {
-    checkOut(input: $input) {
-      id
-      checkOutTime
-      hoursLogged
-    }
-  }
-`;
-
-export const MARK_ABSENT_FOR_PAST_EVENTS = gql`
-  mutation MarkAbsentForPastEvents($organizationId: ID!) {
-    markAbsentForPastEvents(organizationId: $organizationId)
   }
 `;
 

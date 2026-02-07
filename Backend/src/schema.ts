@@ -233,6 +233,16 @@ export const typeDefs = `#graphql
     date: String!
   }
 
+  type AttendanceInsights {
+    totalExpected: Int!
+    onTimeCount: Int!
+    lateCount: Int!
+    absentCount: Int!
+    excusedCount: Int!
+    attendanceRate: Float!
+    eventCount: Int!
+  }
+
   # ============================================
   # Input Types
   # ============================================
@@ -386,6 +396,12 @@ export const typeDefs = `#graphql
     # Invite queries
     invite(token: String!): Invite
 
+    # Attendance log queries
+    attendanceLog(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
+    absentExcusedLog(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
+    allAttendanceRecords(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
+    attendanceInsights(organizationId: ID!, timeRange: TimeRange): AttendanceInsights!
+
     # Analytics queries
     userStats(userId: ID!, organizationId: ID!, timeRange: TimeRange): UserStats!
     teamLeaderboard(teamId: ID!, timeRange: TimeRange, limit: Int): [LeaderboardEntry!]!
@@ -434,6 +450,7 @@ export const typeDefs = `#graphql
     deleteRecurringEvent(id: ID!): Boolean!
 
     # Check-in mutations
+    markAbsentForPastEvents(organizationId: ID!): Int!
     checkIn(input: CheckInInput!): CheckIn!
     checkOut(input: CheckOutInput!): CheckIn!
     markAbsent(userId: ID!, eventId: ID!): CheckIn!

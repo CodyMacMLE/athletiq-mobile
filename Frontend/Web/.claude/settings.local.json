@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(npx next build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(lsof:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx prisma db execute:*)",
+      "Bash(node:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd admin check-in/out feature and fix auth registration resilience\n\n- Add note field to CheckIn model, adminCheckIn mutation, and\n  eventUncheckedAthletes query for admin attendance management\n- Add AdminCheckInModal with searchable athlete list, status selector\n  \\(On Time/Late/Excused\\), optional note, and batch check-in toggle\n- Add inline Check Out button on attendance rows for checked-in athletes\n- Fix registration flow: handle \"already confirmed\" Cognito state on retry,\n  auto-create DB user record in backend context for authenticated users\n  without one, require auth for createOrganization to prevent orphan orgs\n- Fix RequireAuth race condition: include lazy query \"called\" state in\n  isLoading to prevent premature redirect during GET_ME fetch\n- Fix createUser upsert to update profile fields for existing users\n- Redirect users with no org memberships to profile page instead of\n  showing app download page\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(xargs:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)"
+    ]
+  }
+}
