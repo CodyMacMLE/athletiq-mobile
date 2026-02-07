@@ -569,6 +569,59 @@ export const resolvers = {
       return true;
     },
 
+    leaveOrganization: async (_: unknown, { organizationId }: { organizationId: string }, context: { userId?: string }) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const member = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId } },
+      });
+      if (!member) throw new Error("You are not a member of this organization");
+      if (member.role === "OWNER") throw new Error("Owners cannot leave the organization. Transfer ownership first.");
+
+      const orgTeams = await prisma.team.findMany({
+        where: { organizationId },
+        select: { id: true },
+      });
+      const teamIds = orgTeams.map((t) => t.id);
+
+      await prisma.$transaction([
+        prisma.teamMember.deleteMany({
+          where: { userId: context.userId, teamId: { in: teamIds } },
+        }),
+        prisma.organizationMember.delete({
+          where: { userId_organizationId: { userId: context.userId, organizationId } },
+        }),
+      ]);
+      return true;
+    },
+
+    transferOwnership: async (_: unknown, { organizationId, newOwnerId }: { organizationId: string; newOwnerId: string }, context: { userId?: string }) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const callerMember = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId } },
+      });
+      if (!callerMember || callerMember.role !== "OWNER") throw new Error("Only the owner can transfer ownership");
+      if (newOwnerId === context.userId) throw new Error("You are already the owner");
+
+      const newOwnerMember = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: newOwnerId, organizationId } },
+      });
+      if (!newOwnerMember) throw new Error("The selected user is not a member of this organization");
+
+      await prisma.$transaction([
+        prisma.organizationMember.update({
+          where: { userId_organizationId: { userId: newOwnerId, organizationId } },
+          data: { role: "OWNER" },
+        }),
+        prisma.organizationMember.update({
+          where: { userId_organizationId: { userId: context.userId, organizationId } },
+          data: { role: "MANAGER" },
+        }),
+      ]);
+      return true;
+    },
+
     // Team mutations
     createTeam: async (_: unknown, { input }: { input: { name: string; organizationId: string } }) => {
       return prisma.team.create({ data: input });

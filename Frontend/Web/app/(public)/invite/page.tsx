@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "@apollo/client/react";
 import Link from "next/link";
-import { Loader2, CheckCircle, XCircle, Smartphone } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import {
   cognitoSignUp,
   cognitoSignIn,
   cognitoConfirmSignUp,
   cognitoResendSignUpCode,
+  cognitoSignOut,
 } from "@/lib/cognito";
 import { useAuth } from "@/contexts/AuthContext";
 import { GET_INVITE, CREATE_USER, ACCEPT_INVITE } from "@/lib/graphql";
@@ -27,13 +28,10 @@ type InviteData = {
   };
 };
 
-const ADMIN_ROLES = ["COACH", "MANAGER", "OWNER"];
-
 export default function AcceptInvitePage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
-  const { isAuthenticated, isLoading: authLoading, user, refetch: refetchAuth } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
 
   const [acceptInvite] = useMutation(ACCEPT_INVITE);
   const [createUser] = useMutation(CREATE_USER);
@@ -45,7 +43,7 @@ export default function AcceptInvitePage() {
 
   const invite: InviteData | null = data?.invite || null;
 
-  const [view, setView] = useState<"loading" | "preview" | "signin" | "register" | "confirm" | "accepted" | "app-confirmed" | "error">("loading");
+  const [view, setView] = useState<"loading" | "preview" | "signin" | "register" | "confirm" | "accepted" | "wrong-user" | "error">("loading");
   const [error, setError] = useState("");
   const [processing, setProcessing] = useState(false);
   const [step, setStep] = useState("");
@@ -102,25 +100,21 @@ export default function AcceptInvitePage() {
       return;
     }
 
-    // If already authenticated, auto-accept
+    // If already authenticated, check email match
     if (isAuthenticated && user) {
-      handleAccept();
+      if (user.email.toLowerCase() === invite.email.toLowerCase()) {
+        // Correct user — auto-accept
+        handleAccept();
+      } else {
+        // Wrong user signed in
+        setView("wrong-user");
+      }
       return;
     }
 
     // Show preview with sign-in/register options
     setView("preview");
   }, [token, inviteLoading, authLoading, inviteError, invite, isAuthenticated, user]);
-
-  const redirectAfterAccept = (role: string) => {
-    if (ADMIN_ROLES.includes(role)) {
-      // Full page navigation to ensure the dashboard's AuthProvider initializes fresh
-      window.location.href = "/dashboard";
-    } else {
-      // ATHLETE / GUARDIAN — show app download confirmation
-      setView("app-confirmed");
-    }
-  };
 
   const handleAccept = async () => {
     if (!token || !invite) return;
@@ -130,12 +124,10 @@ export default function AcceptInvitePage() {
       await acceptInvite({ variables: { token } });
       setAcceptedOrgName(invite.organization.name);
       setAcceptedRole(invite.role);
-      if (ADMIN_ROLES.includes(invite.role)) {
-        setView("accepted");
-        setTimeout(() => redirectAfterAccept(invite.role), 1500);
-      } else {
-        redirectAfterAccept(invite.role);
-      }
+      setView("accepted");
+      setTimeout(() => {
+        window.location.href = "/profile";
+      }, 1500);
     } catch (err: any) {
       setError(err?.message || "Failed to accept invite.");
       setView("error");
@@ -175,15 +167,12 @@ export default function AcceptInvitePage() {
 
       setStep("Accepting invite...");
       await acceptInvite({ variables: { token } });
-      const role = invite?.role || "ATHLETE";
       setAcceptedOrgName(invite?.organization.name || "");
-      setAcceptedRole(role);
-      if (ADMIN_ROLES.includes(role)) {
-        setView("accepted");
-        setTimeout(() => redirectAfterAccept(role), 1500);
-      } else {
-        redirectAfterAccept(role);
-      }
+      setAcceptedRole(invite?.role || "ATHLETE");
+      setView("accepted");
+      setTimeout(() => {
+        window.location.href = "/profile";
+      }, 1500);
     } catch (err: any) {
       setError(err?.message || "Failed to accept invite.");
     } finally {
@@ -279,15 +268,12 @@ export default function AcceptInvitePage() {
 
     setStep("Accepting invite...");
     await acceptInvite({ variables: { token } });
-    const role = invite?.role || "ATHLETE";
     setAcceptedOrgName(invite?.organization.name || "");
-    setAcceptedRole(role);
-    if (ADMIN_ROLES.includes(role)) {
-      setView("accepted");
-      setTimeout(() => redirectAfterAccept(role), 1500);
-    } else {
-      redirectAfterAccept(role);
-    }
+    setAcceptedRole(invite?.role || "ATHLETE");
+    setView("accepted");
+    setTimeout(() => {
+      window.location.href = "/profile";
+    }, 1500);
   };
 
   const handleResendCode = async () => {
@@ -298,6 +284,11 @@ export default function AcceptInvitePage() {
       setError(result.error || "Failed to resend code.");
     }
     setResending(false);
+  };
+
+  const handleSignOutAndContinue = async () => {
+    await cognitoSignOut();
+    window.location.reload();
   };
 
   const roleName = invite ? invite.role.charAt(0) + invite.role.slice(1).toLowerCase() : "";
@@ -311,60 +302,46 @@ export default function AcceptInvitePage() {
     );
   }
 
-  // Admin accepted — brief redirect screen
+  // Accepted — brief redirect screen
   if (view === "accepted") {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center px-6">
         <div className="w-full max-w-md text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">You&apos;re in!</h1>
-          <p className="text-gray-400">Redirecting to dashboard...</p>
+          <p className="text-gray-400">
+            You&apos;ve joined <span className="text-white font-medium">{acceptedOrgName}</span> as
+            a <span className="text-purple-400 font-medium">{acceptedRole.charAt(0) + acceptedRole.slice(1).toLowerCase()}</span>.
+          </p>
+          <p className="text-gray-500 text-sm mt-2">Redirecting to your profile...</p>
         </div>
       </div>
     );
   }
 
-  // Athlete/Guardian accepted — app download confirmation
-  if (view === "app-confirmed") {
+  // Wrong user signed in
+  if (view === "wrong-user") {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center px-6">
         <div className="w-full max-w-md">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-white mb-2">You&apos;re in!</h1>
-            <p className="text-gray-400 mb-6">
-              You&apos;ve joined <span className="text-white font-medium">{acceptedOrgName}</span> as
-              a <span className="text-purple-400 font-medium">{acceptedRole.charAt(0) + acceptedRole.slice(1).toLowerCase()}</span>.
+          <div className="bg-gray-800 rounded-xl border border-yellow-600/50 p-8 text-center">
+            <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-white mb-2">Wrong Account</h1>
+            <p className="text-gray-400 mb-4">
+              This invite was sent to{" "}
+              <span className="text-white font-medium">{invite?.email}</span>, but you&apos;re
+              currently signed in as{" "}
+              <span className="text-white font-medium">{user?.email}</span>.
             </p>
-
-            <div className="bg-gray-700/50 rounded-xl p-6 mb-6">
-              <Smartphone className="w-10 h-10 text-purple-400 mx-auto mb-3" />
-              <h2 className="text-lg font-semibold text-white mb-2">Get the App</h2>
-              <p className="text-gray-400 text-sm mb-4">
-                Download Athletiq on your phone to check in to events, track hours, and stay connected with your team.
-              </p>
-              <div className="flex flex-col gap-3">
-                <button
-                  disabled
-                  className="w-full py-3 px-4 bg-gray-600 text-gray-400 font-medium rounded-lg cursor-not-allowed text-sm"
-                >
-                  App Store — Coming Soon
-                </button>
-                <button
-                  disabled
-                  className="w-full py-3 px-4 bg-gray-600 text-gray-400 font-medium rounded-lg cursor-not-allowed text-sm"
-                >
-                  Google Play — Coming Soon
-                </button>
-              </div>
-            </div>
-
-            <Link
-              href="/dashboard"
-              className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+            <p className="text-gray-500 text-sm mb-6">
+              Sign out and continue to use the correct account.
+            </p>
+            <button
+              onClick={handleSignOutAndContinue}
+              className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors text-sm"
             >
-              Continue to web dashboard
-            </Link>
+              Sign Out & Continue
+            </button>
           </div>
         </div>
       </div>

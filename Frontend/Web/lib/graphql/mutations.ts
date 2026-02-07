@@ -247,6 +247,22 @@ export const RESEND_INVITE = gql`
 `;
 
 // ============================================
+// Organization Leave / Transfer Mutations
+// ============================================
+
+export const LEAVE_ORGANIZATION = gql`
+  mutation LeaveOrganization($organizationId: ID!) {
+    leaveOrganization(organizationId: $organizationId)
+  }
+`;
+
+export const TRANSFER_OWNERSHIP = gql`
+  mutation TransferOwnership($organizationId: ID!, $newOwnerId: ID!) {
+    transferOwnership(organizationId: $organizationId, newOwnerId: $newOwnerId)
+  }
+`;
+
+// ============================================
 // Attendance Mutations
 // ============================================
 

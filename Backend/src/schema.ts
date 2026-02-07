@@ -404,6 +404,8 @@ export const typeDefs = `#graphql
     addOrgMember(input: AddOrgMemberInput!): OrganizationMember!
     updateOrgMemberRole(userId: ID!, organizationId: ID!, role: OrgRole!): OrganizationMember!
     removeOrgMember(userId: ID!, organizationId: ID!): Boolean!
+    leaveOrganization(organizationId: ID!): Boolean!
+    transferOwnership(organizationId: ID!, newOwnerId: ID!): Boolean!
 
     # Team mutations
     createTeam(input: CreateTeamInput!): Team!
