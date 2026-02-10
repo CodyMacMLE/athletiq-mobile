@@ -30,6 +30,7 @@ import {
   Loader2,
   Shield,
   UserMinus,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -85,9 +86,12 @@ export default function TeamDetail() {
   const [eventsPage, setEventsPage] = useState(1);
   const EVENTS_PER_PAGE = 10;
 
-  // Assign coach modal state
+  // Assign modal state
   const [showAssignCoach, setShowAssignCoach] = useState(false);
+  const [showAddAthlete, setShowAddAthlete] = useState(false);
   const [assignError, setAssignError] = useState("");
+  const [coachSearch, setCoachSearch] = useState("");
+  const [athleteSearch, setAthleteSearch] = useState("");
 
   const { data, loading, refetch } = useQuery(GET_TEAM, {
     variables: { id: teamId },
@@ -187,6 +191,7 @@ export default function TeamDetail() {
   const openAssignCoach = () => {
     setShowAssignCoach(true);
     setAssignError("");
+    setCoachSearch("");
     if (team?.organization?.id) {
       fetchOrgUsers({ variables: { id: team.organization.id } });
     }
@@ -222,12 +227,56 @@ export default function TeamDetail() {
     }
   };
 
+  const openAddAthlete = () => {
+    setShowAddAthlete(true);
+    setAssignError("");
+    setAthleteSearch("");
+    if (team?.organization?.id) {
+      fetchOrgUsers({ variables: { id: team.organization.id } });
+    }
+  };
+
+  const handleAddAthlete = async (userId: string) => {
+    setAssignError("");
+    try {
+      const existingMember = allMembers.find((m) => m.user.id === userId);
+      if (existingMember) {
+        await updateTeamMemberRole({
+          variables: { userId, teamId, role: "MEMBER" },
+        });
+      } else {
+        await addTeamMember({
+          variables: { input: { userId, teamId, role: "MEMBER" } },
+        });
+      }
+      setShowAddAthlete(false);
+      refetch();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to add athlete";
+      setAssignError(message);
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    try {
+      await removeTeamMember({ variables: { userId, teamId } });
+      refetch();
+    } catch (error) {
+      console.error("Failed to remove member:", error);
+    }
+  };
+
   // Org members for the assign coach modal (exclude those already COACH on this team)
   const orgMembers: { id: string; role: string; user: { id: string; email: string; firstName: string; lastName: string } }[] =
     orgUsersData?.organization?.members || [];
   const coachCandidates = orgMembers.filter((m) => {
     const teamMember = allMembers.find((tm) => tm.user.id === m.user.id);
     return !teamMember || teamMember.role !== "COACH";
+  });
+
+  const athleteCandidates = orgMembers.filter((m) => {
+    const teamMember = allMembers.find((tm) => tm.user.id === m.user.id);
+    return !teamMember || teamMember.role === "COACH";
   });
 
   const TEAM_ROLE_OPTIONS = ["MEMBER", "CAPTAIN"];
@@ -282,6 +331,15 @@ export default function TeamDetail() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {canManageRoles && activeTab === "members" && (
+            <button
+              onClick={openAddAthlete}
+              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Add Athlete
+            </button>
+          )}
           {canManageRoles && activeTab === "coaches" && (
             <button
               onClick={openAssignCoach}
@@ -307,7 +365,7 @@ export default function TeamDetail() {
       <div className="flex items-center space-x-1 mb-6 border-b border-gray-700">
         {([
           { key: "events", label: "Events", icon: <Calendar className="w-4 h-4 mr-2" /> },
-          { key: "members", label: "Members", icon: <Users className="w-4 h-4 mr-2" /> },
+          { key: "members", label: `Athletes (${members.length})`, icon: <Users className="w-4 h-4 mr-2" /> },
           { key: "coaches", label: `Coaches (${coaches.length})`, icon: <Shield className="w-4 h-4 mr-2" /> },
         ] as const).map((tab) => (
           <button
@@ -469,7 +527,7 @@ export default function TeamDetail() {
                   </span>
                 )}
               </div>
-              <div className="ml-auto text-right flex-shrink-0">
+              <div className="ml-auto flex items-center gap-3 flex-shrink-0">
                 <p
                   className={`text-sm font-medium ${
                     member.attendancePercent >= 90
@@ -481,13 +539,27 @@ export default function TeamDetail() {
                 >
                   {Math.round(member.attendancePercent || 0)}%
                 </p>
+                {canManageRoles && (
+                  <button
+                    onClick={() => handleRemoveMember(member.user.id)}
+                    className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
+                    title="Remove member"
+                  >
+                    <UserMinus className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           ))}
           {members.length === 0 && (
             <div className="col-span-full text-center py-12">
               <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">No members yet</p>
+              <p className="text-gray-400 mb-1">No athletes yet</p>
+              {canManageRoles && (
+                <p className="text-gray-500 text-sm">
+                  Click &quot;Add Athlete&quot; to add an athlete to this team.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -550,82 +622,204 @@ export default function TeamDetail() {
       )}
 
       {/* Assign Coach Modal */}
-      {showAssignCoach && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Assign Coach</h2>
-              <button onClick={() => setShowAssignCoach(false)} className="text-gray-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <p className="text-gray-400 text-sm mb-4">
-              Select an organization member to assign as coach for <span className="text-white font-medium">{team.name}</span>.
-            </p>
-
-            {orgUsersLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
+      {showAssignCoach && (() => {
+        const q = coachSearch.toLowerCase();
+        const filtered = q
+          ? coachCandidates.filter((m) =>
+              `${m.user.firstName} ${m.user.lastName}`.toLowerCase().includes(q) ||
+              m.user.email.toLowerCase().includes(q)
+            )
+          : coachCandidates;
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white">Assign Coach</h2>
+                <button onClick={() => setShowAssignCoach(false)} className="text-gray-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
-                {coachCandidates.map((m) => {
-                  const isOnTeam = allMembers.some((tm) => tm.user.id === m.user.id);
-                  return (
-                    <button
-                      key={m.user.id}
-                      onClick={() => handleAssignCoach(m.user.id)}
-                      disabled={assigning}
-                      className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-700 bg-gray-700/50 hover:bg-gray-700 text-left transition-colors disabled:opacity-50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
-                          {m.user.firstName[0]}{m.user.lastName[0]}
+
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={coachSearch}
+                  onChange={(e) => setCoachSearch(e.target.value)}
+                  placeholder="Search by name or email..."
+                  autoFocus
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {orgUsersLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-1 max-h-72 overflow-y-auto mb-4">
+                  {filtered.map((m) => {
+                    const isOnTeam = allMembers.some((tm) => tm.user.id === m.user.id);
+                    return (
+                      <button
+                        key={m.user.id}
+                        onClick={() => handleAssignCoach(m.user.id)}
+                        disabled={assigning}
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-700 bg-gray-700/50 hover:bg-gray-700 text-left transition-colors disabled:opacity-50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                            {m.user.firstName[0]}{m.user.lastName[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm text-white font-medium">
+                              {m.user.firstName} {m.user.lastName}
+                            </p>
+                            <p className="text-xs text-gray-400">{m.user.email}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm text-white font-medium">
-                            {m.user.firstName} {m.user.lastName}
-                          </p>
-                          <p className="text-xs text-gray-400">{m.user.email}</p>
+                        <div className="flex items-center gap-2">
+                          {isOnTeam && (
+                            <span className="text-xs text-gray-500">on team</span>
+                          )}
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-600/20 text-gray-400">
+                            {m.role}
+                          </span>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isOnTeam && (
-                          <span className="text-xs text-gray-500">on team</span>
-                        )}
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-600/20 text-gray-400">
-                          {m.role}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-                {coachCandidates.length === 0 && (
-                  <p className="text-gray-500 text-sm text-center py-4">
-                    All organization members are already coaches on this team.
-                  </p>
-                )}
-              </div>
-            )}
+                      </button>
+                    );
+                  })}
+                  {filtered.length === 0 && coachCandidates.length > 0 && (
+                    <p className="text-gray-500 text-sm text-center py-4">
+                      No members match &quot;{coachSearch}&quot;
+                    </p>
+                  )}
+                  {coachCandidates.length === 0 && (
+                    <p className="text-gray-500 text-sm text-center py-4">
+                      All organization members are already coaches on this team.
+                    </p>
+                  )}
+                </div>
+              )}
 
-            {assignError && (
-              <div className="mb-4 px-3 py-2 bg-red-600/20 border border-red-600/30 rounded-lg text-red-400 text-sm">
-                {assignError}
-              </div>
-            )}
+              {assignError && (
+                <div className="mb-4 px-3 py-2 bg-red-600/20 border border-red-600/30 rounded-lg text-red-400 text-sm">
+                  {assignError}
+                </div>
+              )}
 
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowAssignCoach(false)}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium rounded-lg transition-colors"
-              >
-                Close
-              </button>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowAssignCoach(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {/* Add Athlete Modal */}
+      {showAddAthlete && (() => {
+        const q = athleteSearch.toLowerCase();
+        const filtered = q
+          ? athleteCandidates.filter((m) =>
+              `${m.user.firstName} ${m.user.lastName}`.toLowerCase().includes(q) ||
+              m.user.email.toLowerCase().includes(q)
+            )
+          : athleteCandidates;
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white">Add Athlete</h2>
+                <button onClick={() => setShowAddAthlete(false)} className="text-gray-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={athleteSearch}
+                  onChange={(e) => setAthleteSearch(e.target.value)}
+                  placeholder="Search by name or email..."
+                  autoFocus
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {orgUsersLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
+                </div>
+              ) : (
+                <div className="space-y-1 max-h-72 overflow-y-auto mb-4">
+                  {filtered.map((m) => {
+                    const isCoachOnTeam = allMembers.some((tm) => tm.user.id === m.user.id && tm.role === "COACH");
+                    return (
+                      <button
+                        key={m.user.id}
+                        onClick={() => handleAddAthlete(m.user.id)}
+                        disabled={assigning}
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-700 bg-gray-700/50 hover:bg-gray-700 text-left transition-colors disabled:opacity-50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                            {m.user.firstName[0]}{m.user.lastName[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm text-white font-medium">
+                              {m.user.firstName} {m.user.lastName}
+                            </p>
+                            <p className="text-xs text-gray-400">{m.user.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isCoachOnTeam && (
+                            <span className="text-xs text-gray-500">coach</span>
+                          )}
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-600/20 text-gray-400">
+                            {m.role}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {filtered.length === 0 && athleteCandidates.length > 0 && (
+                    <p className="text-gray-500 text-sm text-center py-4">
+                      No members match &quot;{athleteSearch}&quot;
+                    </p>
+                  )}
+                  {athleteCandidates.length === 0 && (
+                    <p className="text-gray-500 text-sm text-center py-4">
+                      All organization members are already athletes on this team.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {assignError && (
+                <div className="mb-4 px-3 py-2 bg-red-600/20 border border-red-600/30 rounded-lg text-red-400 text-sm">
+                  {assignError}
+                </div>
+              )}
+
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowAddAthlete(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Delete Recurring Event Dialog */}
       {deleteDialogEvent && (
