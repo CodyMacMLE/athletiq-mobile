@@ -1,9 +1,13 @@
+import { useAuth } from "@/contexts/AuthContext";
+import { GET_EVENTS } from "@/lib/graphql/queries";
+import { useQuery } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Modal,
@@ -26,18 +30,7 @@ type CalendarEvent = {
   endTime: string;
   location?: string;
   description?: string;
-};
-
-type User = {
-  image?: string;
-  firstName: string;
-  lastName: string;
-};
-
-const user: User = {
-  image: undefined,
-  firstName: "Cody",
-  lastName: "MacDonald",
+  team?: { id: string; name: string };
 };
 
 const AVATAR_SIZE = 45;
@@ -48,105 +41,26 @@ const MONTHS = [
 ];
 const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Helper to get date relative to today
-function getRelativeDate(daysFromNow: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() + daysFromNow);
-  return date;
-}
-
-// Mock events data - using relative dates so they always show upcoming
-const mockEvents: CalendarEvent[] = [
-  {
-    id: "1",
-    title: "Team Practice",
-    type: "practice",
-    date: getRelativeDate(0), // Today
-    startTime: "6:00 PM",
-    endTime: "8:00 PM",
-    location: "Main Gym",
-    description: "Regular team practice session. Focus on defensive drills.",
-  },
-  {
-    id: "2",
-    title: "Recovery Day",
-    type: "rest",
-    date: getRelativeDate(1), // Tomorrow
-    startTime: "",
-    endTime: "",
-    description: "Active recovery and stretching.",
-  },
-  {
-    id: "3",
-    title: "Team Practice",
-    type: "practice",
-    date: getRelativeDate(2),
-    startTime: "6:00 PM",
-    endTime: "8:00 PM",
-    location: "Main Gym",
-  },
-  {
-    id: "4",
-    title: "Game vs Eagles",
-    type: "event",
-    date: getRelativeDate(4),
-    startTime: "7:00 PM",
-    endTime: "9:00 PM",
-    location: "Home Arena",
-    description: "League game against the Eagles. Arrive 1 hour early for warmup.",
-  },
-  {
-    id: "5",
-    title: "Team Meeting",
-    type: "meeting",
-    date: getRelativeDate(5),
-    startTime: "5:00 PM",
-    endTime: "6:00 PM",
-    location: "Conference Room A",
-    description: "Strategy review and upcoming schedule discussion.",
-  },
-  {
-    id: "6",
-    title: "Team Practice",
-    type: "practice",
-    date: getRelativeDate(7),
-    startTime: "6:00 PM",
-    endTime: "8:00 PM",
-    location: "Main Gym",
-  },
-  {
-    id: "7",
-    title: "Game vs Thunder",
-    type: "event",
-    date: getRelativeDate(10),
-    startTime: "3:00 PM",
-    endTime: "5:00 PM",
-    location: "Away - Thunder Arena",
-    description: "Away game. Bus departs at 12:00 PM from main parking lot.",
-  },
-  {
-    id: "8",
-    title: "Team Practice",
-    type: "practice",
-    date: getRelativeDate(14),
-    startTime: "6:00 PM",
-    endTime: "8:00 PM",
-    location: "Main Gym",
-  },
-];
-
-const EVENT_COLORS: Record<EventType, string> = {
+const EVENT_COLORS: Record<string, string> = {
   practice: "#6c5ce7",
   event: "#e74c3c",
   meeting: "#f39c12",
   rest: "#27ae60",
+  PRACTICE: "#6c5ce7",
+  EVENT: "#e74c3c",
+  MEETING: "#f39c12",
+  GAME: "#e74c3c",
 };
 
-const EVENT_ICONS: Record<EventType, string> = {
+const EVENT_ICONS: Record<string, string> = {
   practice: "target",
   event: "award",
   meeting: "users",
   rest: "coffee",
+  PRACTICE: "target",
+  EVENT: "award",
+  MEETING: "users",
+  GAME: "award",
 };
 
 function getMonthData(year: number, month: number) {
@@ -157,36 +71,15 @@ function getMonthData(year: number, month: number) {
 
   const days: (number | null)[] = [];
 
-  // Add empty slots for days before the first day of the month
   for (let i = 0; i < startingDay; i++) {
     days.push(null);
   }
 
-  // Add the days of the month
   for (let i = 1; i <= daysInMonth; i++) {
     days.push(i);
   }
 
   return days;
-}
-
-function getEventsForDate(date: Date): CalendarEvent[] {
-  return mockEvents.filter(
-    (event) =>
-      event.date.getFullYear() === date.getFullYear() &&
-      event.date.getMonth() === date.getMonth() &&
-      event.date.getDate() === date.getDate()
-  );
-}
-
-function getUpcomingEvents(limit: number = 5): CalendarEvent[] {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  return mockEvents
-    .filter((event) => event.date >= today)
-    .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .slice(0, limit);
 }
 
 function formatRelativeDate(date: Date): string {
@@ -206,7 +99,6 @@ function formatRelativeDate(date: Date): string {
 function generateMonthsList() {
   const months: { year: number; month: number; key: string }[] = [];
   const today = new Date();
-  // Generate 24 months before and after current month
   for (let i = -24; i <= 24; i++) {
     const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
     months.push({
@@ -219,9 +111,10 @@ function generateMonthsList() {
 }
 
 const monthsList = generateMonthsList();
-const initialIndex = 24; // Current month is at index 24
+const initialIndex = 24;
 
 export default function Calendar() {
+  const { user, selectedOrganization } = useAuth();
   const [currentMonthIndex, setCurrentMonthIndex] = useState(initialIndex);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -229,6 +122,61 @@ export default function Calendar() {
 
   const currentMonth = monthsList[currentMonthIndex];
   const today = new Date();
+
+  // Fetch events for a wide range (3 months before and after current view)
+  const startDate = useMemo(() => {
+    const d = new Date(currentMonth.year, currentMonth.month - 3, 1);
+    return d.toISOString().split("T")[0];
+  }, [currentMonth.year, currentMonth.month]);
+
+  const endDate = useMemo(() => {
+    const d = new Date(currentMonth.year, currentMonth.month + 4, 0);
+    return d.toISOString().split("T")[0];
+  }, [currentMonth.year, currentMonth.month]);
+
+  const { data: eventsData, loading: eventsLoading } = useQuery(GET_EVENTS, {
+    variables: {
+      organizationId: selectedOrganization?.id,
+      startDate,
+      endDate,
+    },
+    skip: !selectedOrganization?.id,
+  });
+
+  // Parse API events into CalendarEvent objects
+  const events: CalendarEvent[] = useMemo(() => {
+    if (!eventsData?.events) return [];
+    return eventsData.events.map((e: any) => ({
+      id: e.id,
+      title: e.title,
+      type: (e.type || "event").toLowerCase() as EventType,
+      date: new Date(e.date),
+      startTime: e.startTime || "",
+      endTime: e.endTime || "",
+      location: e.location,
+      description: e.description,
+      team: e.team,
+    }));
+  }, [eventsData]);
+
+  function getEventsForDate(date: Date): CalendarEvent[] {
+    return events.filter(
+      (event) =>
+        event.date.getFullYear() === date.getFullYear() &&
+        event.date.getMonth() === date.getMonth() &&
+        event.date.getDate() === date.getDate()
+    );
+  }
+
+  function getUpcomingEvents(limit: number = 4): CalendarEvent[] {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    return events
+      .filter((event) => event.date >= now)
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .slice(0, limit);
+  }
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -248,12 +196,15 @@ export default function Calendar() {
 
   const handleDayPress = (day: number) => {
     const date = new Date(currentMonth.year, currentMonth.month, day);
-    const events = getEventsForDate(date);
-    if (events.length > 0) {
-      setSelectedEvent(events[0]);
+    const dayEvents = getEventsForDate(date);
+    if (dayEvents.length > 0) {
+      setSelectedEvent(dayEvents[0]);
       setModalVisible(true);
     }
   };
+
+  const getEventColor = (type: string) => EVENT_COLORS[type] || EVENT_COLORS[type.toLowerCase()] || "#6c5ce7";
+  const getEventIcon = (type: string) => EVENT_ICONS[type] || EVENT_ICONS[type.toLowerCase()] || "calendar";
 
   const renderMonth = ({
     item,
@@ -264,7 +215,6 @@ export default function Calendar() {
 
     return (
       <View style={styles.monthContainer}>
-        {/* Days of week header */}
         <View style={styles.weekHeader}>
           {DAYS_OF_WEEK.map((day) => (
             <View key={day} style={styles.weekDayCell}>
@@ -273,7 +223,6 @@ export default function Calendar() {
           ))}
         </View>
 
-        {/* Calendar grid */}
         <View style={styles.calendarGrid}>
           {days.map((day, index) => {
             if (day === null) {
@@ -281,12 +230,12 @@ export default function Calendar() {
             }
 
             const date = new Date(item.year, item.month, day);
-            const events = getEventsForDate(date);
+            const dayEvents = getEventsForDate(date);
             const isToday =
               today.getFullYear() === item.year &&
               today.getMonth() === item.month &&
               today.getDate() === day;
-            const hasEvents = events.length > 0;
+            const hasEvents = dayEvents.length > 0;
 
             return (
               <Pressable
@@ -308,12 +257,12 @@ export default function Calendar() {
                 </View>
                 {hasEvents && (
                   <View style={styles.eventDots}>
-                    {events.slice(0, 3).map((event, i) => (
+                    {dayEvents.slice(0, 3).map((event, i) => (
                       <View
                         key={i}
                         style={[
                           styles.eventDot,
-                          { backgroundColor: EVENT_COLORS[event.type] },
+                          { backgroundColor: getEventColor(event.type) },
                         ]}
                       />
                     ))}
@@ -328,16 +277,18 @@ export default function Calendar() {
   };
 
   // Calculate stats for current month
-  const currentMonthEvents = mockEvents.filter(
+  const currentMonthEvents = events.filter(
     (e) =>
       e.date.getFullYear() === currentMonth.year &&
       e.date.getMonth() === currentMonth.month
   );
   const practiceCount = currentMonthEvents.filter((e) => e.type === "practice").length;
-  const eventCount = currentMonthEvents.filter((e) => e.type === "event").length;
+  const eventCount = currentMonthEvents.filter((e) => e.type === "event" || e.type === "game").length;
   const meetingCount = currentMonthEvents.filter((e) => e.type === "meeting").length;
 
   const upcomingEvents = getUpcomingEvents(4);
+
+  if (!user || !selectedOrganization) return null;
 
   return (
     <LinearGradient
@@ -364,11 +315,11 @@ export default function Calendar() {
                 <View
                   style={[
                     styles.eventModalHeader,
-                    { backgroundColor: EVENT_COLORS[selectedEvent.type] },
+                    { backgroundColor: getEventColor(selectedEvent.type) },
                   ]}
                 >
                   <Feather
-                    name={EVENT_ICONS[selectedEvent.type] as any}
+                    name={getEventIcon(selectedEvent.type) as any}
                     size={24}
                     color="white"
                   />
@@ -518,18 +469,24 @@ export default function Calendar() {
 
       {/* Stats Row */}
       <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.practice }]} />
-          <Text style={styles.statText}>{practiceCount} Practices</Text>
-        </View>
-        <View style={styles.statItem}>
-          <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.event }]} />
-          <Text style={styles.statText}>{eventCount} Events</Text>
-        </View>
-        <View style={styles.statItem}>
-          <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.meeting }]} />
-          <Text style={styles.statText}>{meetingCount} Meetings</Text>
-        </View>
+        {eventsLoading ? (
+          <ActivityIndicator color="#a855f7" />
+        ) : (
+          <>
+            <View style={styles.statItem}>
+              <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.practice }]} />
+              <Text style={styles.statText}>{practiceCount} Practices</Text>
+            </View>
+            <View style={styles.statItem}>
+              <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.event }]} />
+              <Text style={styles.statText}>{eventCount} Events</Text>
+            </View>
+            <View style={styles.statItem}>
+              <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.meeting }]} />
+              <Text style={styles.statText}>{meetingCount} Meetings</Text>
+            </View>
+          </>
+        )}
       </View>
 
       {/* Swipeable Calendar */}
@@ -562,7 +519,11 @@ export default function Calendar() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.upcomingList}>
-          {upcomingEvents.length === 0 ? (
+          {eventsLoading ? (
+            <View style={styles.noEventsCard}>
+              <ActivityIndicator color="#a855f7" />
+            </View>
+          ) : upcomingEvents.length === 0 ? (
             <View style={styles.noEventsCard}>
               <Feather name="calendar" size={20} color="rgba(255,255,255,0.3)" />
               <Text style={styles.noEventsText}>No upcoming events</Text>
@@ -583,7 +544,7 @@ export default function Calendar() {
                 <View
                   style={[
                     styles.upcomingCardAccent,
-                    { backgroundColor: EVENT_COLORS[event.type] },
+                    { backgroundColor: getEventColor(event.type) },
                   ]}
                 />
                 <View style={styles.upcomingCardContent}>
@@ -769,9 +730,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-start",
   },
-  dayCellWithEvent: {
-    // Slight highlight for days with events
-  },
+  dayCellWithEvent: {},
   dayNumber: {
     width: 32,
     height: 32,

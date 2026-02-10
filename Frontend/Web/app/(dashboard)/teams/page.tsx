@@ -10,6 +10,10 @@ import Link from "next/link";
 type Team = {
   id: string;
   name: string;
+  season: string;
+  sport?: string;
+  color?: string;
+  description?: string;
   memberCount: number;
   attendancePercent: number;
   members: {
@@ -22,6 +26,14 @@ type Team = {
       image?: string;
     };
   }[];
+};
+
+type TeamFormData = {
+  name: string;
+  season: string;
+  sport: string;
+  color: string;
+  description: string;
 };
 
 export default function Teams() {
@@ -40,12 +52,16 @@ export default function Teams() {
 
   const teams: Team[] = data?.teams || [];
 
-  const handleCreateTeam = async (name: string) => {
+  const handleCreateTeam = async (data: TeamFormData) => {
     try {
       await createTeam({
         variables: {
           input: {
-            name,
+            name: data.name,
+            season: data.season,
+            sport: data.sport || undefined,
+            color: data.color || undefined,
+            description: data.description || undefined,
             organizationId: selectedOrganizationId,
           },
         },
@@ -57,10 +73,17 @@ export default function Teams() {
     }
   };
 
-  const handleUpdateTeam = async (id: string, name: string) => {
+  const handleUpdateTeam = async (id: string, data: TeamFormData) => {
     try {
       await updateTeam({
-        variables: { id, name },
+        variables: {
+          id,
+          name: data.name,
+          season: data.season,
+          sport: data.sport || null,
+          color: data.color || null,
+          description: data.description || null,
+        },
       });
       setEditingTeam(null);
       refetch();
@@ -111,8 +134,16 @@ export default function Teams() {
         {teams.map((team) => (
           <div key={team.id} className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">{team.name}</h3>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  {team.color && (
+                    <span
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: team.color }}
+                    />
+                  )}
+                  <h3 className="text-lg font-semibold text-white">{team.name}</h3>
+                </div>
                 {canEdit && (
                   <div className="flex items-center space-x-1">
                     <button
@@ -131,7 +162,21 @@ export default function Teams() {
                 )}
               </div>
 
-              <div className="flex items-center space-x-6 mb-4">
+              <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
+                <span>{team.season}</span>
+                {team.sport && (
+                  <>
+                    <span className="text-gray-600">&middot;</span>
+                    <span>{team.sport}</span>
+                  </>
+                )}
+              </div>
+
+              {team.description && (
+                <p className="text-sm text-gray-500 mb-4 line-clamp-2">{team.description}</p>
+              )}
+
+              <div className="flex items-center space-x-6">
                 <div className="flex items-center text-gray-400">
                   <Users className="w-4 h-4 mr-2" />
                   <span>{team.memberCount} members</span>
@@ -189,32 +234,49 @@ export default function Teams() {
       {editingTeam && (
         <TeamModal
           title="Edit Team"
-          initialName={editingTeam.name}
+          initialData={{
+            name: editingTeam.name,
+            season: editingTeam.season,
+            sport: editingTeam.sport || "",
+            color: editingTeam.color || "",
+            description: editingTeam.description || "",
+          }}
           onClose={() => setEditingTeam(null)}
-          onSave={(name) => handleUpdateTeam(editingTeam.id, name)}
+          onSave={(data) => handleUpdateTeam(editingTeam.id, data)}
         />
       )}
     </div>
   );
 }
 
+const COLOR_PRESETS = [
+  "#7C3AED", "#3B82F6", "#10B981", "#F59E0B", "#EF4444",
+  "#EC4899", "#06B6D4", "#F97316", "#8B5CF6", "#14B8A6",
+];
+
 function TeamModal({
   title,
-  initialName = "",
+  initialData,
   onClose,
   onSave,
 }: {
   title: string;
-  initialName?: string;
+  initialData?: TeamFormData;
   onClose: () => void;
-  onSave: (name: string) => void;
+  onSave: (data: TeamFormData) => void;
 }) {
-  const [name, setName] = useState(initialName);
+  const [form, setForm] = useState<TeamFormData>(
+    initialData || { name: "", season: "", sport: "", color: "", description: "" }
+  );
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) {
-      onSave(name.trim());
+    if (form.name.trim() && form.season.trim()) {
+      onSave({ ...form, name: form.name.trim(), season: form.season.trim() });
     }
   };
 
@@ -228,21 +290,84 @@ function TeamModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Team Name</label>
+            <label className="block text-sm font-medium text-gray-400 mb-1">Team Name *</label>
             <input
               type="text"
+              name="name"
               required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={form.name}
+              onChange={handleChange}
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="e.g., Varsity, Junior Elite"
               autoFocus
             />
           </div>
 
-          <div className="flex justify-end space-x-3 mt-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">Season *</label>
+            <input
+              type="text"
+              name="season"
+              required
+              value={form.season}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="e.g., Spring 2026, Fall 2025"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">Sport</label>
+            <input
+              type="text"
+              name="sport"
+              value={form.sport}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="e.g., Basketball, Track & Field"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">Team Color</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {COLOR_PRESETS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setForm((prev) => ({ ...prev, color: c }))}
+                  className={`w-7 h-7 rounded-full border-2 transition-all ${
+                    form.color === c ? "border-white scale-110" : "border-transparent"
+                  }`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+              <input
+                type="text"
+                name="color"
+                value={form.color}
+                onChange={handleChange}
+                className="w-24 px-2 py-1 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="#hex"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+            <textarea
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              rows={2}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              placeholder="Optional notes about this team"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-2">
             <button
               type="button"
               onClick={onClose}
@@ -254,7 +379,7 @@ function TeamModal({
               type="submit"
               className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
             >
-              {initialName ? "Save Changes" : "Create Team"}
+              {initialData ? "Save Changes" : "Create Team"}
             </button>
           </div>
         </form>

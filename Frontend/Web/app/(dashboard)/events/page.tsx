@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import Link from "next/link";
 
 // ============================================
 // Types
@@ -295,7 +296,9 @@ export default function Events() {
       {/* Event List */}
       <div className="space-y-2">
         {upcoming.map((event) => (
-          <EventCard key={event.id} event={event} canEdit={canEdit} onDelete={handleDeleteClick} dimmed={false} />
+          <Link key={event.id} href={`/events/${event.id}`}>
+            <EventCard event={event} canEdit={canEdit} onDelete={handleDeleteClick} dimmed={false} />
+          </Link>
         ))}
 
         {past.length > 0 && upcoming.length > 0 && (
@@ -307,7 +310,9 @@ export default function Events() {
         )}
 
         {past.map((event) => (
-          <EventCard key={event.id} event={event} canEdit={canEdit} onDelete={handleDeleteClick} dimmed />
+          <Link key={event.id} href={`/events/${event.id}`}>
+            <EventCard event={event} canEdit={canEdit} onDelete={handleDeleteClick} dimmed />
+          </Link>
         ))}
 
         {filteredEvents.length === 0 && (
@@ -439,7 +444,7 @@ function EventCard({
 
   return (
     <div
-      className={`bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors ${
+      className={`bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors cursor-pointer ${
         dimmed ? "opacity-60" : ""
       }`}
     >
@@ -507,7 +512,14 @@ function EventCard({
             <p className="text-gray-400 text-xs">checked in</p>
           </div>
           {canEdit && (
-            <button onClick={() => onDelete(event)} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete(event);
+              }}
+              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+            >
               <Trash2 className="w-4 h-4" />
             </button>
           )}

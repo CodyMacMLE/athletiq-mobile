@@ -1,3 +1,11 @@
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  GET_ORGANIZATION_LEADERBOARD,
+  GET_TEAM_LEADERBOARD,
+  GET_TEAM_RANKINGS,
+  GET_USER_STATS,
+} from "@/lib/graphql/queries";
+import { useQuery } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -5,6 +13,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,101 +21,73 @@ import {
   View,
 } from "react-native";
 
-type User = {
-  image?: string;
-  firstName: string;
-  lastName: string;
-};
-
-type TeamMember = {
-  id: string;
-  name: string;
-  image?: string;
-  attendancePercent: number; // % of required hours attended
-  hoursLogged: number;
-  hoursRequired: number;
-  isCurrentUser?: boolean;
-};
-
-type Team = {
-  id: string;
-  name: string;
-  attendancePercent: number;
-  memberCount: number;
-  isCurrentTeam?: boolean;
-};
+const AVATAR_SIZE = 45;
 
 type TimeRange = "week" | "month" | "all";
 
-const user: User = {
-  image: undefined,
-  firstName: "Cody",
-  lastName: "MacDonald",
+const TIME_RANGE_MAP: Record<TimeRange, string> = {
+  week: "WEEK",
+  month: "MONTH",
+  all: "ALL",
 };
-
-const AVATAR_SIZE = 45;
-
-// Mock user stats
-const userStats = {
-  // Hours this period
-  hoursLogged: 14.5,
-  hoursRequired: 16,
-  attendancePercent: 91,
-
-  // Rankings
-  teamRank: 3,
-  teamSize: 18,
-  orgRank: 12,
-  orgSize: 156,
-
-  // Streaks
-  currentStreak: 5,
-  bestStreak: 12,
-
-  // Team info
-  teamName: "Varsity",
-  teamAttendancePercent: 87,
-  teamOrgRank: 2,
-  totalTeams: 8,
-};
-
-// Mock team leaderboard (your teammates)
-const teamLeaderboard: TeamMember[] = [
-  { id: "1", name: "Sarah Chen", attendancePercent: 98, hoursLogged: 15.7, hoursRequired: 16 },
-  { id: "2", name: "Marcus Lee", attendancePercent: 94, hoursLogged: 15.0, hoursRequired: 16 },
-  { id: "3", name: "Cody MacDonald", attendancePercent: 91, hoursLogged: 14.5, hoursRequired: 16, isCurrentUser: true },
-  { id: "4", name: "Ava Torres", attendancePercent: 88, hoursLogged: 14.1, hoursRequired: 16 },
-  { id: "5", name: "Jake Wilson", attendancePercent: 85, hoursLogged: 13.6, hoursRequired: 16 },
-  { id: "6", name: "Emma Davis", attendancePercent: 82, hoursLogged: 13.1, hoursRequired: 16 },
-];
-
-// Mock organization leaderboard (top performers across all teams)
-const orgLeaderboard: TeamMember[] = [
-  { id: "1", name: "Alex Rivera", attendancePercent: 100, hoursLogged: 12, hoursRequired: 12 },
-  { id: "2", name: "Jordan Kim", attendancePercent: 99, hoursLogged: 19.8, hoursRequired: 20 },
-  { id: "3", name: "Sarah Chen", attendancePercent: 98, hoursLogged: 15.7, hoursRequired: 16 },
-  { id: "4", name: "Taylor Smith", attendancePercent: 97, hoursLogged: 9.7, hoursRequired: 10 },
-  { id: "5", name: "Casey Morgan", attendancePercent: 96, hoursLogged: 14.4, hoursRequired: 15 },
-];
-
-// Mock team rankings in organization
-const teamRankings: Team[] = [
-  { id: "1", name: "Junior Elite", attendancePercent: 94, memberCount: 12 },
-  { id: "2", name: "Varsity", attendancePercent: 87, memberCount: 18, isCurrentTeam: true },
-  { id: "3", name: "Development", attendancePercent: 85, memberCount: 24 },
-  { id: "4", name: "Masters", attendancePercent: 83, memberCount: 15 },
-  { id: "5", name: "Recreational", attendancePercent: 79, memberCount: 32 },
-];
 
 export default function Analytics() {
   const router = useRouter();
+  const { user, selectedOrganization, selectedTeamId } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>("week");
+
+  const apiTimeRange = TIME_RANGE_MAP[timeRange];
+
+  const { data: statsData, loading: statsLoading } = useQuery(GET_USER_STATS, {
+    variables: {
+      userId: user?.id,
+      organizationId: selectedOrganization?.id,
+      timeRange: apiTimeRange,
+    },
+    skip: !user?.id || !selectedOrganization?.id,
+  });
+
+  const { data: teamLbData, loading: teamLbLoading } = useQuery(GET_TEAM_LEADERBOARD, {
+    variables: {
+      teamId: selectedTeamId,
+      timeRange: apiTimeRange,
+      limit: 5,
+    },
+    skip: !selectedTeamId,
+  });
+
+  const { data: orgLbData, loading: orgLbLoading } = useQuery(GET_ORGANIZATION_LEADERBOARD, {
+    variables: {
+      organizationId: selectedOrganization?.id,
+      timeRange: apiTimeRange,
+      limit: 5,
+    },
+    skip: !selectedOrganization?.id,
+  });
+
+  const { data: teamRankData, loading: teamRankLoading } = useQuery(GET_TEAM_RANKINGS, {
+    variables: {
+      organizationId: selectedOrganization?.id,
+      timeRange: apiTimeRange,
+    },
+    skip: !selectedOrganization?.id,
+  });
+
+  const stats = statsData?.userStats;
+  const teamLeaderboard = teamLbData?.teamLeaderboard || [];
+  const orgLeaderboard = orgLbData?.organizationLeaderboard || [];
+  const teamRankings = teamRankData?.teamRankings || [];
+
+  // Find current user's team ranking
+  const currentTeamRanking = teamRankings.find((t: any) => t.team.id === selectedTeamId);
 
   const getPercentColor = (percent: number) => {
     if (percent >= 90) return "#27ae60";
     if (percent >= 75) return "#f39c12";
     return "#e74c3c";
   };
+
+  if (!user || !selectedOrganization) return null;
 
   return (
     <LinearGradient
@@ -166,48 +147,56 @@ export default function Analytics() {
         </View>
 
         {/* Attendance Overview Card */}
-        <View style={styles.overviewCard}>
-          <View style={styles.overviewMain}>
-            <View style={styles.percentCircle}>
-              <Text style={styles.percentValue}>{userStats.attendancePercent}%</Text>
-              <Text style={styles.percentLabel}>Attendance</Text>
-            </View>
-            <View style={styles.overviewDetails}>
-              <View style={styles.overviewRow}>
-                <Text style={styles.overviewLabel}>Hours Logged</Text>
-                <Text style={styles.overviewValue}>{userStats.hoursLogged}h</Text>
+        {statsLoading ? (
+          <View style={[styles.overviewCard, { alignItems: "center", paddingVertical: 40 }]}>
+            <ActivityIndicator color="#a855f7" />
+          </View>
+        ) : (
+          <View style={styles.overviewCard}>
+            <View style={styles.overviewMain}>
+              <View style={styles.percentCircle}>
+                <Text style={styles.percentValue}>{stats?.attendancePercent ?? 0}%</Text>
+                <Text style={styles.percentLabel}>Attendance</Text>
               </View>
-              <View style={styles.overviewRow}>
-                <Text style={styles.overviewLabel}>Hours Required</Text>
-                <Text style={styles.overviewValue}>{userStats.hoursRequired}h</Text>
-              </View>
-              <View style={styles.overviewRow}>
-                <Text style={styles.overviewLabel}>Current Streak</Text>
-                <View style={styles.streakValue}>
-                  <Feather name="zap" size={14} color="#f39c12" />
-                  <Text style={styles.overviewValue}>{userStats.currentStreak} days</Text>
+              <View style={styles.overviewDetails}>
+                <View style={styles.overviewRow}>
+                  <Text style={styles.overviewLabel}>Hours Logged</Text>
+                  <Text style={styles.overviewValue}>{stats?.hoursLogged ?? 0}h</Text>
+                </View>
+                <View style={styles.overviewRow}>
+                  <Text style={styles.overviewLabel}>Hours Required</Text>
+                  <Text style={styles.overviewValue}>{stats?.hoursRequired ?? 0}h</Text>
+                </View>
+                <View style={styles.overviewRow}>
+                  <Text style={styles.overviewLabel}>Current Streak</Text>
+                  <View style={styles.streakValue}>
+                    <Feather name="zap" size={14} color="#f39c12" />
+                    <Text style={styles.overviewValue}>{stats?.currentStreak ?? 0} days</Text>
+                  </View>
                 </View>
               </View>
             </View>
           </View>
-        </View>
+        )}
 
         {/* Rankings Summary */}
         <View style={styles.rankingsRow}>
           <View style={styles.rankCard}>
             <Text style={styles.rankCardLabel}>Team Rank</Text>
-            <Text style={styles.rankCardValue}>#{userStats.teamRank}</Text>
-            <Text style={styles.rankCardSub}>of {userStats.teamSize}</Text>
+            <Text style={styles.rankCardValue}>#{stats?.teamRank ?? "-"}</Text>
+            <Text style={styles.rankCardSub}>of {stats?.teamSize ?? "-"}</Text>
           </View>
           <View style={styles.rankCard}>
             <Text style={styles.rankCardLabel}>Org Rank</Text>
-            <Text style={styles.rankCardValue}>#{userStats.orgRank}</Text>
-            <Text style={styles.rankCardSub}>of {userStats.orgSize}</Text>
+            <Text style={styles.rankCardValue}>#{stats?.orgRank ?? "-"}</Text>
+            <Text style={styles.rankCardSub}>of {stats?.orgSize ?? "-"}</Text>
           </View>
           <View style={[styles.rankCard, styles.rankCardHighlight]}>
             <Text style={styles.rankCardLabel}>Team Standing</Text>
-            <Text style={styles.rankCardValue}>#{userStats.teamOrgRank}</Text>
-            <Text style={styles.rankCardSub}>of {userStats.totalTeams} teams</Text>
+            <Text style={styles.rankCardValue}>
+              #{currentTeamRanking?.rank ?? "-"}
+            </Text>
+            <Text style={styles.rankCardSub}>of {teamRankings.length || "-"} teams</Text>
           </View>
         </View>
 
@@ -216,75 +205,87 @@ export default function Analytics() {
           <View style={styles.sectionHeader}>
             <View>
               <Text style={styles.sectionTitle}>Team Leaderboard</Text>
-              <Text style={styles.sectionSubtitle}>{userStats.teamName}</Text>
             </View>
             <Pressable onPress={() => router.push("/leaderboard")}>
               <Text style={styles.seeAll}>See All</Text>
             </Pressable>
           </View>
 
-          <View style={styles.leaderboardContainer}>
-            {teamLeaderboard.slice(0, 5).map((entry, index) => (
-              <View
-                key={entry.id}
-                style={[
-                  styles.leaderboardItem,
-                  entry.isCurrentUser && styles.leaderboardItemHighlight,
-                  index < teamLeaderboard.slice(0, 5).length - 1 &&
-                    styles.leaderboardItemBorder,
-                ]}
-              >
-                <View style={styles.leaderboardRank}>
-                  {index < 3 ? (
-                    <View
-                      style={[
-                        styles.medalBadge,
-                        index === 0 && styles.medalGold,
-                        index === 1 && styles.medalSilver,
-                        index === 2 && styles.medalBronze,
-                      ]}
-                    >
-                      <Text style={styles.medalText}>{index + 1}</Text>
+          {teamLbLoading ? (
+            <View style={[styles.leaderboardContainer, { paddingVertical: 24, alignItems: "center" }]}>
+              <ActivityIndicator color="#a855f7" />
+            </View>
+          ) : teamLeaderboard.length === 0 ? (
+            <View style={[styles.leaderboardContainer, { paddingVertical: 24, alignItems: "center" }]}>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>No data yet</Text>
+            </View>
+          ) : (
+            <View style={styles.leaderboardContainer}>
+              {teamLeaderboard.map((entry: any, index: number) => {
+                const isCurrentUser = entry.user.id === user.id;
+                return (
+                  <View
+                    key={entry.user.id}
+                    style={[
+                      styles.leaderboardItem,
+                      isCurrentUser && styles.leaderboardItemHighlight,
+                      index < teamLeaderboard.length - 1 &&
+                        styles.leaderboardItemBorder,
+                    ]}
+                  >
+                    <View style={styles.leaderboardRank}>
+                      {index < 3 ? (
+                        <View
+                          style={[
+                            styles.medalBadge,
+                            index === 0 && styles.medalGold,
+                            index === 1 && styles.medalSilver,
+                            index === 2 && styles.medalBronze,
+                          ]}
+                        >
+                          <Text style={styles.medalText}>{entry.rank}</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.rankText}>{entry.rank}</Text>
+                      )}
                     </View>
-                  ) : (
-                    <Text style={styles.rankText}>{index + 1}</Text>
-                  )}
-                </View>
 
-                <View style={styles.leaderboardAvatar}>
-                  <Text style={styles.leaderboardAvatarText}>
-                    {entry.name.split(" ").map((n) => n[0]).join("")}
-                  </Text>
-                </View>
+                    <View style={styles.leaderboardAvatar}>
+                      <Text style={styles.leaderboardAvatarText}>
+                        {entry.user.firstName?.[0]}{entry.user.lastName?.[0]}
+                      </Text>
+                    </View>
 
-                <View style={styles.leaderboardInfo}>
-                  <Text
-                    style={[
-                      styles.leaderboardName,
-                      entry.isCurrentUser && styles.leaderboardNameHighlight,
-                    ]}
-                  >
-                    {entry.name}
-                    {entry.isCurrentUser && " (You)"}
-                  </Text>
-                  <Text style={styles.leaderboardHours}>
-                    {entry.hoursLogged}h / {entry.hoursRequired}h
-                  </Text>
-                </View>
+                    <View style={styles.leaderboardInfo}>
+                      <Text
+                        style={[
+                          styles.leaderboardName,
+                          isCurrentUser && styles.leaderboardNameHighlight,
+                        ]}
+                      >
+                        {entry.user.firstName} {entry.user.lastName}
+                        {isCurrentUser && " (You)"}
+                      </Text>
+                      <Text style={styles.leaderboardHours}>
+                        {entry.hoursLogged}h / {entry.hoursRequired}h
+                      </Text>
+                    </View>
 
-                <View style={styles.leaderboardRate}>
-                  <Text
-                    style={[
-                      styles.leaderboardRateValue,
-                      { color: getPercentColor(entry.attendancePercent) },
-                    ]}
-                  >
-                    {entry.attendancePercent}%
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
+                    <View style={styles.leaderboardRate}>
+                      <Text
+                        style={[
+                          styles.leaderboardRateValue,
+                          { color: getPercentColor(entry.attendancePercent) },
+                        ]}
+                      >
+                        {entry.attendancePercent}%
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         {/* Organization Leaderboard */}
@@ -296,58 +297,70 @@ export default function Analytics() {
             </View>
           </View>
 
-          <View style={styles.leaderboardContainer}>
-            {orgLeaderboard.map((entry, index) => (
-              <View
-                key={entry.id}
-                style={[
-                  styles.leaderboardItem,
-                  index < orgLeaderboard.length - 1 && styles.leaderboardItemBorder,
-                ]}
-              >
-                <View style={styles.leaderboardRank}>
-                  {index < 3 ? (
-                    <View
+          {orgLbLoading ? (
+            <View style={[styles.leaderboardContainer, { paddingVertical: 24, alignItems: "center" }]}>
+              <ActivityIndicator color="#a855f7" />
+            </View>
+          ) : orgLeaderboard.length === 0 ? (
+            <View style={[styles.leaderboardContainer, { paddingVertical: 24, alignItems: "center" }]}>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>No data yet</Text>
+            </View>
+          ) : (
+            <View style={styles.leaderboardContainer}>
+              {orgLeaderboard.map((entry: any, index: number) => (
+                <View
+                  key={entry.user.id}
+                  style={[
+                    styles.leaderboardItem,
+                    index < orgLeaderboard.length - 1 && styles.leaderboardItemBorder,
+                  ]}
+                >
+                  <View style={styles.leaderboardRank}>
+                    {index < 3 ? (
+                      <View
+                        style={[
+                          styles.medalBadge,
+                          index === 0 && styles.medalGold,
+                          index === 1 && styles.medalSilver,
+                          index === 2 && styles.medalBronze,
+                        ]}
+                      >
+                        <Text style={styles.medalText}>{entry.rank}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.rankText}>{entry.rank}</Text>
+                    )}
+                  </View>
+
+                  <View style={styles.leaderboardAvatar}>
+                    <Text style={styles.leaderboardAvatarText}>
+                      {entry.user.firstName?.[0]}{entry.user.lastName?.[0]}
+                    </Text>
+                  </View>
+
+                  <View style={styles.leaderboardInfo}>
+                    <Text style={styles.leaderboardName}>
+                      {entry.user.firstName} {entry.user.lastName}
+                    </Text>
+                    <Text style={styles.leaderboardHours}>
+                      {entry.hoursLogged}h / {entry.hoursRequired}h
+                    </Text>
+                  </View>
+
+                  <View style={styles.leaderboardRate}>
+                    <Text
                       style={[
-                        styles.medalBadge,
-                        index === 0 && styles.medalGold,
-                        index === 1 && styles.medalSilver,
-                        index === 2 && styles.medalBronze,
+                        styles.leaderboardRateValue,
+                        { color: getPercentColor(entry.attendancePercent) },
                       ]}
                     >
-                      <Text style={styles.medalText}>{index + 1}</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.rankText}>{index + 1}</Text>
-                  )}
+                      {entry.attendancePercent}%
+                    </Text>
+                  </View>
                 </View>
-
-                <View style={styles.leaderboardAvatar}>
-                  <Text style={styles.leaderboardAvatarText}>
-                    {entry.name.split(" ").map((n) => n[0]).join("")}
-                  </Text>
-                </View>
-
-                <View style={styles.leaderboardInfo}>
-                  <Text style={styles.leaderboardName}>{entry.name}</Text>
-                  <Text style={styles.leaderboardHours}>
-                    {entry.hoursLogged}h / {entry.hoursRequired}h
-                  </Text>
-                </View>
-
-                <View style={styles.leaderboardRate}>
-                  <Text
-                    style={[
-                      styles.leaderboardRateValue,
-                      { color: getPercentColor(entry.attendancePercent) },
-                    ]}
-                  >
-                    {entry.attendancePercent}%
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Team Rankings */}
@@ -359,65 +372,82 @@ export default function Analytics() {
             </View>
           </View>
 
-          <View style={styles.leaderboardContainer}>
-            {teamRankings.map((team, index) => (
-              <View
-                key={team.id}
-                style={[
-                  styles.leaderboardItem,
-                  team.isCurrentTeam && styles.leaderboardItemHighlight,
-                  index < teamRankings.length - 1 && styles.leaderboardItemBorder,
-                ]}
-              >
-                <View style={styles.leaderboardRank}>
-                  {index < 3 ? (
-                    <View
-                      style={[
-                        styles.medalBadge,
-                        index === 0 && styles.medalGold,
-                        index === 1 && styles.medalSilver,
-                        index === 2 && styles.medalBronze,
-                      ]}
-                    >
-                      <Text style={styles.medalText}>{index + 1}</Text>
+          {teamRankLoading ? (
+            <View style={[styles.leaderboardContainer, { paddingVertical: 24, alignItems: "center" }]}>
+              <ActivityIndicator color="#a855f7" />
+            </View>
+          ) : teamRankings.length === 0 ? (
+            <View style={[styles.leaderboardContainer, { paddingVertical: 24, alignItems: "center" }]}>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>No data yet</Text>
+            </View>
+          ) : (
+            <View style={styles.leaderboardContainer}>
+              {teamRankings.map((team: any, index: number) => {
+                const isCurrentTeam = team.team.id === selectedTeamId;
+                return (
+                  <View
+                    key={team.team.id}
+                    style={[
+                      styles.leaderboardItem,
+                      isCurrentTeam && styles.leaderboardItemHighlight,
+                      index < teamRankings.length - 1 && styles.leaderboardItemBorder,
+                    ]}
+                  >
+                    <View style={styles.leaderboardRank}>
+                      {index < 3 ? (
+                        <View
+                          style={[
+                            styles.medalBadge,
+                            index === 0 && styles.medalGold,
+                            index === 1 && styles.medalSilver,
+                            index === 2 && styles.medalBronze,
+                          ]}
+                        >
+                          <Text style={styles.medalText}>{team.rank}</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.rankText}>{team.rank}</Text>
+                      )}
                     </View>
-                  ) : (
-                    <Text style={styles.rankText}>{index + 1}</Text>
-                  )}
-                </View>
 
-                <View style={styles.teamIcon}>
-                  <Feather name="users" size={16} color="rgba(255,255,255,0.6)" />
-                </View>
+                    <View style={[styles.teamIcon, team.team.color ? { backgroundColor: team.team.color + "33" } : undefined]}>
+                      {team.team.color ? (
+                        <View style={[styles.teamColorDot, { backgroundColor: team.team.color }]} />
+                      ) : (
+                        <Feather name="users" size={16} color="rgba(255,255,255,0.6)" />
+                      )}
+                    </View>
 
-                <View style={styles.leaderboardInfo}>
-                  <Text
-                    style={[
-                      styles.leaderboardName,
-                      team.isCurrentTeam && styles.leaderboardNameHighlight,
-                    ]}
-                  >
-                    {team.name}
-                    {team.isCurrentTeam && " (Your Team)"}
-                  </Text>
-                  <Text style={styles.leaderboardHours}>
-                    {team.memberCount} members
-                  </Text>
-                </View>
+                    <View style={styles.leaderboardInfo}>
+                      <Text
+                        style={[
+                          styles.leaderboardName,
+                          isCurrentTeam && styles.leaderboardNameHighlight,
+                        ]}
+                      >
+                        {team.team.name}
+                        {isCurrentTeam && " (Your Team)"}
+                      </Text>
+                      <Text style={styles.leaderboardHours}>
+                        {[team.team.sport, team.team.season, `${team.team.memberCount} members`].filter(Boolean).join(" · ")}
+                      </Text>
+                    </View>
 
-                <View style={styles.leaderboardRate}>
-                  <Text
-                    style={[
-                      styles.leaderboardRateValue,
-                      { color: getPercentColor(team.attendancePercent) },
-                    ]}
-                  >
-                    {team.attendancePercent}%
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
+                    <View style={styles.leaderboardRate}>
+                      <Text
+                        style={[
+                          styles.leaderboardRateValue,
+                          { color: getPercentColor(team.attendancePercent) },
+                        ]}
+                      >
+                        {team.attendancePercent}%
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
     </LinearGradient>
@@ -695,6 +725,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.1)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  teamColorDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
   },
   leaderboardInfo: {
     flex: 1,

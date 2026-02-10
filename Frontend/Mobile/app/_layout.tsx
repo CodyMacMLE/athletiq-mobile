@@ -1,40 +1,67 @@
 import { ApolloProvider } from "@apollo/client";
 import { Stack } from "expo-router";
+import { ActivityIndicator, View } from "react-native";
 import { apolloClient } from "@/lib/apollo";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+
+function RootNavigator() {
+  const { isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#1a1640" }}>
+        <ActivityIndicator size="large" color="#a855f7" />
+      </View>
+    );
+  }
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen
+        name="login"
+        options={{ animation: "none" }}
+      />
+      <Stack.Screen
+        name="checkin"
+        options={{
+          presentation: "fullScreenModal",
+          animation: "slide_from_bottom",
+        }}
+      />
+      <Stack.Screen
+        name="activity"
+        options={{
+          animation: "slide_from_right",
+        }}
+      />
+      <Stack.Screen
+        name="checkin-history"
+        options={{
+          animation: "slide_from_right",
+        }}
+      />
+      <Stack.Screen
+        name="leaderboard"
+        options={{
+          animation: "slide_from_right",
+        }}
+      />
+      <Stack.Screen
+        name="nfc-setup"
+        options={{
+          animation: "slide_from_right",
+        }}
+      />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   return (
     <ApolloProvider client={apolloClient}>
       <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="checkin"
-            options={{
-              presentation: "fullScreenModal",
-              animation: "slide_from_bottom",
-            }}
-          />
-          <Stack.Screen
-            name="activity"
-            options={{
-              animation: "slide_from_right",
-            }}
-          />
-          <Stack.Screen
-            name="checkin-history"
-            options={{
-              animation: "slide_from_right",
-            }}
-          />
-          <Stack.Screen
-            name="leaderboard"
-            options={{
-              animation: "slide_from_right",
-            }}
-          />
-        </Stack>
+        <RootNavigator />
       </AuthProvider>
     </ApolloProvider>
   );

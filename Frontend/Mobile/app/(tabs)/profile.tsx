@@ -1,10 +1,14 @@
-import { User } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { UPDATE_USER } from "@/lib/graphql/mutations";
+import { useMutation } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -19,20 +23,10 @@ import {
 
 const AVATAR_SIZE = 90;
 
-// Mock initial user data
-const initialUser: User = {
-  image: undefined,
-  firstName: "Cody",
-  lastName: "MacDonald",
-  email: "cody@example.com",
-  phone: "123-456-7890",
-  address: "123 Main St",
-  city: "Vancouver",
-  country: "Canada",
-};
+type EditableKey = "firstName" | "lastName" | "email" | "phone" | "address" | "city" | "country";
 
 type EditField = {
-  key: keyof User;
+  key: EditableKey;
   label: string;
   placeholder: string;
   keyboardType?: "default" | "email-address" | "phone-pad";
@@ -49,23 +43,37 @@ const EDITABLE_FIELDS: EditField[] = [
 ];
 
 export default function Profile() {
-  const [user, setUser] = useState<User>(initialUser);
+  const router = useRouter();
+  const { user, logout, isOrgAdmin, refetchUser } = useAuth();
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingField, setEditingField] = useState<EditField | null>(null);
   const [editValue, setEditValue] = useState("");
 
+  const [updateUser, { loading: saving }] = useMutation(UPDATE_USER);
+
+  if (!user) return null;
+
   const handleEditPress = (field: EditField) => {
     setEditingField(field);
-    setEditValue(user[field.key] || "");
+    setEditValue((user as Record<string, any>)[field.key] || "");
     setEditModalVisible(true);
   };
 
-  const handleSave = () => {
-    if (editingField) {
-      setUser({ ...user, [editingField.key]: editValue });
+  const handleSave = async () => {
+    if (!editingField || !user) return;
+    try {
+      await updateUser({
+        variables: {
+          id: user.id,
+          input: { [editingField.key]: editValue },
+        },
+      });
+      refetchUser();
       setEditModalVisible(false);
       setEditingField(null);
       setEditValue("");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to save changes");
     }
   };
 
@@ -75,7 +83,7 @@ export default function Profile() {
       "Are you sure you want to log out?",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Log Out", style: "destructive", onPress: () => console.log("Logged out") },
+        { text: "Log Out", style: "destructive", onPress: () => logout() },
       ]
     );
   };
@@ -125,10 +133,15 @@ export default function Profile() {
                 <Text style={styles.editButtonCancelText}>Cancel</Text>
               </Pressable>
               <Pressable
-                style={[styles.editButton, styles.editButtonSave]}
+                style={[styles.editButton, styles.editButtonSave, saving && { opacity: 0.7 }]}
                 onPress={handleSave}
+                disabled={saving}
               >
-                <Text style={styles.editButtonSaveText}>Save</Text>
+                {saving ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.editButtonSaveText}>Save</Text>
+                )}
               </Pressable>
             </View>
           </View>
@@ -187,10 +200,10 @@ export default function Profile() {
                   <Text
                     style={[
                       styles.fieldValue,
-                      !user[field.key] && styles.fieldValueEmpty,
+                      !(user as Record<string, any>)[field.key] && styles.fieldValueEmpty,
                     ]}
                   >
-                    {user[field.key] || "Not set"}
+                    {(user as Record<string, any>)[field.key] || "Not set"}
                   </Text>
                 </View>
                 <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
@@ -203,6 +216,25 @@ export default function Profile() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Settings</Text>
           <View style={styles.fieldList}>
+            {isOrgAdmin && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.fieldItem,
+                  styles.fieldItemBorder,
+                  pressed && styles.fieldItemPressed,
+                ]}
+                onPress={() => router.push("/nfc-setup")}
+              >
+                <View style={styles.fieldIconContainer}>
+                  <Feather name="smartphone" size={18} color="#a855f7" />
+                </View>
+                <View style={styles.fieldContent}>
+                  <Text style={styles.fieldLabel}>NFC Tags</Text>
+                </View>
+                <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
+              </Pressable>
+            )}
+
             <Pressable
               style={({ pressed }) => [
                 styles.fieldItem,

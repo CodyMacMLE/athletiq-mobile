@@ -104,6 +104,35 @@ function generateRecurringDates(
   return dates;
 }
 
+// Build a map of userId -> Set<teamId> for non-athlete memberships in an org.
+// Used to exclude non-athlete check-ins on a per-event-team basis so that a user
+// who coaches Team A but is an athlete on Team B still has Team B data counted.
+async function getNonAthleteTeamMap(organizationId: string): Promise<Map<string, Set<string>>> {
+  const nonAthleteMemberships = await prisma.teamMember.findMany({
+    where: { team: { organizationId }, role: { notIn: ["MEMBER", "CAPTAIN"] } },
+    select: { userId: true, teamId: true },
+  });
+  const map = new Map<string, Set<string>>();
+  for (const m of nonAthleteMemberships) {
+    if (!map.has(m.userId)) map.set(m.userId, new Set());
+    map.get(m.userId)!.add(m.teamId);
+  }
+  return map;
+}
+
+// Returns true if a check-in should count toward athlete attendance analytics.
+// Excludes check-ins where the user is not an athlete (MEMBER/CAPTAIN) on the event's team.
+// Check-ins for org-wide events (no team) are always included.
+function isAthleteCheckIn(
+  checkIn: { userId: string; event: { teamId: string | null } },
+  nonAthleteTeamMap: Map<string, Set<string>>
+): boolean {
+  if (!checkIn.event.teamId) return true;
+  const nonAthleteTeams = nonAthleteTeamMap.get(checkIn.userId);
+  if (!nonAthleteTeams) return true;
+  return !nonAthleteTeams.has(checkIn.event.teamId);
+}
+
 export const resolvers = {
   Query: {
     // User queries
@@ -144,7 +173,7 @@ export const resolvers = {
     },
 
     teams: async (_: unknown, { organizationId }: { organizationId: string }) => {
-      return prisma.team.findMany({ where: { organizationId } });
+      return prisma.team.findMany({ where: { organizationId, deletedAt: null } });
     },
 
     // Event queries
@@ -198,6 +227,11 @@ export const resolvers = {
       return prisma.invite.findUnique({ where: { token } });
     },
 
+    // NFC queries
+    organizationNfcTags: async (_: unknown, { organizationId }: { organizationId: string }) => {
+      return prisma.nfcTag.findMany({ where: { organizationId, isActive: true } });
+    },
+
     // Check-in queries
     checkIn: async (_: unknown, { id }: { id: string }) => {
       return prisma.checkIn.findUnique({ where: { id } });
@@ -223,10 +257,10 @@ export const resolvers = {
         where: { id: eventId },
         include: {
           participatingTeams: {
-            include: { members: { include: { user: true } } },
+            include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } }, include: { user: true } } },
           },
           team: {
-            include: { members: { include: { user: true } } },
+            include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } }, include: { user: true } } },
           },
         },
       });
@@ -284,44 +318,50 @@ export const resolvers = {
       _: unknown,
       { organizationId, limit, offset }: { organizationId: string; limit?: number; offset?: number }
     ) => {
-      return prisma.checkIn.findMany({
+      const coachTeamMap = await getNonAthleteTeamMap(organizationId);
+      const checkIns = await prisma.checkIn.findMany({
         where: {
           event: { organizationId },
           status: { in: ["ON_TIME", "LATE"] },
         },
         orderBy: { createdAt: "desc" },
-        take: limit || 30,
-        skip: offset || 0,
+        include: { event: { select: { teamId: true } } },
       });
+      const filtered = checkIns.filter(c => isAthleteCheckIn(c, coachTeamMap));
+      return filtered.slice(offset || 0, (offset || 0) + (limit || 30));
     },
 
     absentExcusedLog: async (
       _: unknown,
       { organizationId, limit, offset }: { organizationId: string; limit?: number; offset?: number }
     ) => {
-      return prisma.checkIn.findMany({
+      const coachTeamMap = await getNonAthleteTeamMap(organizationId);
+      const checkIns = await prisma.checkIn.findMany({
         where: {
           event: { organizationId },
           status: { in: ["ABSENT", "EXCUSED"] },
         },
         orderBy: { createdAt: "desc" },
-        take: limit || 30,
-        skip: offset || 0,
+        include: { event: { select: { teamId: true } } },
       });
+      const filtered = checkIns.filter(c => isAthleteCheckIn(c, coachTeamMap));
+      return filtered.slice(offset || 0, (offset || 0) + (limit || 30));
     },
 
     allAttendanceRecords: async (
       _: unknown,
       { organizationId, limit, offset }: { organizationId: string; limit?: number; offset?: number }
     ) => {
-      return prisma.checkIn.findMany({
+      const coachTeamMap = await getNonAthleteTeamMap(organizationId);
+      const checkIns = await prisma.checkIn.findMany({
         where: {
           event: { organizationId },
         },
         orderBy: { createdAt: "desc" },
-        take: limit || 100,
-        skip: offset || 0,
+        include: { event: { select: { teamId: true } } },
       });
+      const filtered = checkIns.filter(c => isAthleteCheckIn(c, coachTeamMap));
+      return filtered.slice(offset || 0, (offset || 0) + (limit || 100));
     },
 
     attendanceInsights: async (
@@ -329,15 +369,24 @@ export const resolvers = {
       { organizationId, timeRange }: { organizationId: string; timeRange?: string }
     ) => {
       const { startDate, endDate } = getDateRange(timeRange);
-      const where = { event: { organizationId, date: { gte: startDate, lte: endDate } } };
+      const coachTeamMap = await getNonAthleteTeamMap(organizationId);
 
-      const [onTimeCount, lateCount, absentCount, excusedCount, eventCount] = await Promise.all([
-        prisma.checkIn.count({ where: { ...where, status: "ON_TIME" } }),
-        prisma.checkIn.count({ where: { ...where, status: "LATE" } }),
-        prisma.checkIn.count({ where: { ...where, status: "ABSENT" } }),
-        prisma.checkIn.count({ where: { ...where, status: "EXCUSED" } }),
-        prisma.event.count({ where: { organizationId, date: { gte: startDate, lte: endDate } } }),
-      ]);
+      const allCheckIns = await prisma.checkIn.findMany({
+        where: {
+          event: { organizationId, date: { gte: startDate, lte: endDate } },
+        },
+        include: { event: { select: { teamId: true } } },
+      });
+
+      const filtered = allCheckIns.filter(c => isAthleteCheckIn(c, coachTeamMap));
+
+      const onTimeCount = filtered.filter(c => c.status === "ON_TIME").length;
+      const lateCount = filtered.filter(c => c.status === "LATE").length;
+      const absentCount = filtered.filter(c => c.status === "ABSENT").length;
+      const excusedCount = filtered.filter(c => c.status === "EXCUSED").length;
+      const eventCount = await prisma.event.count({
+        where: { organizationId, date: { gte: startDate, lte: endDate } },
+      });
 
       const totalExpected = onTimeCount + lateCount + absentCount + excusedCount;
       const attendanceRate = totalExpected > 0 ? (onTimeCount + lateCount) / totalExpected : 0;
@@ -418,7 +467,7 @@ export const resolvers = {
       const { startDate, endDate } = getDateRange(timeRange);
 
       const members = await prisma.teamMember.findMany({
-        where: { teamId },
+        where: { teamId, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
         include: {
           user: true,
           team: true,
@@ -464,7 +513,7 @@ export const resolvers = {
       const { startDate, endDate } = getDateRange(timeRange);
 
       const members = await prisma.teamMember.findMany({
-        where: { team: { organizationId } },
+        where: { team: { organizationId }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
         include: {
           user: true,
           team: true,
@@ -511,17 +560,19 @@ export const resolvers = {
     ) => {
       const teams = await prisma.team.findMany({
         where: { organizationId },
-        include: { members: true },
+        include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } } } },
       });
 
       const { startDate, endDate } = getDateRange(timeRange);
 
       const rankings = await Promise.all(
         teams.map(async (team) => {
+          const athleteUserIds = team.members.map(m => m.userId);
           const checkIns = await prisma.checkIn.findMany({
             where: {
               event: { teamId: team.id },
               createdAt: { gte: startDate, lte: endDate },
+              userId: { in: athleteUserIds },
             },
           });
 
@@ -744,16 +795,44 @@ export const resolvers = {
     },
 
     // Team mutations
-    createTeam: async (_: unknown, { input }: { input: { name: string; organizationId: string } }) => {
+    createTeam: async (_: unknown, { input }: { input: { name: string; season: string; sport?: string; color?: string; description?: string; organizationId: string } }) => {
       return prisma.team.create({ data: input });
     },
 
-    updateTeam: async (_: unknown, { id, name }: { id: string; name?: string }) => {
-      return prisma.team.update({ where: { id }, data: { name } });
+    updateTeam: async (_: unknown, { id, name, season, sport, color, description }: { id: string; name?: string; season?: string; sport?: string; color?: string; description?: string }) => {
+      return prisma.team.update({
+        where: { id },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(season !== undefined && { season }),
+          ...(sport !== undefined && { sport }),
+          ...(color !== undefined && { color }),
+          ...(description !== undefined && { description }),
+        },
+      });
     },
 
     deleteTeam: async (_: unknown, { id }: { id: string }) => {
-      await prisma.team.delete({ where: { id } });
+      await prisma.$transaction(async (tx) => {
+        // Remove all team members
+        await tx.teamMember.deleteMany({ where: { teamId: id } });
+        // Disconnect from any participatingEvents join table
+        const participatingEvents = await tx.event.findMany({
+          where: { participatingTeams: { some: { id } } },
+          select: { id: true },
+        });
+        for (const event of participatingEvents) {
+          await tx.event.update({
+            where: { id: event.id },
+            data: { participatingTeams: { disconnect: { id } } },
+          });
+        }
+        // Soft-delete the team
+        await tx.team.update({
+          where: { id },
+          data: { deletedAt: new Date() },
+        });
+      });
       return true;
     },
 
@@ -989,10 +1068,10 @@ export const resolvers = {
         },
         include: {
           participatingTeams: {
-            include: { members: { select: { userId: true } } },
+            include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } }, select: { userId: true } } },
           },
           team: {
-            include: { members: { select: { userId: true } } },
+            include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } }, select: { userId: true } } },
           },
         },
       });
@@ -1204,7 +1283,11 @@ export const resolvers = {
           },
         });
 
-        // Add to teams
+        // Add to teams with role derived from invite org role
+        const teamRole: TeamRole =
+          invite.role === "COACH" ? "COACH" :
+          invite.role === "MANAGER" ? "ADMIN" :
+          "MEMBER";
         for (const teamId of invite.teamIds) {
           await tx.teamMember.upsert({
             where: { userId_teamId: { userId: context.userId!, teamId } },
@@ -1212,7 +1295,7 @@ export const resolvers = {
             create: {
               userId: context.userId!,
               teamId,
-              role: "MEMBER",
+              role: teamRole,
             },
           });
         }
@@ -1261,6 +1344,186 @@ export const resolvers = {
       }
 
       return invite;
+    },
+
+    // NFC mutations
+    registerNfcTag: async (
+      _: unknown,
+      { input }: { input: { token: string; name: string; organizationId: string } },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Verify caller is OWNER or MANAGER of the org
+      const membership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId: input.organizationId } },
+      });
+      if (!membership || (membership.role !== "OWNER" && membership.role !== "MANAGER")) {
+        throw new Error("Only owners and managers can register NFC tags");
+      }
+
+      // Check for duplicate token
+      const existing = await prisma.nfcTag.findUnique({ where: { token: input.token } });
+      if (existing) throw new Error("A tag with this token already exists");
+
+      return prisma.nfcTag.create({
+        data: {
+          token: input.token,
+          name: input.name,
+          organizationId: input.organizationId,
+          createdBy: context.userId,
+        },
+      });
+    },
+
+    deactivateNfcTag: async (
+      _: unknown,
+      { id }: { id: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const tag = await prisma.nfcTag.findUnique({ where: { id } });
+      if (!tag) throw new Error("NFC tag not found");
+
+      // Verify caller is OWNER or MANAGER of the tag's org
+      const membership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId: tag.organizationId } },
+      });
+      if (!membership || (membership.role !== "OWNER" && membership.role !== "MANAGER")) {
+        throw new Error("Only owners and managers can deactivate NFC tags");
+      }
+
+      return prisma.nfcTag.update({ where: { id }, data: { isActive: false } });
+    },
+
+    nfcCheckIn: async (
+      _: unknown,
+      { token }: { token: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // 1. Look up NFC tag by token
+      const tag = await prisma.nfcTag.findUnique({ where: { token } });
+      if (!tag) throw new Error("Unrecognized tag");
+      if (!tag.isActive) throw new Error("Tag deactivated");
+
+      // 2. Verify user is org member
+      const orgMembership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId: tag.organizationId } },
+      });
+      if (!orgMembership) throw new Error("You are not a member of this organization");
+
+      // 3. Get user's teamIds in this org
+      const teamMemberships = await prisma.teamMember.findMany({
+        where: { userId: context.userId, team: { organizationId: tag.organizationId } },
+        select: { teamId: true },
+      });
+      const teamIds = teamMemberships.map((m) => m.teamId);
+
+      // 4. Find today's events matching those teams
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(now);
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const todaysEvents = await prisma.event.findMany({
+        where: {
+          organizationId: tag.organizationId,
+          date: { gte: todayStart, lte: todayEnd },
+          OR: [
+            { teamId: { in: teamIds } },
+            { participatingTeams: { some: { id: { in: teamIds } } } },
+            { teamId: null }, // org-wide events
+          ],
+        },
+        orderBy: { date: "asc" },
+      });
+
+      if (todaysEvents.length === 0) throw new Error("No events today");
+
+      // Find the best event: prefer one currently in check-in window, then next upcoming, then most recent past
+      let selectedEvent = null;
+      const CHECK_IN_WINDOW_MINUTES = 30;
+
+      for (const event of todaysEvents) {
+        const eventDate = new Date(event.date);
+        const start = parseTimeString(event.startTime);
+        const end = parseTimeString(event.endTime);
+
+        const eventStart = new Date(eventDate);
+        eventStart.setHours(start.hours, start.minutes, 0, 0);
+        const windowStart = new Date(eventStart.getTime() - CHECK_IN_WINDOW_MINUTES * 60 * 1000);
+
+        const eventEnd = new Date(eventDate);
+        eventEnd.setHours(end.hours, end.minutes, 0, 0);
+
+        if (now >= windowStart && now <= eventEnd) {
+          selectedEvent = event;
+          break;
+        }
+      }
+
+      if (!selectedEvent) {
+        // Fallback: next upcoming event today
+        for (const event of todaysEvents) {
+          const eventDate = new Date(event.date);
+          const start = parseTimeString(event.startTime);
+          const eventStart = new Date(eventDate);
+          eventStart.setHours(start.hours, start.minutes, 0, 0);
+          if (eventStart > now) {
+            selectedEvent = event;
+            break;
+          }
+        }
+      }
+
+      if (!selectedEvent) {
+        // Fallback: most recent past event today
+        selectedEvent = todaysEvents[todaysEvents.length - 1];
+      }
+
+      // 5. Toggle logic
+      const existingCheckIn = await prisma.checkIn.findUnique({
+        where: { userId_eventId: { userId: context.userId, eventId: selectedEvent.id } },
+      });
+
+      if (existingCheckIn) {
+        if (existingCheckIn.checkOutTime) {
+          throw new Error("Already checked out");
+        }
+        // Check out
+        if (!existingCheckIn.checkInTime) throw new Error("No check-in time recorded");
+        const hoursLogged = (now.getTime() - existingCheckIn.checkInTime.getTime()) / (1000 * 60 * 60);
+        const updatedCheckIn = await prisma.checkIn.update({
+          where: { id: existingCheckIn.id },
+          data: {
+            checkOutTime: now,
+            hoursLogged: Math.round(hoursLogged * 100) / 100,
+          },
+        });
+        return { checkIn: updatedCheckIn, action: "CHECKED_OUT", event: selectedEvent };
+      }
+
+      // Check in — determine ON_TIME vs LATE
+      const eventDate = new Date(selectedEvent.date);
+      const { hours, minutes } = parseTimeString(selectedEvent.startTime);
+      const eventStart = new Date(eventDate);
+      eventStart.setHours(hours, minutes, 0, 0);
+      const gracePeriod = 15 * 60 * 1000;
+      const status: AttendanceStatus = now.getTime() <= eventStart.getTime() + gracePeriod ? "ON_TIME" : "LATE";
+
+      const newCheckIn = await prisma.checkIn.create({
+        data: {
+          userId: context.userId,
+          eventId: selectedEvent.id,
+          status,
+          checkInTime: now,
+        },
+      });
+      return { checkIn: newCheckIn, action: "CHECKED_IN", event: selectedEvent };
     },
 
     // Excuse mutations
@@ -1318,12 +1581,14 @@ export const resolvers = {
   },
 
   Organization: {
-    teams: (parent: { id: string }) => prisma.team.findMany({ where: { organizationId: parent.id } }),
+    teams: (parent: { id: string }) => prisma.team.findMany({ where: { organizationId: parent.id, deletedAt: null } }),
     events: (parent: { id: string }) => prisma.event.findMany({ where: { organizationId: parent.id } }),
     members: (parent: { id: string }) =>
       prisma.organizationMember.findMany({ where: { organizationId: parent.id } }),
     invites: (parent: { id: string }) =>
       prisma.invite.findMany({ where: { organizationId: parent.id, status: "PENDING" } }),
+    nfcTags: (parent: { id: string }) =>
+      prisma.nfcTag.findMany({ where: { organizationId: parent.id, isActive: true } }),
     memberCount: async (parent: { id: string }) => {
       const count = await prisma.teamMember.count({
         where: { team: { organizationId: parent.id } },
@@ -1349,11 +1614,13 @@ export const resolvers = {
     memberCount: (parent: { id: string }) => prisma.teamMember.count({ where: { teamId: parent.id } }),
     attendancePercent: async (parent: { id: string }, { timeRange }: { timeRange?: string }) => {
       const { startDate, endDate } = getDateRange(timeRange);
-      const members = await prisma.teamMember.findMany({ where: { teamId: parent.id } });
+      const members = await prisma.teamMember.findMany({ where: { teamId: parent.id, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } } });
+      const athleteUserIds = members.map(m => m.userId);
       const checkIns = await prisma.checkIn.findMany({
         where: {
           event: { teamId: parent.id },
           createdAt: { gte: startDate, lte: endDate },
+          userId: { in: athleteUserIds },
         },
       });
       const totalHoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
@@ -1435,6 +1702,11 @@ export const resolvers = {
   },
 
   Invite: {
+    organization: (parent: { organizationId: string }) =>
+      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+  },
+
+  NfcTag: {
     organization: (parent: { organizationId: string }) =>
       prisma.organization.findUnique({ where: { id: parent.organizationId } }),
   },

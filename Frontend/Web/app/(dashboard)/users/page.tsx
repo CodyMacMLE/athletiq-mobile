@@ -3,16 +3,16 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
+import Link from "next/link";
 import {
   GET_ORGANIZATION_USERS,
   GET_TEAMS,
-  UPDATE_USER,
   REMOVE_ORG_MEMBER,
   CREATE_INVITE,
   CANCEL_INVITE,
   RESEND_INVITE,
 } from "@/lib/graphql";
-import { Search, Edit2, Trash2, X, UserPlus, Mail, RefreshCw, Clock } from "lucide-react";
+import { Search, Trash2, X, UserPlus, Mail, RefreshCw, Clock } from "lucide-react";
 
 type TeamAssignment = {
   id: string;
@@ -51,7 +51,6 @@ type Invite = {
 export default function UsersPage() {
   const { selectedOrganizationId, canEdit, isOwner, user: currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingMember, setEditingMember] = useState<OrgMember | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   const { data, loading, refetch } = useQuery(GET_ORGANIZATION_USERS, {
@@ -59,7 +58,6 @@ export default function UsersPage() {
     skip: !selectedOrganizationId,
   });
 
-  const [updateUser] = useMutation(UPDATE_USER);
   const [removeOrgMember] = useMutation(REMOVE_ORG_MEMBER);
   const [cancelInvite] = useMutation(CANCEL_INVITE);
   const [resendInvite] = useMutation(RESEND_INVITE);
@@ -68,11 +66,8 @@ export default function UsersPage() {
   const pendingInvites: Invite[] = data?.organization?.invites || [];
 
   const canRemoveMember = (member: OrgMember) => {
-    // Owner can never be removed
     if (member.role === "OWNER") return false;
-    // Only the owner can remove managers
     if (member.role === "MANAGER" && !isOwner) return false;
-    // Non-owners cannot remove themselves
     if (member.user.id === currentUser?.id && !isOwner) return false;
     return true;
   };
@@ -86,23 +81,9 @@ export default function UsersPage() {
     );
   });
 
-  const handleSaveUser = async (formData: any) => {
-    if (!editingMember) return;
-    try {
-      await updateUser({
-        variables: {
-          id: editingMember.user.id,
-          input: formData,
-        },
-      });
-      setEditingMember(null);
-      refetch();
-    } catch (error) {
-      console.error("Failed to update user:", error);
-    }
-  };
-
-  const handleDeleteUser = async (userId: string) => {
+  const handleDeleteUser = async (e: React.MouseEvent, userId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (!selectedOrganizationId) return;
     if (!confirm("Are you sure you want to remove this user from the organization?")) return;
     try {
@@ -206,9 +187,9 @@ export default function UsersPage() {
           </thead>
           <tbody className="divide-y divide-gray-700">
             {filteredMembers.map((member) => (
-              <tr key={member.id} className="hover:bg-gray-700/50 transition-colors">
+              <tr key={member.id} className="hover:bg-gray-700/50 transition-colors cursor-pointer">
                 <td className="px-6 py-4">
-                  <div className="flex items-center">
+                  <Link href={`/users/${member.user.id}`} className="flex items-center">
                     <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium">
                       {member.user.firstName[0]}
                       {member.user.lastName[0]}
@@ -219,42 +200,40 @@ export default function UsersPage() {
                       </p>
                       <p className="text-gray-400 text-sm">{member.user.email}</p>
                     </div>
-                  </div>
+                  </Link>
                 </td>
                 <td className="px-6 py-4">
-                  <span
-                    className={`px-2 py-1 text-xs font-medium rounded ${roleBadge(member.role)}`}
-                  >
-                    {member.role}
-                  </span>
+                  <Link href={`/users/${member.user.id}`}>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded ${roleBadge(member.role)}`}
+                    >
+                      {member.role}
+                    </span>
+                  </Link>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-1.5">
-                    {member.user.memberships.length > 0 ? (
-                      member.user.memberships.map((m) => (
-                        <span
-                          key={m.id}
-                          className="px-2 py-0.5 text-xs font-medium rounded bg-gray-700 text-gray-300"
-                        >
-                          {m.team.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-gray-500">No teams</span>
-                    )}
-                  </div>
+                  <Link href={`/users/${member.user.id}`}>
+                    <div className="flex flex-wrap gap-1.5">
+                      {member.user.memberships.length > 0 ? (
+                        member.user.memberships.map((m) => (
+                          <span
+                            key={m.id}
+                            className="px-2 py-0.5 text-xs font-medium rounded bg-gray-700 text-gray-300"
+                          >
+                            {m.team.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-gray-500">No teams</span>
+                      )}
+                    </div>
+                  </Link>
                 </td>
                 {canEdit && (
                   <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() => setEditingMember(member)}
-                      className="p-2 text-gray-400 hover:text-white transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
                     {canRemoveMember(member) && (
                       <button
-                        onClick={() => handleDeleteUser(member.user.id)}
+                        onClick={(e) => handleDeleteUser(e, member.user.id)}
                         className="p-2 text-gray-400 hover:text-red-500 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -355,15 +334,6 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* Edit Modal */}
-      {editingMember && (
-        <EditUserModal
-          member={editingMember}
-          onClose={() => setEditingMember(null)}
-          onSave={handleSaveUser}
-        />
-      )}
-
       {/* Invite User Modal */}
       {isInviteModalOpen && selectedOrganizationId && (
         <InviteUserModal
@@ -372,80 +342,6 @@ export default function UsersPage() {
           onSuccess={() => refetch()}
         />
       )}
-    </div>
-  );
-}
-
-function EditUserModal({
-  member,
-  onClose,
-  onSave,
-}: {
-  member: OrgMember;
-  onClose: () => void;
-  onSave: (data: any) => void;
-}) {
-  const [formData, setFormData] = useState({
-    firstName: member.user.firstName,
-    lastName: member.user.lastName,
-    phone: member.user.phone || "",
-  });
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl w-full max-w-md p-6 border border-gray-700">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">Edit User</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">First Name</label>
-            <input
-              type="text"
-              value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Last Name</label>
-            <input
-              type="text"
-              value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Phone</label>
-            <input
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end space-x-3 mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onSave(formData)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            Save Changes
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { Feather } from "@expo/vector-icons";
+import { useMutation } from "@apollo/client";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -12,24 +13,52 @@ import {
   Text,
   View,
 } from "react-native";
+import { NFC_CHECK_IN } from "@/lib/graphql";
+
 let NfcManager: any = null;
 let NfcTech: any = null;
+let Ndef: any = null;
 try {
   const nfc = require("react-native-nfc-manager");
   NfcManager = nfc.default;
   NfcTech = nfc.NfcTech;
+  Ndef = nfc.Ndef;
 } catch {
   // Native module not available (e.g. running in Expo Go)
 }
 
 type ScanState = "scanning" | "success" | "error";
+type CheckAction = "CHECKED_IN" | "CHECKED_OUT" | null;
+
+function extractNdefText(tag: any): string | null {
+  if (!tag?.ndefMessage?.length || !Ndef) return null;
+  for (const record of tag.ndefMessage) {
+    if (record.tnf === 1 && record.type?.length === 1 && record.type[0] === 0x54) {
+      // TNF_WELL_KNOWN + RTD_TEXT
+      const payload = record.payload;
+      if (!payload || payload.length < 2) continue;
+      const langCodeLen = payload[0] & 0x3f;
+      const text = Ndef.text.decodePayload(Uint8Array.from(payload));
+      if (text) return text;
+      // Fallback manual decode
+      const textBytes = payload.slice(1 + langCodeLen);
+      return String.fromCharCode(...textBytes);
+    }
+  }
+  return null;
+}
 
 export default function CheckIn() {
   const router = useRouter();
   const [scanState, setScanState] = useState<ScanState>("scanning");
   const [nfcSupported, setNfcSupported] = useState(true);
+  const [resultMessage, setResultMessage] = useState("");
+  const [resultDetails, setResultDetails] = useState("");
+  const [checkAction, setCheckAction] = useState<CheckAction>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(0.6)).current;
+
+  const [nfcCheckIn] = useMutation(NFC_CHECK_IN);
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -93,21 +122,87 @@ export default function CheckIn() {
   async function readTag() {
     if (!NfcManager) {
       setScanState("error");
+      setResultMessage("Scan Failed");
+      setResultDetails("NFC is not available");
       return;
     }
     setScanState("scanning");
+    setCheckAction(null);
     try {
       await NfcManager.requestTechnology(NfcTech.Ndef);
       const tag = await NfcManager.getTag();
-      if (tag) {
-        setScanState("success");
+
+      if (!tag) {
+        setScanState("error");
+        setResultMessage("Scan Failed");
+        setResultDetails("Could not read the NFC tag");
+        return;
       }
-    } catch {
+
+      const token = extractNdefText(tag);
+      if (!token) {
+        setScanState("error");
+        setResultMessage("Unrecognized Tag");
+        setResultDetails("This tag is not registered with Athletiq");
+        return;
+      }
+
+      // Call the nfcCheckIn mutation
+      const { data } = await nfcCheckIn({ variables: { token } });
+      const result = data.nfcCheckIn;
+      const action = result.action;
+      const event = result.event;
+      const checkIn = result.checkIn;
+
+      setCheckAction(action);
+      setScanState("success");
+
+      if (action === "CHECKED_IN") {
+        setResultMessage("Checked In!");
+        const statusLabel = checkIn.status === "ON_TIME" ? "On Time" : "Late";
+        setResultDetails(`${event.title} \u2022 ${statusLabel}`);
+      } else {
+        setResultMessage("Checked Out!");
+        const hours = checkIn.hoursLogged
+          ? `${checkIn.hoursLogged.toFixed(1)}h logged`
+          : "";
+        setResultDetails(`${event.title}${hours ? ` \u2022 ${hours}` : ""}`);
+      }
+    } catch (err: any) {
       setScanState("error");
+      const message = err?.message || "";
+      const gqlError = err?.graphQLErrors?.[0]?.message || message;
+
+      if (gqlError.includes("Unrecognized tag")) {
+        setResultMessage("Unrecognized Tag");
+        setResultDetails("This tag is not registered with Athletiq");
+      } else if (gqlError.includes("Tag deactivated")) {
+        setResultMessage("Tag Deactivated");
+        setResultDetails("This tag has been deactivated by an admin");
+      } else if (gqlError.includes("No events today")) {
+        setResultMessage("No Events Today");
+        setResultDetails("There are no events scheduled for today");
+      } else if (gqlError.includes("Already checked out")) {
+        setResultMessage("Already Checked Out");
+        setResultDetails("You have already checked in and out of this event");
+      } else if (gqlError.includes("not a member")) {
+        setResultMessage("Not a Member");
+        setResultDetails("You are not a member of this organization");
+      } else {
+        setResultMessage("Scan Failed");
+        setResultDetails("Could not read the NFC tag");
+      }
     } finally {
       NfcManager.cancelTechnologyRequest().catch(() => {});
     }
   }
+
+  const getIconName = (): keyof typeof Feather.glyphMap => {
+    if (scanState === "scanning") return "smartphone";
+    if (scanState === "error") return "alert-triangle";
+    if (checkAction === "CHECKED_OUT") return "log-out";
+    return "check";
+  };
 
   return (
     <LinearGradient
@@ -125,8 +220,7 @@ export default function CheckIn() {
       <View style={styles.content}>
         <Text style={styles.title}>
           {scanState === "scanning" && "Ready to Scan"}
-          {scanState === "success" && "Checked In!"}
-          {scanState === "error" && "Scan Failed"}
+          {scanState !== "scanning" && resultMessage}
         </Text>
         <Text style={styles.subtitle}>
           {scanState === "scanning" &&
@@ -135,8 +229,7 @@ export default function CheckIn() {
               : Platform.OS === "ios"
                 ? "NFC is not available on this device"
                 : "NFC is not supported on this device")}
-          {scanState === "success" && "Your attendance has been recorded"}
-          {scanState === "error" && "Could not read the NFC tag"}
+          {scanState !== "scanning" && resultDetails}
         </Text>
 
         {/* NFC scan indicator */}
@@ -160,13 +253,7 @@ export default function CheckIn() {
             ]}
           >
             <Feather
-              name={
-                scanState === "scanning"
-                  ? "smartphone"
-                  : scanState === "success"
-                    ? "check"
-                    : "alert-triangle"
-              }
+              name={getIconName()}
               size={48}
               color="white"
             />

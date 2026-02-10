@@ -35,6 +35,15 @@ export const REMOVE_ORG_MEMBER = gql`
   }
 `;
 
+export const UPDATE_ORG_MEMBER_ROLE = gql`
+  mutation UpdateOrgMemberRole($userId: ID!, $organizationId: ID!, $role: OrgRole!) {
+    updateOrgMemberRole(userId: $userId, organizationId: $organizationId, role: $role) {
+      id
+      role
+    }
+  }
+`;
+
 // ============================================
 // Organization Mutations
 // ============================================
@@ -62,8 +71,8 @@ export const CREATE_TEAM = gql`
 `;
 
 export const UPDATE_TEAM = gql`
-  mutation UpdateTeam($id: ID!, $name: String) {
-    updateTeam(id: $id, name: $name) {
+  mutation UpdateTeam($id: ID!, $name: String, $season: String, $sport: String, $color: String, $description: String) {
+    updateTeam(id: $id, name: $name, season: $season, sport: $sport, color: $color, description: $description) {
       ...TeamFields
     }
   }

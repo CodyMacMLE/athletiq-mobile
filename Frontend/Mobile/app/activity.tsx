@@ -1,51 +1,55 @@
+import { useAuth } from "@/contexts/AuthContext";
+import { GET_RECENT_ACTIVITY } from "@/lib/graphql/queries";
+import { useQuery } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useMemo } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 type ActivityItem = {
   id: string;
-  name: string;
+  type: string;
   time: string;
   date: string;
-  type: "check-in" | "check-out" | "excused";
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    image?: string;
+  };
 };
 
-// Mock extended activity data
-const activityData: ActivityItem[] = [
-  { id: "1", name: "Cody MacDonald", time: "8:02 AM", date: "Today", type: "check-in" },
-  { id: "2", name: "Sarah Chen", time: "7:45 AM", date: "Today", type: "check-in" },
-  { id: "3", name: "Marcus Lee", time: "7:30 AM", date: "Today", type: "check-in" },
-  { id: "4", name: "Ava Torres", time: "6:55 AM", date: "Today", type: "check-in" },
-  { id: "5", name: "Jake Wilson", time: "6:50 AM", date: "Today", type: "check-in" },
-  { id: "6", name: "Emma Davis", time: "6:45 AM", date: "Today", type: "check-in" },
-  { id: "7", name: "Liam Brown", time: "8:15 PM", date: "Yesterday", type: "check-out" },
-  { id: "8", name: "Cody MacDonald", time: "8:02 PM", date: "Yesterday", type: "check-out" },
-  { id: "9", name: "Sarah Chen", time: "8:00 PM", date: "Yesterday", type: "check-out" },
-  { id: "10", name: "Marcus Lee", time: "6:00 PM", date: "Yesterday", type: "check-in" },
-  { id: "11", name: "Ava Torres", time: "5:58 PM", date: "Yesterday", type: "check-in" },
-  { id: "12", name: "Jake Wilson", time: "5:55 PM", date: "Yesterday", type: "check-in" },
-  { id: "13", name: "Taylor Smith", time: "4:00 PM", date: "Yesterday", type: "excused" },
-  { id: "14", name: "Emma Davis", time: "8:10 PM", date: "2 days ago", type: "check-out" },
-  { id: "15", name: "Cody MacDonald", time: "8:00 PM", date: "2 days ago", type: "check-out" },
-];
-
-const TYPE_CONFIG = {
-  "check-in": { icon: "log-in" as const, color: "#27ae60", label: "Checked In" },
-  "check-out": { icon: "log-out" as const, color: "#3498db", label: "Checked Out" },
-  "excused": { icon: "info" as const, color: "#9b59b6", label: "Excused" },
+const TYPE_CONFIG: Record<string, { icon: "log-in" | "log-out" | "info"; color: string; label: string }> = {
+  "check-in": { icon: "log-in", color: "#27ae60", label: "Checked In" },
+  "check-out": { icon: "log-out", color: "#3498db", label: "Checked Out" },
+  "excused": { icon: "info", color: "#9b59b6", label: "Excused" },
 };
 
 export default function Activity() {
   const router = useRouter();
+  const { selectedOrganization } = useAuth();
+
+  const { data, loading } = useQuery(GET_RECENT_ACTIVITY, {
+    variables: {
+      organizationId: selectedOrganization?.id,
+      limit: 50,
+    },
+    skip: !selectedOrganization?.id,
+  });
+
+  const activityData: ActivityItem[] = data?.recentActivity || [];
 
   // Group activities by date
-  const groupedActivities = activityData.reduce((acc, item) => {
-    if (!acc[item.date]) acc[item.date] = [];
-    acc[item.date].push(item);
-    return acc;
-  }, {} as Record<string, ActivityItem[]>);
+  const groupedActivities = useMemo(() => {
+    return activityData.reduce((acc, item) => {
+      const dateKey = item.date || "Unknown";
+      if (!acc[dateKey]) acc[dateKey] = [];
+      acc[dateKey].push(item);
+      return acc;
+    }, {} as Record<string, ActivityItem[]>);
+  }, [activityData]);
 
   return (
     <LinearGradient
@@ -64,44 +68,59 @@ export default function Activity() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {Object.entries(groupedActivities).map(([date, items]) => (
-          <View key={date} style={styles.dateGroup}>
-            <Text style={styles.dateHeader}>{date}</Text>
-            <View style={styles.activityList}>
-              {items.map((item, index) => {
-                const config = TYPE_CONFIG[item.type];
-                return (
-                  <View
-                    key={item.id}
-                    style={[
-                      styles.activityItem,
-                      index < items.length - 1 && styles.activityItemBorder,
-                    ]}
-                  >
-                    <View style={[styles.activityIcon, { backgroundColor: `${config.color}20` }]}>
-                      <Feather name={config.icon} size={16} color={config.color} />
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator color="#a855f7" size="large" />
+        </View>
+      ) : activityData.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <Feather name="activity" size={40} color="rgba(255,255,255,0.2)" />
+          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 16, marginTop: 12 }}>
+            No recent activity
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {Object.entries(groupedActivities).map(([date, items]) => (
+            <View key={date} style={styles.dateGroup}>
+              <Text style={styles.dateHeader}>{date}</Text>
+              <View style={styles.activityList}>
+                {items.map((item, index) => {
+                  const config = TYPE_CONFIG[item.type] || TYPE_CONFIG["check-in"];
+                  return (
+                    <View
+                      key={item.id}
+                      style={[
+                        styles.activityItem,
+                        index < items.length - 1 && styles.activityItemBorder,
+                      ]}
+                    >
+                      <View style={[styles.activityIcon, { backgroundColor: `${config.color}20` }]}>
+                        <Feather name={config.icon} size={16} color={config.color} />
+                      </View>
+                      <View style={styles.activityInfo}>
+                        <Text style={styles.activityName}>
+                          {item.user.firstName} {item.user.lastName}
+                        </Text>
+                        <Text style={styles.activityTime}>{item.time}</Text>
+                      </View>
+                      <View style={[styles.activityBadge, { backgroundColor: `${config.color}20` }]}>
+                        <Text style={[styles.activityBadgeText, { color: config.color }]}>
+                          {config.label}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.activityInfo}>
-                      <Text style={styles.activityName}>{item.name}</Text>
-                      <Text style={styles.activityTime}>{item.time}</Text>
-                    </View>
-                    <View style={[styles.activityBadge, { backgroundColor: `${config.color}20` }]}>
-                      <Text style={[styles.activityBadgeText, { color: config.color }]}>
-                        {config.label}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
+                  );
+                })}
+              </View>
             </View>
-          </View>
-        ))}
-      </ScrollView>
+          ))}
+        </ScrollView>
+      )}
     </LinearGradient>
   );
 }

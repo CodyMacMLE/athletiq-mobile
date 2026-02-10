@@ -1,11 +1,18 @@
-import { Organization, User } from "@/types";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  GET_CHECKIN_HISTORY,
+  GET_RECENT_ACTIVITY,
+  GET_USER_STATS,
+} from "@/lib/graphql/queries";
+import { useQuery } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -14,40 +21,84 @@ import {
   View,
 } from "react-native";
 
-const user: User = {
-  image: undefined,
-  firstName: "Cody",
-  lastName: "MacDonald",
-  email: "cody@example.com",
-  phone: "123-456-7890",
-  address: "123 Main St",
-  city: "",
-  country: "",
-};
-
 const AVATAR_SIZE = 45;
 
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-// Mock data - from API
-const organizations: Organization[] = [
-  { id: "1", name: "Shenderey" },
-  { id: "2", name: "Downtown Athletics" },
-  { id: "3", name: "Peak Performance" },
-];
-const trainingDays = [true, true, true, true, true, false, false]; // Mon-Fri are training days
-const checkedInDays = [true, true, false, true, true, false, false]; // Mon-Sun check-ins
-const recentActivity = [
-  { name: "Cody MacDonald", time: "8:02 AM", type: "check-in" as const },
-  { name: "Sarah Chen", time: "7:45 AM", type: "check-in" as const },
-  { name: "Marcus Lee", time: "7:30 AM", type: "check-in" as const },
-  { name: "Ava Torres", time: "6:55 AM", type: "check-in" as const },
-];
-
 export default function Index() {
   const router = useRouter();
-  const [selectedOrg, setSelectedOrg] = useState(organizations[0]);
+  const { user, organizations, selectedOrganization, setSelectedOrganization, selectedTeamId } = useAuth();
   const [orgPickerVisible, setOrgPickerVisible] = useState(false);
+
+  const { data: statsData, loading: statsLoading } = useQuery(GET_USER_STATS, {
+    variables: {
+      userId: user?.id,
+      organizationId: selectedOrganization?.id,
+    },
+    skip: !user?.id || !selectedOrganization?.id,
+  });
+
+  const { data: activityData, loading: activityLoading } = useQuery(GET_RECENT_ACTIVITY, {
+    variables: {
+      organizationId: selectedOrganization?.id,
+      limit: 4,
+    },
+    skip: !selectedOrganization?.id,
+  });
+
+  const { data: checkinData } = useQuery(GET_CHECKIN_HISTORY, {
+    variables: {
+      userId: user?.id,
+      limit: 7,
+    },
+    skip: !user?.id,
+  });
+
+  const stats = statsData?.userStats;
+  const recentActivity = activityData?.recentActivity || [];
+
+  // Build weekly check-in dots from check-in history
+  const weekDots = useMemo(() => {
+    const checkIns = checkinData?.checkInHistory || [];
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
+    // Convert to Mon=0 based
+    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - mondayOffset);
+    monday.setHours(0, 0, 0, 0);
+
+    return WEEK_DAYS.map((_, i) => {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      const isFuture = date > today;
+      const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const isToday = !isFuture && !isPast;
+
+      const hasCheckIn = checkIns.some((ci: any) => {
+        const ciDate = new Date(ci.checkInTime);
+        return (
+          ciDate.getFullYear() === date.getFullYear() &&
+          ciDate.getMonth() === date.getMonth() &&
+          ciDate.getDate() === date.getDate()
+        );
+      });
+
+      return {
+        isTrainingDay: !isFuture, // past and today are "training days"
+        isCheckedIn: hasCheckIn,
+      };
+    });
+  }, [checkinData]);
+
+  // Count today's activity
+  const todayCount = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return recentActivity.filter((a: any) => a.date === today).length;
+  }, [recentActivity]);
+
+  if (!user || !selectedOrganization) return null;
 
   return (
     <LinearGradient
@@ -76,22 +127,22 @@ export default function Index() {
                 style={({ pressed }) => [
                   styles.orgPickerItem,
                   pressed && styles.orgPickerItemPressed,
-                  selectedOrg.id === org.id && styles.orgPickerItemSelected,
+                  selectedOrganization.id === org.id && styles.orgPickerItemSelected,
                 ]}
                 onPress={() => {
-                  setSelectedOrg(org);
+                  setSelectedOrganization(org);
                   setOrgPickerVisible(false);
                 }}
               >
                 <Text
                   style={[
                     styles.orgPickerItemText,
-                    selectedOrg.id === org.id && styles.orgPickerItemTextSelected,
+                    selectedOrganization.id === org.id && styles.orgPickerItemTextSelected,
                   ]}
                 >
                   {org.name}
                 </Text>
-                {selectedOrg.id === org.id && (
+                {selectedOrganization.id === org.id && (
                   <Feather name="check" size={18} color="#a855f7" />
                 )}
               </Pressable>
@@ -111,7 +162,7 @@ export default function Index() {
             ]}
             onPress={() => setOrgPickerVisible(true)}
           >
-            <Text style={styles.subtitle}>{selectedOrg.name}</Text>
+            <Text style={styles.subtitle}>{selectedOrganization.name}</Text>
             <Feather name="chevron-down" size={16} color="white" />
           </Pressable>
         </View>
@@ -160,18 +211,26 @@ export default function Index() {
 
         {/* Stats Row */}
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>24</Text>
-            <Text style={styles.statLabel}>Today</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>5</Text>
-            <Text style={styles.statLabel}>Day Streak</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>87%</Text>
-            <Text style={styles.statLabel}>This Month</Text>
-          </View>
+          {statsLoading ? (
+            <View style={[styles.statCard, { flex: 1 }]}>
+              <ActivityIndicator color="#a855f7" />
+            </View>
+          ) : (
+            <>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{todayCount}</Text>
+                <Text style={styles.statLabel}>Today</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{stats?.currentStreak ?? 0}</Text>
+                <Text style={styles.statLabel}>Day Streak</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{stats?.attendancePercent ?? 0}%</Text>
+                <Text style={styles.statLabel}>Attendance</Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Weekly Overview */}
@@ -179,8 +238,7 @@ export default function Index() {
           <Text style={styles.sectionTitle}>This Week</Text>
           <View style={styles.weekRow}>
             {WEEK_DAYS.map((day, i) => {
-              const isTrainingDay = trainingDays[i];
-              const isCheckedIn = checkedInDays[i];
+              const { isTrainingDay, isCheckedIn } = weekDots[i];
 
               return (
                 <View key={day} style={styles.dayColumn}>
@@ -225,28 +283,48 @@ export default function Index() {
               <Text style={styles.seeAll}>See All</Text>
             </Pressable>
           </View>
-          <View style={styles.activityList}>
-            {recentActivity.map((item, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.activityItem,
-                  i < recentActivity.length - 1 && styles.activityItemBorder,
-                ]}
-              >
-                <View style={styles.activityIcon}>
-                  <Feather name="log-in" size={16} color="#a855f7" />
+          {activityLoading ? (
+            <View style={[styles.activityList, { paddingVertical: 24 }]}>
+              <ActivityIndicator color="#a855f7" />
+            </View>
+          ) : recentActivity.length === 0 ? (
+            <View style={[styles.activityList, { paddingVertical: 24, alignItems: "center" }]}>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
+                No recent activity
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.activityList}>
+              {recentActivity.map((item: any, i: number) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.activityItem,
+                    i < recentActivity.length - 1 && styles.activityItemBorder,
+                  ]}
+                >
+                  <View style={styles.activityIcon}>
+                    <Feather
+                      name={item.type === "check-out" ? "log-out" : "log-in"}
+                      size={16}
+                      color="#a855f7"
+                    />
+                  </View>
+                  <View style={styles.activityInfo}>
+                    <Text style={styles.activityName}>
+                      {item.user.firstName} {item.user.lastName}
+                    </Text>
+                    <Text style={styles.activityTime}>{item.time}</Text>
+                  </View>
+                  <View style={styles.activityBadge}>
+                    <Text style={styles.activityBadgeText}>
+                      {item.type === "check-out" ? "Checked Out" : "Checked In"}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.activityInfo}>
-                  <Text style={styles.activityName}>{item.name}</Text>
-                  <Text style={styles.activityTime}>{item.time}</Text>
-                </View>
-                <View style={styles.activityBadge}>
-                  <Text style={styles.activityBadgeText}>Checked In</Text>
-                </View>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </LinearGradient>

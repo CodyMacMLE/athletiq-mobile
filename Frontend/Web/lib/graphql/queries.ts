@@ -23,6 +23,10 @@ export const TEAM_FRAGMENT = gql`
   fragment TeamFields on Team {
     id
     name
+    season
+    sport
+    color
+    description
     memberCount
     attendancePercent(timeRange: MONTH)
   }
@@ -407,6 +411,55 @@ export const GET_ALL_ATTENDANCE_RECORDS = gql`
   }
 `;
 
+export const GET_EVENT_DETAIL = gql`
+  query GetEventDetail($id: ID!) {
+    event(id: $id) {
+      ...EventFields
+      team {
+        id
+        name
+        members {
+          id
+          role
+          user {
+            id
+            firstName
+            lastName
+            image
+          }
+        }
+      }
+      participatingTeams {
+        id
+        name
+        members {
+          id
+          role
+          user {
+            id
+            firstName
+            lastName
+            image
+          }
+        }
+      }
+      checkIns {
+        id
+        status
+        checkInTime
+        checkOutTime
+        hoursLogged
+        note
+        user {
+          ...UserFields
+        }
+      }
+    }
+  }
+  ${EVENT_FRAGMENT}
+  ${USER_FRAGMENT}
+`;
+
 export const GET_ATTENDANCE_INSIGHTS = gql`
   query GetAttendanceInsights($organizationId: ID!, $timeRange: TimeRange) {
     attendanceInsights(organizationId: $organizationId, timeRange: $timeRange) {
@@ -417,6 +470,43 @@ export const GET_ATTENDANCE_INSIGHTS = gql`
       excusedCount
       attendanceRate
       eventCount
+    }
+  }
+`;
+
+export const GET_USER_STATS = gql`
+  query GetUserStats($userId: ID!, $organizationId: ID!, $timeRange: TimeRange) {
+    userStats(userId: $userId, organizationId: $organizationId, timeRange: $timeRange) {
+      hoursLogged
+      hoursRequired
+      attendancePercent
+      teamRank
+      teamSize
+      orgRank
+      orgSize
+      currentStreak
+      bestStreak
+    }
+  }
+`;
+
+export const GET_CHECK_IN_HISTORY = gql`
+  query GetCheckInHistory($userId: ID!, $limit: Int) {
+    checkInHistory(userId: $userId, limit: $limit) {
+      id
+      status
+      checkInTime
+      checkOutTime
+      hoursLogged
+      note
+      createdAt
+      event {
+        id
+        title
+        date
+        startTime
+        endTime
+      }
     }
   }
 `;

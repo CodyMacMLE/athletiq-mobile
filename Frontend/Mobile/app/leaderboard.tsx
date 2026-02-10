@@ -1,58 +1,57 @@
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  GET_ORGANIZATION_LEADERBOARD,
+  GET_TEAM_LEADERBOARD,
+} from "@/lib/graphql/queries";
+import { useQuery } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 type LeaderboardTab = "team" | "organization";
 
-type TeamMember = {
-  id: string;
-  name: string;
-  image?: string;
+type LeaderboardEntry = {
+  rank: number;
   attendancePercent: number;
   hoursLogged: number;
   hoursRequired: number;
-  isCurrentUser?: boolean;
-  team?: string;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    image?: string;
+  };
 };
-
-// Mock team leaderboard (your teammates)
-const teamLeaderboard: TeamMember[] = [
-  { id: "1", name: "Sarah Chen", attendancePercent: 98, hoursLogged: 15.7, hoursRequired: 16 },
-  { id: "2", name: "Marcus Lee", attendancePercent: 94, hoursLogged: 15.0, hoursRequired: 16 },
-  { id: "3", name: "Cody MacDonald", attendancePercent: 91, hoursLogged: 14.5, hoursRequired: 16, isCurrentUser: true },
-  { id: "4", name: "Ava Torres", attendancePercent: 88, hoursLogged: 14.1, hoursRequired: 16 },
-  { id: "5", name: "Jake Wilson", attendancePercent: 85, hoursLogged: 13.6, hoursRequired: 16 },
-  { id: "6", name: "Emma Davis", attendancePercent: 82, hoursLogged: 13.1, hoursRequired: 16 },
-  { id: "7", name: "Liam Brown", attendancePercent: 80, hoursLogged: 12.8, hoursRequired: 16 },
-  { id: "8", name: "Olivia Martinez", attendancePercent: 78, hoursLogged: 12.5, hoursRequired: 16 },
-  { id: "9", name: "Noah Garcia", attendancePercent: 75, hoursLogged: 12.0, hoursRequired: 16 },
-  { id: "10", name: "Sophia Kim", attendancePercent: 72, hoursLogged: 11.5, hoursRequired: 16 },
-];
-
-// Mock organization leaderboard (top performers across all teams)
-const orgLeaderboard: TeamMember[] = [
-  { id: "1", name: "Alex Rivera", attendancePercent: 100, hoursLogged: 12, hoursRequired: 12, team: "Junior Elite" },
-  { id: "2", name: "Jordan Kim", attendancePercent: 99, hoursLogged: 19.8, hoursRequired: 20, team: "Masters" },
-  { id: "3", name: "Sarah Chen", attendancePercent: 98, hoursLogged: 15.7, hoursRequired: 16, team: "Varsity" },
-  { id: "4", name: "Taylor Smith", attendancePercent: 97, hoursLogged: 9.7, hoursRequired: 10, team: "Development" },
-  { id: "5", name: "Casey Morgan", attendancePercent: 96, hoursLogged: 14.4, hoursRequired: 15, team: "Junior Elite" },
-  { id: "6", name: "Riley Johnson", attendancePercent: 95, hoursLogged: 19.0, hoursRequired: 20, team: "Masters" },
-  { id: "7", name: "Quinn Williams", attendancePercent: 94, hoursLogged: 15.0, hoursRequired: 16, team: "Varsity" },
-  { id: "8", name: "Marcus Lee", attendancePercent: 94, hoursLogged: 15.0, hoursRequired: 16, team: "Varsity" },
-  { id: "9", name: "Avery Brown", attendancePercent: 93, hoursLogged: 9.3, hoursRequired: 10, team: "Development" },
-  { id: "10", name: "Morgan Davis", attendancePercent: 92, hoursLogged: 18.4, hoursRequired: 20, team: "Masters" },
-  { id: "11", name: "Cameron White", attendancePercent: 91, hoursLogged: 14.6, hoursRequired: 16, team: "Varsity" },
-  { id: "12", name: "Cody MacDonald", attendancePercent: 91, hoursLogged: 14.5, hoursRequired: 16, team: "Varsity", isCurrentUser: true },
-];
 
 export default function Leaderboard() {
   const router = useRouter();
+  const { user, selectedOrganization, selectedTeamId } = useAuth();
   const [activeTab, setActiveTab] = useState<LeaderboardTab>("team");
 
+  const { data: teamData, loading: teamLoading } = useQuery(GET_TEAM_LEADERBOARD, {
+    variables: {
+      teamId: selectedTeamId,
+      timeRange: "ALL",
+    },
+    skip: !selectedTeamId,
+  });
+
+  const { data: orgData, loading: orgLoading } = useQuery(GET_ORGANIZATION_LEADERBOARD, {
+    variables: {
+      organizationId: selectedOrganization?.id,
+      timeRange: "ALL",
+    },
+    skip: !selectedOrganization?.id,
+  });
+
+  const teamLeaderboard: LeaderboardEntry[] = teamData?.teamLeaderboard || [];
+  const orgLeaderboard: LeaderboardEntry[] = orgData?.organizationLeaderboard || [];
+
   const leaderboardData = activeTab === "team" ? teamLeaderboard : orgLeaderboard;
+  const isLoading = activeTab === "team" ? teamLoading : orgLoading;
 
   const getPercentColor = (percent: number) => {
     if (percent >= 90) return "#27ae60";
@@ -97,119 +96,136 @@ export default function Leaderboard() {
         </Pressable>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Top 3 Podium */}
-        <View style={styles.podiumContainer}>
-          {/* Second Place */}
-          <View style={styles.podiumItem}>
-            <View style={[styles.podiumAvatar, styles.podiumAvatarSecond]}>
-              <Text style={styles.podiumAvatarText}>
-                {leaderboardData[1]?.name.split(" ").map((n) => n[0]).join("")}
-              </Text>
-            </View>
-            <View style={[styles.podiumMedal, styles.medalSilver]}>
-              <Text style={styles.medalText}>2</Text>
-            </View>
-            <Text style={styles.podiumName} numberOfLines={1}>
-              {leaderboardData[1]?.name.split(" ")[0]}
-            </Text>
-            <Text style={styles.podiumPercent}>{leaderboardData[1]?.attendancePercent}%</Text>
-            <View style={[styles.podiumBar, styles.podiumBarSecond]} />
-          </View>
-
-          {/* First Place */}
-          <View style={styles.podiumItem}>
-            <View style={[styles.podiumAvatar, styles.podiumAvatarFirst]}>
-              <Text style={styles.podiumAvatarText}>
-                {leaderboardData[0]?.name.split(" ").map((n) => n[0]).join("")}
-              </Text>
-            </View>
-            <View style={[styles.podiumMedal, styles.medalGold]}>
-              <Text style={styles.medalText}>1</Text>
-            </View>
-            <Text style={styles.podiumName} numberOfLines={1}>
-              {leaderboardData[0]?.name.split(" ")[0]}
-            </Text>
-            <Text style={styles.podiumPercent}>{leaderboardData[0]?.attendancePercent}%</Text>
-            <View style={[styles.podiumBar, styles.podiumBarFirst]} />
-          </View>
-
-          {/* Third Place */}
-          <View style={styles.podiumItem}>
-            <View style={[styles.podiumAvatar, styles.podiumAvatarThird]}>
-              <Text style={styles.podiumAvatarText}>
-                {leaderboardData[2]?.name.split(" ").map((n) => n[0]).join("")}
-              </Text>
-            </View>
-            <View style={[styles.podiumMedal, styles.medalBronze]}>
-              <Text style={styles.medalText}>3</Text>
-            </View>
-            <Text style={styles.podiumName} numberOfLines={1}>
-              {leaderboardData[2]?.name.split(" ")[0]}
-            </Text>
-            <Text style={styles.podiumPercent}>{leaderboardData[2]?.attendancePercent}%</Text>
-            <View style={[styles.podiumBar, styles.podiumBarThird]} />
-          </View>
+      {isLoading ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator color="#a855f7" size="large" />
         </View>
+      ) : leaderboardData.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <Feather name="award" size={40} color="rgba(255,255,255,0.2)" />
+          <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 16, marginTop: 12 }}>
+            No leaderboard data yet
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Top 3 Podium */}
+          {leaderboardData.length >= 3 && (
+            <View style={styles.podiumContainer}>
+              {/* Second Place */}
+              <View style={styles.podiumItem}>
+                <View style={[styles.podiumAvatar, styles.podiumAvatarSecond]}>
+                  <Text style={styles.podiumAvatarText}>
+                    {leaderboardData[1]?.user.firstName?.[0]}{leaderboardData[1]?.user.lastName?.[0]}
+                  </Text>
+                </View>
+                <View style={[styles.podiumMedal, styles.medalSilver]}>
+                  <Text style={styles.medalText}>2</Text>
+                </View>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {leaderboardData[1]?.user.firstName}
+                </Text>
+                <Text style={styles.podiumPercent}>{leaderboardData[1]?.attendancePercent}%</Text>
+                <View style={[styles.podiumBar, styles.podiumBarSecond]} />
+              </View>
 
-        {/* Full List */}
-        <View style={styles.listContainer}>
-          {leaderboardData.map((entry, index) => (
-            <View
-              key={entry.id}
-              style={[
-                styles.listItem,
-                entry.isCurrentUser && styles.listItemHighlight,
-                index < leaderboardData.length - 1 && styles.listItemBorder,
-              ]}
-            >
-              <View style={styles.listRank}>
-                {index < 3 ? (
-                  <View
-                    style={[
-                      styles.rankMedal,
-                      index === 0 && styles.medalGold,
-                      index === 1 && styles.medalSilver,
-                      index === 2 && styles.medalBronze,
-                    ]}
-                  >
-                    <Text style={styles.rankMedalText}>{index + 1}</Text>
+              {/* First Place */}
+              <View style={styles.podiumItem}>
+                <View style={[styles.podiumAvatar, styles.podiumAvatarFirst]}>
+                  <Text style={styles.podiumAvatarText}>
+                    {leaderboardData[0]?.user.firstName?.[0]}{leaderboardData[0]?.user.lastName?.[0]}
+                  </Text>
+                </View>
+                <View style={[styles.podiumMedal, styles.medalGold]}>
+                  <Text style={styles.medalText}>1</Text>
+                </View>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {leaderboardData[0]?.user.firstName}
+                </Text>
+                <Text style={styles.podiumPercent}>{leaderboardData[0]?.attendancePercent}%</Text>
+                <View style={[styles.podiumBar, styles.podiumBarFirst]} />
+              </View>
+
+              {/* Third Place */}
+              <View style={styles.podiumItem}>
+                <View style={[styles.podiumAvatar, styles.podiumAvatarThird]}>
+                  <Text style={styles.podiumAvatarText}>
+                    {leaderboardData[2]?.user.firstName?.[0]}{leaderboardData[2]?.user.lastName?.[0]}
+                  </Text>
+                </View>
+                <View style={[styles.podiumMedal, styles.medalBronze]}>
+                  <Text style={styles.medalText}>3</Text>
+                </View>
+                <Text style={styles.podiumName} numberOfLines={1}>
+                  {leaderboardData[2]?.user.firstName}
+                </Text>
+                <Text style={styles.podiumPercent}>{leaderboardData[2]?.attendancePercent}%</Text>
+                <View style={[styles.podiumBar, styles.podiumBarThird]} />
+              </View>
+            </View>
+          )}
+
+          {/* Full List */}
+          <View style={styles.listContainer}>
+            {leaderboardData.map((entry, index) => {
+              const isCurrentUser = entry.user.id === user?.id;
+              return (
+                <View
+                  key={entry.user.id}
+                  style={[
+                    styles.listItem,
+                    isCurrentUser && styles.listItemHighlight,
+                    index < leaderboardData.length - 1 && styles.listItemBorder,
+                  ]}
+                >
+                  <View style={styles.listRank}>
+                    {index < 3 ? (
+                      <View
+                        style={[
+                          styles.rankMedal,
+                          index === 0 && styles.medalGold,
+                          index === 1 && styles.medalSilver,
+                          index === 2 && styles.medalBronze,
+                        ]}
+                      >
+                        <Text style={styles.rankMedalText}>{entry.rank}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.rankText}>{entry.rank}</Text>
+                    )}
                   </View>
-                ) : (
-                  <Text style={styles.rankText}>{index + 1}</Text>
-                )}
-              </View>
 
-              <View style={styles.listAvatar}>
-                <Text style={styles.listAvatarText}>
-                  {entry.name.split(" ").map((n) => n[0]).join("")}
-                </Text>
-              </View>
+                  <View style={styles.listAvatar}>
+                    <Text style={styles.listAvatarText}>
+                      {entry.user.firstName?.[0]}{entry.user.lastName?.[0]}
+                    </Text>
+                  </View>
 
-              <View style={styles.listInfo}>
-                <Text style={[styles.listName, entry.isCurrentUser && styles.listNameHighlight]}>
-                  {entry.name}
-                  {entry.isCurrentUser && " (You)"}
-                </Text>
-                {entry.team && <Text style={styles.listTeam}>{entry.team}</Text>}
-              </View>
+                  <View style={styles.listInfo}>
+                    <Text style={[styles.listName, isCurrentUser && styles.listNameHighlight]}>
+                      {entry.user.firstName} {entry.user.lastName}
+                      {isCurrentUser && " (You)"}
+                    </Text>
+                  </View>
 
-              <View style={styles.listStats}>
-                <Text style={[styles.listPercent, { color: getPercentColor(entry.attendancePercent) }]}>
-                  {entry.attendancePercent}%
-                </Text>
-                <Text style={styles.listHours}>
-                  {entry.hoursLogged}/{entry.hoursRequired}h
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+                  <View style={styles.listStats}>
+                    <Text style={[styles.listPercent, { color: getPercentColor(entry.attendancePercent) }]}>
+                      {entry.attendancePercent}%
+                    </Text>
+                    <Text style={styles.listHours}>
+                      {entry.hoursLogged}/{entry.hoursRequired}h
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+      )}
     </LinearGradient>
   );
 }
@@ -426,11 +442,6 @@ const styles = StyleSheet.create({
   },
   listNameHighlight: {
     color: "#a855f7",
-  },
-  listTeam: {
-    color: "rgba(255,255,255,0.4)",
-    fontSize: 12,
-    marginTop: 1,
   },
   listStats: {
     alignItems: "flex-end",

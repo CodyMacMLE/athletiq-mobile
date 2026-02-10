@@ -1,6 +1,7 @@
+import { useAuth } from "@/contexts/AuthContext";
 import Feather from "@expo/vector-icons/Feather";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { Tabs } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -60,6 +61,12 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Redirect href="/login" />;
+  }
+
   return (
     <Tabs
       tabBar={(props) => <GlassTabBar {...props} />}

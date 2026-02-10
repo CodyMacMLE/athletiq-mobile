@@ -57,6 +57,11 @@ export const typeDefs = `#graphql
     EXPIRED
   }
 
+  enum NfcCheckInAction {
+    CHECKED_IN
+    CHECKED_OUT
+  }
+
   # ============================================
   # Types
   # ============================================
@@ -88,12 +93,17 @@ export const typeDefs = `#graphql
     events: [Event!]!
     members: [OrganizationMember!]!
     invites: [Invite!]!
+    nfcTags: [NfcTag!]!
     memberCount: Int!
   }
 
   type Team {
     id: ID!
     name: String!
+    season: String!
+    sport: String
+    color: String
+    description: String
     organization: Organization!
     members: [TeamMember!]!
     events: [Event!]!
@@ -195,6 +205,22 @@ export const typeDefs = `#graphql
     expiresAt: String!
   }
 
+  type NfcTag {
+    id: ID!
+    token: String!
+    name: String!
+    organization: Organization!
+    isActive: Boolean!
+    createdBy: String!
+    createdAt: String!
+  }
+
+  type NfcCheckInResult {
+    checkIn: CheckIn!
+    action: NfcCheckInAction!
+    event: Event!
+  }
+
   # ============================================
   # Analytics Types
   # ============================================
@@ -275,6 +301,10 @@ export const typeDefs = `#graphql
 
   input CreateTeamInput {
     name: String!
+    season: String!
+    sport: String
+    color: String
+    description: String
     organizationId: ID!
   }
 
@@ -296,6 +326,12 @@ export const typeDefs = `#graphql
     organizationId: ID!
     role: OrgRole
     teamIds: [ID!]
+  }
+
+  input RegisterNfcTagInput {
+    token: String!
+    name: String!
+    organizationId: ID!
   }
 
   input CreateEventInput {
@@ -393,6 +429,9 @@ export const typeDefs = `#graphql
     recurringEvent(id: ID!): RecurringEvent
     recurringEvents(organizationId: ID!): [RecurringEvent!]!
 
+    # NFC queries
+    organizationNfcTags(organizationId: ID!): [NfcTag!]!
+
     # Invite queries
     invite(token: String!): Invite
 
@@ -434,7 +473,7 @@ export const typeDefs = `#graphql
 
     # Team mutations
     createTeam(input: CreateTeamInput!): Team!
-    updateTeam(id: ID!, name: String): Team!
+    updateTeam(id: ID!, name: String, season: String, sport: String, color: String, description: String): Team!
     deleteTeam(id: ID!): Boolean!
     addTeamMember(input: AddTeamMemberInput!): TeamMember!
     removeTeamMember(userId: ID!, teamId: ID!): Boolean!
@@ -461,6 +500,11 @@ export const typeDefs = `#graphql
     acceptInvite(token: String!): OrganizationMember!
     cancelInvite(id: ID!): Boolean!
     resendInvite(id: ID!): Invite!
+
+    # NFC mutations
+    registerNfcTag(input: RegisterNfcTagInput!): NfcTag!
+    deactivateNfcTag(id: ID!): NfcTag!
+    nfcCheckIn(token: String!): NfcCheckInResult!
 
     # Excuse mutations
     createExcuseRequest(input: CreateExcuseRequestInput!): ExcuseRequest!

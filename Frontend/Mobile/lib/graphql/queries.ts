@@ -60,11 +60,22 @@ export const GET_ME = gql`
         team {
           id
           name
+          season
+          sport
+          color
           organization {
             id
             name
             image
           }
+        }
+      }
+      organizationMemberships {
+        id
+        role
+        organization {
+          id
+          name
         }
       }
     }
@@ -105,6 +116,10 @@ export const GET_ORGANIZATION = gql`
       teams {
         id
         name
+        season
+        sport
+        color
+        description
         memberCount
       }
       memberCount
@@ -257,6 +272,9 @@ export const GET_TEAM_RANKINGS = gql`
       team {
         id
         name
+        season
+        sport
+        color
         memberCount
       }
     }
@@ -296,4 +314,21 @@ export const GET_MY_EXCUSE_REQUESTS = gql`
     }
   }
   ${EVENT_FRAGMENT}
+`;
+
+// ============================================
+// NFC Queries
+// ============================================
+
+export const GET_ORGANIZATION_NFC_TAGS = gql`
+  query GetOrganizationNfcTags($organizationId: ID!) {
+    organizationNfcTags(organizationId: $organizationId) {
+      id
+      token
+      name
+      isActive
+      createdBy
+      createdAt
+    }
+  }
 `;

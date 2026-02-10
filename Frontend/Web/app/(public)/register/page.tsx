@@ -10,8 +10,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   CREATE_USER,
   CREATE_ORGANIZATION,
-  CREATE_TEAM,
-  ADD_TEAM_MEMBER,
 } from "@/lib/graphql";
 
 export default function RegisterPage() {
@@ -40,8 +38,6 @@ export default function RegisterPage() {
 
   const [createUser] = useMutation(CREATE_USER);
   const [createOrganization] = useMutation(CREATE_ORGANIZATION);
-  const [createTeam] = useMutation(CREATE_TEAM);
-  const [addTeamMember] = useMutation(ADD_TEAM_MEMBER);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -125,32 +121,6 @@ export default function RegisterPage() {
           },
         },
       });
-      const orgId = orgData.createOrganization.id;
-
-      // Create default team
-      setStep("Setting up your team...");
-      const { data: teamData } = await createTeam({
-        variables: {
-          input: {
-            name: "General",
-            organizationId: orgId,
-          },
-        },
-      });
-      const teamId = teamData.createTeam.id;
-
-      // Add user to team as ADMIN
-      setStep("Finalizing setup...");
-      await addTeamMember({
-        variables: {
-          input: {
-            userId,
-            teamId,
-            role: "ADMIN",
-          },
-        },
-      });
-
       // Redirect to dashboard
       router.push("/dashboard");
     } catch (err) {
