@@ -172,8 +172,13 @@ export const resolvers = {
       return prisma.team.findUnique({ where: { id } });
     },
 
-    teams: async (_: unknown, { organizationId }: { organizationId: string }) => {
-      return prisma.team.findMany({ where: { organizationId, deletedAt: null } });
+    teams: async (_: unknown, { organizationId, includeArchived }: { organizationId: string; includeArchived?: boolean }) => {
+      return prisma.team.findMany({
+        where: {
+          organizationId,
+          ...(includeArchived ? {} : { archivedAt: null }),
+        },
+      });
     },
 
     // Event queries
@@ -559,7 +564,7 @@ export const resolvers = {
       { organizationId, timeRange }: { organizationId: string; timeRange?: string }
     ) => {
       const teams = await prisma.team.findMany({
-        where: { organizationId },
+        where: { organizationId, archivedAt: null },
         include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } } } },
       });
 
@@ -812,7 +817,7 @@ export const resolvers = {
       });
     },
 
-    deleteTeam: async (_: unknown, { id }: { id: string }) => {
+    deleteTeam: async (_: unknown, { id, hardDelete }: { id: string; hardDelete?: boolean }) => {
       await prisma.$transaction(async (tx) => {
         // Remove all team members
         await tx.teamMember.deleteMany({ where: { teamId: id } });
@@ -827,13 +832,33 @@ export const resolvers = {
             data: { participatingTeams: { disconnect: { id } } },
           });
         }
-        // Soft-delete the team
-        await tx.team.update({
-          where: { id },
-          data: { deletedAt: new Date() },
-        });
+
+        if (hardDelete) {
+          // Nullify teamId on events so check-ins are preserved without team reference
+          await tx.event.updateMany({
+            where: { teamId: id },
+            data: { teamId: null },
+          });
+          // Delete recurring events tied to this team
+          await tx.recurringEvent.deleteMany({ where: { teamId: id } });
+          // Hard delete the team
+          await tx.team.delete({ where: { id } });
+        } else {
+          // Archive the team
+          await tx.team.update({
+            where: { id },
+            data: { archivedAt: new Date() },
+          });
+        }
       });
       return true;
+    },
+
+    restoreTeam: async (_: unknown, { id }: { id: string }) => {
+      return prisma.team.update({
+        where: { id },
+        data: { archivedAt: null },
+      });
     },
 
     addTeamMember: async (
@@ -1581,7 +1606,7 @@ export const resolvers = {
   },
 
   Organization: {
-    teams: (parent: { id: string }) => prisma.team.findMany({ where: { organizationId: parent.id, deletedAt: null } }),
+    teams: (parent: { id: string }) => prisma.team.findMany({ where: { organizationId: parent.id, archivedAt: null } }),
     events: (parent: { id: string }) => prisma.event.findMany({ where: { organizationId: parent.id } }),
     members: (parent: { id: string }) =>
       prisma.organizationMember.findMany({ where: { organizationId: parent.id } }),

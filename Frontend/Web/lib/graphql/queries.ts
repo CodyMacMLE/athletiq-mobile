@@ -29,6 +29,7 @@ export const TEAM_FRAGMENT = gql`
     description
     memberCount
     attendancePercent(timeRange: MONTH)
+    archivedAt
   }
 `;
 
@@ -132,8 +133,8 @@ export const GET_ORGANIZATION_MEMBERS = gql`
 `;
 
 export const GET_TEAMS = gql`
-  query GetTeams($organizationId: ID!) {
-    teams(organizationId: $organizationId) {
+  query GetTeams($organizationId: ID!, $includeArchived: Boolean) {
+    teams(organizationId: $organizationId, includeArchived: $includeArchived) {
       ...TeamFields
       members {
         id

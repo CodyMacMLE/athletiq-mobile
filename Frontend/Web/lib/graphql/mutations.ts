@@ -80,9 +80,18 @@ export const UPDATE_TEAM = gql`
 `;
 
 export const DELETE_TEAM = gql`
-  mutation DeleteTeam($id: ID!) {
-    deleteTeam(id: $id)
+  mutation DeleteTeam($id: ID!, $hardDelete: Boolean) {
+    deleteTeam(id: $id, hardDelete: $hardDelete)
   }
+`;
+
+export const RESTORE_TEAM = gql`
+  mutation RestoreTeam($id: ID!) {
+    restoreTeam(id: $id) {
+      ...TeamFields
+    }
+  }
+  ${TEAM_FRAGMENT}
 `;
 
 export const ADD_TEAM_MEMBER = gql`

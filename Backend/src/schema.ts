@@ -109,6 +109,7 @@ export const typeDefs = `#graphql
     events: [Event!]!
     memberCount: Int!
     attendancePercent(timeRange: TimeRange): Float!
+    archivedAt: String
     createdAt: String!
     updatedAt: String!
   }
@@ -407,7 +408,7 @@ export const typeDefs = `#graphql
 
     # Team queries
     team(id: ID!): Team
-    teams(organizationId: ID!): [Team!]!
+    teams(organizationId: ID!, includeArchived: Boolean): [Team!]!
 
     # Event queries
     event(id: ID!): Event
@@ -474,7 +475,8 @@ export const typeDefs = `#graphql
     # Team mutations
     createTeam(input: CreateTeamInput!): Team!
     updateTeam(id: ID!, name: String, season: String, sport: String, color: String, description: String): Team!
-    deleteTeam(id: ID!): Boolean!
+    deleteTeam(id: ID!, hardDelete: Boolean): Boolean!
+    restoreTeam(id: ID!): Team!
     addTeamMember(input: AddTeamMemberInput!): TeamMember!
     removeTeamMember(userId: ID!, teamId: ID!): Boolean!
     updateTeamMemberRole(userId: ID!, teamId: ID!, role: TeamRole!): TeamMember!
