@@ -725,7 +725,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   dayCell: {
-    width: (SCREEN_WIDTH - 40) / 7,
+    width: Math.floor((SCREEN_WIDTH - 40) / 7),
     height: 40,
     alignItems: "center",
     justifyContent: "flex-start",

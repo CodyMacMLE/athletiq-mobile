@@ -288,6 +288,8 @@ export const GET_RECENT_ACTIVITY = gql`
       type
       time
       date
+      eventTitle
+      eventType
       user {
         id
         firstName

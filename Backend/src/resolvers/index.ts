@@ -442,14 +442,14 @@ export const resolvers = {
       const hoursRequired = membership.hoursRequired;
       const attendancePercent = hoursRequired > 0 ? (hoursLogged / hoursRequired) * 100 : 0;
 
-      // Calculate team rank (simplified)
+      // Calculate team rank (simplified) — athletes only
       const teamMembers = await prisma.teamMember.findMany({
-        where: { teamId: membership.teamId },
+        where: { teamId: membership.teamId, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
       });
 
-      // Calculate org rank (simplified)
+      // Calculate org rank (simplified) — athletes only
       const orgMembers = await prisma.teamMember.findMany({
-        where: { team: { organizationId } },
+        where: { team: { organizationId }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
       });
 
       return {
@@ -606,19 +606,30 @@ export const resolvers = {
         where: { event: { organizationId } },
         orderBy: { createdAt: "desc" },
         take: limit || 20,
-        include: { user: true },
+        include: { user: true, event: true },
       });
 
-      return checkIns.map((checkIn) => ({
-        id: checkIn.id,
-        user: checkIn.user,
-        type: checkIn.checkOutTime ? "check-out" : "check-in",
-        time: (checkIn.checkOutTime || checkIn.checkInTime)?.toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-        }) || "",
-        date: checkIn.createdAt.toISOString(),
-      }));
+      return checkIns.map((checkIn) => {
+        let type = "check-in";
+        if (checkIn.status === "EXCUSED") {
+          type = "excused";
+        } else if (checkIn.checkOutTime) {
+          type = "check-out";
+        }
+
+        return {
+          id: checkIn.id,
+          user: checkIn.user,
+          type,
+          time: (checkIn.checkOutTime || checkIn.checkInTime)?.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+          }) || "",
+          date: checkIn.createdAt.toISOString(),
+          eventTitle: checkIn.event.title,
+          eventType: checkIn.event.type,
+        };
+      });
     },
   },
 
@@ -1615,10 +1626,9 @@ export const resolvers = {
     nfcTags: (parent: { id: string }) =>
       prisma.nfcTag.findMany({ where: { organizationId: parent.id, isActive: true } }),
     memberCount: async (parent: { id: string }) => {
-      const count = await prisma.teamMember.count({
-        where: { team: { organizationId: parent.id } },
+      return prisma.teamMember.count({
+        where: { team: { organizationId: parent.id, archivedAt: null }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
       });
-      return count;
     },
   },
 
@@ -1636,7 +1646,7 @@ export const resolvers = {
         },
         orderBy: { date: "asc" },
       }),
-    memberCount: (parent: { id: string }) => prisma.teamMember.count({ where: { teamId: parent.id } }),
+    memberCount: (parent: { id: string }) => prisma.teamMember.count({ where: { teamId: parent.id, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } } }),
     attendancePercent: async (parent: { id: string }, { timeRange }: { timeRange?: string }) => {
       const { startDate, endDate } = getDateRange(timeRange);
       const members = await prisma.teamMember.findMany({ where: { teamId: parent.id, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } } });

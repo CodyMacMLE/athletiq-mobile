@@ -258,6 +258,8 @@ export const typeDefs = `#graphql
     type: String!
     time: String!
     date: String!
+    eventTitle: String
+    eventType: String
   }
 
   type AttendanceInsights {

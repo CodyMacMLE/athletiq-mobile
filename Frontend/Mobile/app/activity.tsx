@@ -13,6 +13,8 @@ type ActivityItem = {
   type: string;
   time: string;
   date: string;
+  eventTitle?: string;
+  eventType?: string;
   user: {
     id: string;
     firstName: string;
@@ -26,6 +28,34 @@ const TYPE_CONFIG: Record<string, { icon: "log-in" | "log-out" | "info"; color: 
   "check-out": { icon: "log-out", color: "#3498db", label: "Checked Out" },
   "excused": { icon: "info", color: "#9b59b6", label: "Excused" },
 };
+
+const EVENT_TYPE_COLORS: Record<string, string> = {
+  PRACTICE: "#6c5ce7",
+  EVENT: "#e74c3c",
+  MEETING: "#f39c12",
+  GAME: "#e74c3c",
+  REST: "#27ae60",
+};
+
+function formatDateGroup(isoDate: string): string {
+  const date = new Date(isoDate);
+  const now = new Date();
+
+  const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffMs = today.getTime() - dateDay.getTime();
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return date.toLocaleDateString("en-US", { weekday: "long" });
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+function getDateKey(isoDate: string): string {
+  const date = new Date(isoDate);
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
 
 export default function Activity() {
   const router = useRouter();
@@ -43,12 +73,21 @@ export default function Activity() {
 
   // Group activities by date
   const groupedActivities = useMemo(() => {
-    return activityData.reduce((acc, item) => {
-      const dateKey = item.date || "Unknown";
-      if (!acc[dateKey]) acc[dateKey] = [];
-      acc[dateKey].push(item);
-      return acc;
-    }, {} as Record<string, ActivityItem[]>);
+    const groups: { label: string; key: string; items: ActivityItem[] }[] = [];
+    const keyMap = new Map<string, number>();
+
+    for (const item of activityData) {
+      const key = getDateKey(item.date);
+      const existing = keyMap.get(key);
+      if (existing !== undefined) {
+        groups[existing].items.push(item);
+      } else {
+        keyMap.set(key, groups.length);
+        groups.push({ label: formatDateGroup(item.date), key, items: [item] });
+      }
+    }
+
+    return groups;
   }, [activityData]);
 
   return (
@@ -85,18 +124,21 @@ export default function Activity() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {Object.entries(groupedActivities).map(([date, items]) => (
-            <View key={date} style={styles.dateGroup}>
-              <Text style={styles.dateHeader}>{date}</Text>
+          {groupedActivities.map((group) => (
+            <View key={group.key} style={styles.dateGroup}>
+              <Text style={styles.dateHeader}>{group.label}</Text>
               <View style={styles.activityList}>
-                {items.map((item, index) => {
+                {group.items.map((item, index) => {
                   const config = TYPE_CONFIG[item.type] || TYPE_CONFIG["check-in"];
+                  const eventColor = item.eventType
+                    ? EVENT_TYPE_COLORS[item.eventType] || "#6c5ce7"
+                    : undefined;
                   return (
                     <View
                       key={item.id}
                       style={[
                         styles.activityItem,
-                        index < items.length - 1 && styles.activityItemBorder,
+                        index < group.items.length - 1 && styles.activityItemBorder,
                       ]}
                     >
                       <View style={[styles.activityIcon, { backgroundColor: `${config.color}20` }]}>
@@ -106,7 +148,20 @@ export default function Activity() {
                         <Text style={styles.activityName}>
                           {item.user.firstName} {item.user.lastName}
                         </Text>
-                        <Text style={styles.activityTime}>{item.time}</Text>
+                        {item.eventTitle ? (
+                          <View style={styles.activityMeta}>
+                            {eventColor && (
+                              <View style={[styles.eventDot, { backgroundColor: eventColor }]} />
+                            )}
+                            <Text style={styles.activityEvent} numberOfLines={1}>
+                              {item.eventTitle}
+                            </Text>
+                            <Text style={styles.activityTimeSep}>&middot;</Text>
+                            <Text style={styles.activityTime}>{item.time}</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.activityTime}>{item.time}</Text>
+                        )}
                       </View>
                       <View style={[styles.activityBadge, { backgroundColor: `${config.color}20` }]}>
                         <Text style={[styles.activityBadgeText, { color: config.color }]}>
@@ -203,6 +258,26 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 15,
     fontWeight: "500",
+  },
+  activityMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 2,
+  },
+  eventDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  activityEvent: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 13,
+    flexShrink: 1,
+  },
+  activityTimeSep: {
+    color: "rgba(255,255,255,0.3)",
+    fontSize: 13,
   },
   activityTime: {
     color: "rgba(255,255,255,0.5)",

@@ -14,8 +14,11 @@
         "NFCReaderUsageDescription": "This app uses NFC to check in to your gym",
         "com.apple.developer.nfc.readersession.iso7816.select-identifiers": [
           "",
+          "",
+          "",
           ""
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.anonymous.athletiq"
     },
@@ -56,6 +59,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5b962328-12c3-475e-9902-edcca1128c5c"
+      }
     }
   }
 }

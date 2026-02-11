@@ -410,12 +410,8 @@ export default function Analytics() {
                       )}
                     </View>
 
-                    <View style={[styles.teamIcon, team.team.color ? { backgroundColor: team.team.color + "33" } : undefined]}>
-                      {team.team.color ? (
-                        <View style={[styles.teamColorDot, { backgroundColor: team.team.color }]} />
-                      ) : (
-                        <Feather name="users" size={16} color="rgba(255,255,255,0.6)" />
-                      )}
+                    <View style={styles.teamIcon}>
+                      <Feather name="users" size={16} color="rgba(255,255,255,0.6)" />
                     </View>
 
                     <View style={styles.leaderboardInfo}>
@@ -725,11 +721,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.1)",
     justifyContent: "center",
     alignItems: "center",
-  },
-  teamColorDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
   },
   leaderboardInfo: {
     flex: 1,
