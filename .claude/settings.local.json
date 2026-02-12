@@ -43,7 +43,11 @@
       "Bash(npx prisma migrate dev:*)",
       "Bash(python3:*)",
       "Bash(npx next build)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(npx expo install:*)",
+      "Bash(open:*)",
+      "Bash(pod install)",
+      "Bash(ipconfig getifaddr:*)"
     ]
   }
 }
