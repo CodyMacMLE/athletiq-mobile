@@ -133,6 +133,9 @@ function isAthleteCheckIn(
   return !nonAthleteTeams.has(checkIn.event.teamId);
 }
 
+// Helper to safely serialize Date objects to ISO strings for GraphQL String fields
+const toISO = (val: any) => val instanceof Date ? val.toISOString() : val;
+
 export const resolvers = {
   Query: {
     // User queries
@@ -193,6 +196,7 @@ export const resolvers = {
       return prisma.event.findMany({
         where: {
           organizationId,
+          isAdHoc: false,
           ...(startDate && endDate && {
             date: {
               gte: new Date(startDate),
@@ -208,6 +212,7 @@ export const resolvers = {
       return prisma.event.findMany({
         where: {
           organizationId,
+          isAdHoc: false,
           date: { gte: new Date() },
         },
         orderBy: { date: "asc" },
@@ -235,6 +240,38 @@ export const resolvers = {
     // NFC queries
     organizationNfcTags: async (_: unknown, { organizationId }: { organizationId: string }) => {
       return prisma.nfcTag.findMany({ where: { organizationId, isActive: true } });
+    },
+
+    pendingAdHocCheckIns: async (
+      _: unknown,
+      { organizationId }: { organizationId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      const orgMembership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId } },
+      });
+      if (!orgMembership || !["OWNER", "MANAGER", "COACH"].includes(orgMembership.role)) {
+        throw new Error("Only owners, managers, or coaches can view pending check-ins");
+      }
+
+      // OWNER/MANAGER see all pending; COACH only sees teams they coach
+      if (orgMembership.role === "COACH") {
+        const coachedTeams = await prisma.teamMember.findMany({
+          where: { userId: context.userId, role: { in: ["COACH", "ADMIN"] }, team: { organizationId } },
+          select: { teamId: true },
+        });
+        const coachedTeamIds = coachedTeams.map((t) => t.teamId);
+        return prisma.checkIn.findMany({
+          where: { isAdHoc: true, approved: false, event: { organizationId, teamId: { in: coachedTeamIds } } },
+          orderBy: { createdAt: "desc" },
+        });
+      }
+
+      return prisma.checkIn.findMany({
+        where: { isAdHoc: true, approved: false, event: { organizationId } },
+        orderBy: { createdAt: "desc" },
+      });
     },
 
     // Check-in queries
@@ -328,6 +365,7 @@ export const resolvers = {
         where: {
           event: { organizationId },
           status: { in: ["ON_TIME", "LATE"] },
+          approved: true,
         },
         orderBy: { createdAt: "desc" },
         include: { event: { select: { teamId: true } } },
@@ -345,6 +383,7 @@ export const resolvers = {
         where: {
           event: { organizationId },
           status: { in: ["ABSENT", "EXCUSED"] },
+          approved: true,
         },
         orderBy: { createdAt: "desc" },
         include: { event: { select: { teamId: true } } },
@@ -361,6 +400,7 @@ export const resolvers = {
       const checkIns = await prisma.checkIn.findMany({
         where: {
           event: { organizationId },
+          approved: true,
         },
         orderBy: { createdAt: "desc" },
         include: { event: { select: { teamId: true } } },
@@ -379,6 +419,7 @@ export const resolvers = {
       const allCheckIns = await prisma.checkIn.findMany({
         where: {
           event: { organizationId, date: { gte: startDate, lte: endDate } },
+          approved: true,
         },
         include: { event: { select: { teamId: true } } },
       });
@@ -435,6 +476,7 @@ export const resolvers = {
           userId,
           event: { organizationId },
           createdAt: { gte: startDate, lte: endDate },
+          approved: true,
         },
       });
 
@@ -486,6 +528,7 @@ export const resolvers = {
               userId: member.userId,
               event: { teamId },
               createdAt: { gte: startDate, lte: endDate },
+              approved: true,
             },
           });
 
@@ -535,6 +578,7 @@ export const resolvers = {
               userId: member.userId,
               event: { organizationId },
               createdAt: { gte: startDate, lte: endDate },
+              approved: true,
             },
           });
 
@@ -578,6 +622,7 @@ export const resolvers = {
               event: { teamId: team.id },
               createdAt: { gte: startDate, lte: endDate },
               userId: { in: athleteUserIds },
+              approved: true,
             },
           });
 
@@ -603,7 +648,7 @@ export const resolvers = {
 
     recentActivity: async (_: unknown, { organizationId, limit }: { organizationId: string; limit?: number }) => {
       const checkIns = await prisma.checkIn.findMany({
-        where: { event: { organizationId } },
+        where: { event: { organizationId }, approved: true },
         orderBy: { createdAt: "desc" },
         take: limit || 20,
         include: { user: true, event: true },
@@ -1480,9 +1525,9 @@ export const resolvers = {
 
       if (todaysEvents.length === 0) throw new Error("No events today");
 
-      // Find the best event: prefer one currently in check-in window, then next upcoming, then most recent past
-      let selectedEvent = null;
+      // Find event in check-in window (30 min before start to event end)
       const CHECK_IN_WINDOW_MINUTES = 30;
+      let selectedEvent = null;
 
       for (const event of todaysEvents) {
         const eventDate = new Date(event.date);
@@ -1502,23 +1547,20 @@ export const resolvers = {
         }
       }
 
+      // If no event in window, find the next upcoming event and tell user to wait
       if (!selectedEvent) {
-        // Fallback: next upcoming event today
         for (const event of todaysEvents) {
           const eventDate = new Date(event.date);
           const start = parseTimeString(event.startTime);
           const eventStart = new Date(eventDate);
           eventStart.setHours(start.hours, start.minutes, 0, 0);
           if (eventStart > now) {
-            selectedEvent = event;
-            break;
+            throw new Error(`TOO_EARLY:${event.title}:${event.startTime}`);
           }
         }
-      }
-
-      if (!selectedEvent) {
-        // Fallback: most recent past event today
-        selectedEvent = todaysEvents[todaysEvents.length - 1];
+        // All events already ended — also too late
+        const lastEvent = todaysEvents[todaysEvents.length - 1];
+        throw new Error(`TOO_EARLY:${lastEvent.title}:${lastEvent.startTime}`);
       }
 
       // 5. Toggle logic
@@ -1560,6 +1602,144 @@ export const resolvers = {
         },
       });
       return { checkIn: newCheckIn, action: "CHECKED_IN", event: selectedEvent };
+    },
+
+    adHocNfcCheckIn: async (
+      _: unknown,
+      { input }: { input: { token: string; teamId: string; startTime: string; endTime: string; note?: string } },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Validate NFC tag
+      const tag = await prisma.nfcTag.findUnique({ where: { token: input.token } });
+      if (!tag) throw new Error("Unrecognized tag");
+      if (!tag.isActive) throw new Error("Tag deactivated");
+
+      // Verify user is org member
+      const orgMembership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId: tag.organizationId } },
+      });
+      if (!orgMembership) throw new Error("You are not a member of this organization");
+
+      // Verify user is member of specified team
+      const teamMembership = await prisma.teamMember.findUnique({
+        where: { userId_teamId: { userId: context.userId, teamId: input.teamId } },
+      });
+      if (!teamMembership) throw new Error("You are not a member of this team");
+
+      // Verify team belongs to the org
+      const team = await prisma.team.findUnique({ where: { id: input.teamId } });
+      if (!team || team.organizationId !== tag.organizationId) {
+        throw new Error("Team does not belong to this organization");
+      }
+
+      // Create ad-hoc event for today
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+
+      const adHocEvent = await prisma.event.create({
+        data: {
+          title: "Ad-Hoc Check-In",
+          type: "PRACTICE",
+          date: todayStart,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          organizationId: tag.organizationId,
+          teamId: input.teamId,
+          isAdHoc: true,
+        },
+      });
+
+      // Create check-in (pending approval)
+      const checkIn = await prisma.checkIn.create({
+        data: {
+          userId: context.userId,
+          eventId: adHocEvent.id,
+          status: "ON_TIME",
+          checkInTime: now,
+          note: input.note || null,
+          isAdHoc: true,
+          approved: false,
+        },
+      });
+
+      return { checkIn, action: "CHECKED_IN", event: adHocEvent };
+    },
+
+    approveAdHocCheckIn: async (
+      _: unknown,
+      { checkInId }: { checkInId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const checkIn = await prisma.checkIn.findUnique({
+        where: { id: checkInId },
+        include: { event: true },
+      });
+      if (!checkIn || !checkIn.isAdHoc) throw new Error("Ad-hoc check-in not found");
+
+      // Verify caller is OWNER, MANAGER, or COACH in the org
+      const orgMembership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId: checkIn.event.organizationId } },
+      });
+      if (!orgMembership || !["OWNER", "MANAGER", "COACH"].includes(orgMembership.role)) {
+        throw new Error("Only owners, managers, or coaches can approve ad-hoc check-ins");
+      }
+
+      // COACH must be a coach on the specific team
+      if (orgMembership.role === "COACH" && checkIn.event.teamId) {
+        const teamMembership = await prisma.teamMember.findUnique({
+          where: { userId_teamId: { userId: context.userId, teamId: checkIn.event.teamId } },
+        });
+        if (!teamMembership || !["COACH", "ADMIN"].includes(teamMembership.role)) {
+          throw new Error("You can only approve check-ins for teams you coach");
+        }
+      }
+
+      return prisma.checkIn.update({
+        where: { id: checkInId },
+        data: { approved: true },
+      });
+    },
+
+    denyAdHocCheckIn: async (
+      _: unknown,
+      { checkInId }: { checkInId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const checkIn = await prisma.checkIn.findUnique({
+        where: { id: checkInId },
+        include: { event: true },
+      });
+      if (!checkIn || !checkIn.isAdHoc) throw new Error("Ad-hoc check-in not found");
+
+      // Verify caller is OWNER, MANAGER, or COACH in the org
+      const orgMembership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId: checkIn.event.organizationId } },
+      });
+      if (!orgMembership || !["OWNER", "MANAGER", "COACH"].includes(orgMembership.role)) {
+        throw new Error("Only owners, managers, or coaches can deny ad-hoc check-ins");
+      }
+
+      // COACH must be a coach on the specific team
+      if (orgMembership.role === "COACH" && checkIn.event.teamId) {
+        const teamMembership = await prisma.teamMember.findUnique({
+          where: { userId_teamId: { userId: context.userId, teamId: checkIn.event.teamId } },
+        });
+        if (!teamMembership || !["COACH", "ADMIN"].includes(teamMembership.role)) {
+          throw new Error("You can only deny check-ins for teams you coach");
+        }
+      }
+
+      // Delete the check-in and the auto-created ad-hoc event
+      await prisma.checkIn.delete({ where: { id: checkInId } });
+      await prisma.event.delete({ where: { id: checkIn.eventId } });
+      return true;
     },
 
     // Excuse mutations
@@ -1614,11 +1794,13 @@ export const resolvers = {
     organizationMemberships: (parent: { id: string }) =>
       prisma.organizationMember.findMany({ where: { userId: parent.id } }),
     checkIns: (parent: { id: string }) => prisma.checkIn.findMany({ where: { userId: parent.id } }),
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
   Organization: {
     teams: (parent: { id: string }) => prisma.team.findMany({ where: { organizationId: parent.id, archivedAt: null } }),
-    events: (parent: { id: string }) => prisma.event.findMany({ where: { organizationId: parent.id } }),
+    events: (parent: { id: string }) => prisma.event.findMany({ where: { organizationId: parent.id, isAdHoc: false } }),
     members: (parent: { id: string }) =>
       prisma.organizationMember.findMany({ where: { organizationId: parent.id } }),
     invites: (parent: { id: string }) =>
@@ -1630,6 +1812,8 @@ export const resolvers = {
         where: { team: { organizationId: parent.id, archivedAt: null }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
       });
     },
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
   Team: {
@@ -1639,6 +1823,7 @@ export const resolvers = {
     events: (parent: { id: string }) =>
       prisma.event.findMany({
         where: {
+          isAdHoc: false,
           OR: [
             { teamId: parent.id },
             { participatingTeams: { some: { id: parent.id } } },
@@ -1656,12 +1841,15 @@ export const resolvers = {
           event: { teamId: parent.id },
           createdAt: { gte: startDate, lte: endDate },
           userId: { in: athleteUserIds },
+          approved: true,
         },
       });
       const totalHoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
       const totalHoursRequired = members.reduce((sum, m) => sum + m.hoursRequired, 0);
       return totalHoursRequired > 0 ? Math.min(100, (totalHoursLogged / totalHoursRequired) * 100) : 0;
     },
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
   TeamMember: {
@@ -1674,6 +1862,7 @@ export const resolvers = {
           userId: parent.userId,
           event: { teamId: parent.teamId },
           createdAt: { gte: startDate, lte: endDate },
+          approved: true,
         },
       });
       return checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
@@ -1688,11 +1877,13 @@ export const resolvers = {
           userId: parent.userId,
           event: { teamId: parent.teamId },
           createdAt: { gte: startDate, lte: endDate },
+          approved: true,
         },
       });
       const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
       return parent.hoursRequired > 0 ? Math.min(100, (hoursLogged / parent.hoursRequired) * 100) : 0;
     },
+    joinedAt: (parent: any) => toISO(parent.joinedAt),
   },
 
   Event: {
@@ -1709,6 +1900,10 @@ export const resolvers = {
       prisma.team.findMany({
         where: { participatingEvents: { some: { id: parent.id } } },
       }),
+    date: (parent: any) => toISO(parent.date),
+    endDate: (parent: any) => parent.endDate ? toISO(parent.endDate) : null,
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
   RecurringEvent: {
@@ -1718,31 +1913,45 @@ export const resolvers = {
       parent.teamId ? prisma.team.findUnique({ where: { id: parent.teamId } }) : null,
     events: (parent: { id: string }) =>
       prisma.event.findMany({ where: { recurringEventId: parent.id }, orderBy: { date: "asc" } }),
+    startDate: (parent: any) => toISO(parent.startDate),
+    endDate: (parent: any) => toISO(parent.endDate),
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
   CheckIn: {
     user: (parent: { userId: string }) => prisma.user.findUnique({ where: { id: parent.userId } }),
     event: (parent: { eventId: string }) => prisma.event.findUnique({ where: { id: parent.eventId } }),
+    checkInTime: (parent: any) => parent.checkInTime ? toISO(parent.checkInTime) : null,
+    checkOutTime: (parent: any) => parent.checkOutTime ? toISO(parent.checkOutTime) : null,
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
   ExcuseRequest: {
     user: (parent: { userId: string }) => prisma.user.findUnique({ where: { id: parent.userId } }),
     event: (parent: { eventId: string }) => prisma.event.findUnique({ where: { id: parent.eventId } }),
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
   OrganizationMember: {
     user: (parent: { userId: string }) => prisma.user.findUnique({ where: { id: parent.userId } }),
     organization: (parent: { organizationId: string }) =>
       prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    joinedAt: (parent: any) => toISO(parent.joinedAt),
   },
 
   Invite: {
     organization: (parent: { organizationId: string }) =>
       prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    expiresAt: (parent: any) => toISO(parent.expiresAt),
   },
 
   NfcTag: {
     organization: (parent: { organizationId: string }) =>
       prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    createdAt: (parent: any) => toISO(parent.createdAt),
   },
 };

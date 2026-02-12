@@ -215,7 +215,7 @@ export default function UserDetailPage() {
   }
 
   const memberSince = member.user.createdAt
-    ? new Date(Number(member.user.createdAt)).toLocaleDateString("en-US", {
+    ? new Date(isNaN(Number(member.user.createdAt)) ? member.user.createdAt : Number(member.user.createdAt)).toLocaleDateString("en-US", {
         month: "long",
         day: "numeric",
         year: "numeric",
@@ -501,7 +501,7 @@ export default function UserDetailPage() {
                                 </Link>
                               </td>
                               <td className="py-3 pr-4 text-gray-400">
-                                {new Date(Number(checkIn.event.date)).toLocaleDateString("en-US", {
+                                {new Date(isNaN(Number(checkIn.event.date)) ? checkIn.event.date : Number(checkIn.event.date)).toLocaleDateString("en-US", {
                                   month: "short",
                                   day: "numeric",
                                 })}
@@ -514,7 +514,7 @@ export default function UserDetailPage() {
                               </td>
                               <td className="py-3 pr-4 text-gray-400">
                                 {checkIn.checkInTime
-                                  ? new Date(Number(checkIn.checkInTime)).toLocaleTimeString("en-US", {
+                                  ? new Date(isNaN(Number(checkIn.checkInTime)) ? checkIn.checkInTime : Number(checkIn.checkInTime)).toLocaleTimeString("en-US", {
                                       hour: "numeric",
                                       minute: "2-digit",
                                     })
@@ -522,7 +522,7 @@ export default function UserDetailPage() {
                               </td>
                               <td className="py-3 pr-4 text-gray-400">
                                 {checkIn.checkOutTime
-                                  ? new Date(Number(checkIn.checkOutTime)).toLocaleTimeString("en-US", {
+                                  ? new Date(isNaN(Number(checkIn.checkOutTime)) ? checkIn.checkOutTime : Number(checkIn.checkOutTime)).toLocaleTimeString("en-US", {
                                       hour: "numeric",
                                       minute: "2-digit",
                                     })

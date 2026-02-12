@@ -321,6 +321,25 @@ export const MARK_ABSENT_FOR_PAST_EVENTS = gql`
 `;
 
 // ============================================
+// Ad-Hoc Check-In Mutations
+// ============================================
+
+export const APPROVE_AD_HOC_CHECK_IN = gql`
+  mutation ApproveAdHocCheckIn($checkInId: ID!) {
+    approveAdHocCheckIn(checkInId: $checkInId) {
+      id
+      approved
+    }
+  }
+`;
+
+export const DENY_AD_HOC_CHECK_IN = gql`
+  mutation DenyAdHocCheckIn($checkInId: ID!) {
+    denyAdHocCheckIn(checkInId: $checkInId)
+  }
+`;
+
+// ============================================
 // Excuse Mutations
 // ============================================
 

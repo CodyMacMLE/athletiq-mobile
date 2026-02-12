@@ -511,3 +511,37 @@ export const GET_CHECK_IN_HISTORY = gql`
     }
   }
 `;
+
+// ============================================
+// Ad-Hoc Check-In Queries
+// ============================================
+
+export const GET_PENDING_AD_HOC_CHECK_INS = gql`
+  query GetPendingAdHocCheckIns($organizationId: ID!) {
+    pendingAdHocCheckIns(organizationId: $organizationId) {
+      id
+      status
+      checkInTime
+      note
+      isAdHoc
+      approved
+      createdAt
+      user {
+        id
+        firstName
+        lastName
+        image
+      }
+      event {
+        id
+        title
+        type
+        date
+        team {
+          id
+          name
+        }
+      }
+    }
+  }
+`;

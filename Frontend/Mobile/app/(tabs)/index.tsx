@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import {
   GET_CHECKIN_HISTORY,
+  GET_PENDING_AD_HOC_CHECK_INS,
   GET_RECENT_ACTIVITY,
   GET_USER_STATS,
 } from "@/lib/graphql/queries";
@@ -27,7 +28,7 @@ const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function Index() {
   const router = useRouter();
-  const { user, organizations, selectedOrganization, setSelectedOrganization, selectedTeamId } = useAuth();
+  const { user, organizations, selectedOrganization, setSelectedOrganization, selectedTeamId, orgRole } = useAuth();
   const [orgPickerVisible, setOrgPickerVisible] = useState(false);
 
   const { data: statsData, loading: statsLoading } = useQuery(GET_USER_STATS, {
@@ -53,6 +54,15 @@ export default function Index() {
     },
     skip: !user?.id,
   });
+
+  const isCoachOrAdmin = orgRole === "OWNER" || orgRole === "MANAGER" || orgRole === "COACH";
+
+  const { data: pendingAdHocData } = useQuery(GET_PENDING_AD_HOC_CHECK_INS, {
+    variables: { organizationId: selectedOrganization?.id },
+    skip: !selectedOrganization?.id || !isCoachOrAdmin,
+  });
+
+  const pendingAdHocCount = pendingAdHocData?.pendingAdHocCheckIns?.length || 0;
 
   const stats = statsData?.userStats;
   const recentActivity = activityData?.recentActivity || [];
@@ -208,6 +218,25 @@ export default function Index() {
             </Text>
           </LinearGradient>
         </Pressable>
+
+        {/* Pending Ad-Hoc Check-Ins (coaches/admins only) */}
+        {isCoachOrAdmin && pendingAdHocCount > 0 && (
+          <Pressable
+            onPress={() => router.push("/pending-checkins")}
+            style={({ pressed }) => [
+              styles.pendingBanner,
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <View style={styles.pendingBannerLeft}>
+              <Feather name="clock" size={18} color="#f59e0b" />
+              <Text style={styles.pendingBannerText}>
+                {pendingAdHocCount} pending check-in{pendingAdHocCount !== 1 ? "s" : ""}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.5)" />
+          </Pressable>
+        )}
 
         {/* Stats Row */}
         <View style={styles.statsRow}>
@@ -479,6 +508,30 @@ const styles = StyleSheet.create({
   checkInSubtext: {
     color: "rgba(255,255,255,0.7)",
     fontSize: 14,
+  },
+
+  // Pending Ad-Hoc Banner
+  pendingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+    backgroundColor: "rgba(245,158,11,0.15)",
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: "rgba(245,158,11,0.2)",
+  },
+  pendingBannerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  pendingBannerText: {
+    color: "#f59e0b",
+    fontSize: 14,
+    fontWeight: "600",
   },
 
   // Stats

@@ -411,7 +411,7 @@ export default function EventDetailPage() {
               {/* Check In Time */}
               <div className="col-span-2 text-gray-400">
                 {row.checkIn?.checkInTime
-                  ? new Date(Number(row.checkIn.checkInTime)).toLocaleTimeString("en-US", {
+                  ? new Date(isNaN(Number(row.checkIn.checkInTime)) ? row.checkIn.checkInTime : Number(row.checkIn.checkInTime)).toLocaleTimeString("en-US", {
                       hour: "numeric",
                       minute: "2-digit",
                     })
@@ -421,7 +421,7 @@ export default function EventDetailPage() {
               {/* Check Out Time */}
               <div className="col-span-2 text-gray-400">
                 {row.checkIn?.checkOutTime
-                  ? new Date(Number(row.checkIn.checkOutTime)).toLocaleTimeString("en-US", {
+                  ? new Date(isNaN(Number(row.checkIn.checkOutTime)) ? row.checkIn.checkOutTime : Number(row.checkIn.checkOutTime)).toLocaleTimeString("en-US", {
                       hour: "numeric",
                       minute: "2-digit",
                     })

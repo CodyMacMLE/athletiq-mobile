@@ -290,7 +290,7 @@ export default function UsersPage() {
                         <div className="ml-4">
                           <p className="text-white font-medium">{invite.email}</p>
                           <p className="text-gray-400 text-sm">
-                            Invited {new Date(Number(invite.createdAt)).toLocaleDateString()}
+                            Invited {new Date(isNaN(Number(invite.createdAt)) ? invite.createdAt : Number(invite.createdAt)).toLocaleDateString()}
                           </p>
                         </div>
                       </div>

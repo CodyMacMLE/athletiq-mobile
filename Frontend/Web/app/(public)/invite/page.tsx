@@ -94,7 +94,7 @@ export default function AcceptInvitePage() {
       return;
     }
 
-    if (new Date(Number(invite.expiresAt)) < new Date()) {
+    if (new Date(isNaN(Number(invite.expiresAt)) ? invite.expiresAt : Number(invite.expiresAt)) < new Date()) {
       setError("This invite has expired.");
       setView("error");
       return;

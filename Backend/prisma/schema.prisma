@@ -131,6 +131,7 @@ model Event {
   endTime        String // e.g., "8:00 PM"
   location       String?
   description    String?
+  isAdHoc        Boolean      @default(false)
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
   teamId         String?
@@ -172,6 +173,8 @@ model CheckIn {
   checkOutTime DateTime?
   hoursLogged  Float?
   note         String?
+  isAdHoc      Boolean          @default(false)
+  approved     Boolean          @default(true)
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 

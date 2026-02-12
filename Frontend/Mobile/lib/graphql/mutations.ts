@@ -100,3 +100,33 @@ export const DEACTIVATE_NFC_TAG = gql`
     }
   }
 `;
+
+export const AD_HOC_NFC_CHECK_IN = gql`
+  mutation AdHocNfcCheckIn($input: AdHocNfcCheckInInput!) {
+    adHocNfcCheckIn(input: $input) {
+      checkIn {
+        ...CheckInFields
+      }
+      action
+      event {
+        ...EventFields
+      }
+    }
+  }
+  ${CHECKIN_FRAGMENT}
+`;
+
+export const APPROVE_AD_HOC_CHECK_IN = gql`
+  mutation ApproveAdHocCheckIn($checkInId: ID!) {
+    approveAdHocCheckIn(checkInId: $checkInId) {
+      id
+      approved
+    }
+  }
+`;
+
+export const DENY_AD_HOC_CHECK_IN = gql`
+  mutation DenyAdHocCheckIn($checkInId: ID!) {
+    denyAdHocCheckIn(checkInId: $checkInId)
+  }
+`;

@@ -6,9 +6,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   GET_PENDING_EXCUSE_REQUESTS,
   GET_ALL_ATTENDANCE_RECORDS,
+  GET_PENDING_AD_HOC_CHECK_INS,
   UPDATE_EXCUSE_REQUEST,
   CHECK_OUT,
   MARK_ABSENT_FOR_PAST_EVENTS,
+  APPROVE_AD_HOC_CHECK_IN,
+  DENY_AD_HOC_CHECK_IN,
 } from "@/lib/graphql";
 import {
   CheckCircle,
@@ -23,6 +26,7 @@ import {
   ChevronRight,
   ArrowUpDown,
   Users,
+  MessageCircle,
 } from "lucide-react";
 
 // ============================================
@@ -94,7 +98,7 @@ function SortHeader({
 
 export default function Attendance() {
   const { selectedOrganizationId, canEdit } = useAuth();
-  const [activeTab, setActiveTab] = useState<"attendance" | "excuses">("attendance");
+  const [activeTab, setActiveTab] = useState<"attendance" | "excuses" | "adhoc">("attendance");
   const autoAbsentFired = useRef(false);
 
   // Table state
@@ -120,8 +124,15 @@ export default function Attendance() {
     skip: !selectedOrganizationId,
   });
 
+  const { data: adHocData, loading: adHocLoading, refetch: refetchAdHoc } = useQuery(GET_PENDING_AD_HOC_CHECK_INS, {
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId,
+  });
+
   // Mutations
   const [markAbsentForPastEvents] = useMutation(MARK_ABSENT_FOR_PAST_EVENTS);
+  const [approveAdHocCheckIn] = useMutation(APPROVE_AD_HOC_CHECK_IN);
+  const [denyAdHocCheckIn] = useMutation(DENY_AD_HOC_CHECK_IN);
   const [updateExcuseRequest] = useMutation(UPDATE_EXCUSE_REQUEST);
   const [checkOut] = useMutation(CHECK_OUT);
 
@@ -139,6 +150,7 @@ export default function Attendance() {
 
   const allRecords: AttendanceRecord[] = recordsData?.allAttendanceRecords || [];
   const pendingExcuses = excusesData?.pendingExcuseRequests || [];
+  const pendingAdHocCheckIns = adHocData?.pendingAdHocCheckIns || [];
 
   // Filter + sort
   const filteredSorted = useMemo(() => {
@@ -172,7 +184,7 @@ export default function Attendance() {
           cmp = a.event.title.localeCompare(b.event.title);
           break;
         case "date":
-          cmp = new Date(Number(a.event.date)).getTime() - new Date(Number(b.event.date)).getTime();
+          cmp = new Date(isNaN(Number(a.event.date)) ? a.event.date : Number(a.event.date)).getTime() - new Date(isNaN(Number(b.event.date)) ? b.event.date : Number(b.event.date)).getTime();
           break;
         case "status": {
           const order = { ON_TIME: 0, LATE: 1, ABSENT: 2, EXCUSED: 3 };
@@ -235,9 +247,29 @@ export default function Attendance() {
     }
   };
 
+  const handleApproveAdHoc = async (checkInId: string) => {
+    try {
+      await approveAdHocCheckIn({ variables: { checkInId } });
+      refetchAdHoc();
+      refetchRecords();
+    } catch (error) {
+      console.error("Failed to approve ad-hoc check-in:", error);
+    }
+  };
+
+  const handleDenyAdHoc = async (checkInId: string) => {
+    try {
+      await denyAdHocCheckIn({ variables: { checkInId } });
+      refetchAdHoc();
+    } catch (error) {
+      console.error("Failed to deny ad-hoc check-in:", error);
+    }
+  };
+
   const refetchAll = () => {
     refetchRecords();
     refetchExcuses();
+    refetchAdHoc();
   };
 
   return (
@@ -274,6 +306,21 @@ export default function Attendance() {
           {pendingExcuses.length > 0 && (
             <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
               {pendingExcuses.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab("adhoc")}
+          className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+            activeTab === "adhoc"
+              ? "bg-purple-600 text-white"
+              : "bg-gray-800 text-gray-400 hover:text-white"
+          }`}
+        >
+          Ad-Hoc Check-Ins
+          {pendingAdHocCheckIns.length > 0 && (
+            <span className="bg-yellow-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              {pendingAdHocCheckIns.length}
             </span>
           )}
         </button>
@@ -386,7 +433,7 @@ export default function Attendance() {
                         {/* Date */}
                         <td className="px-6 py-3">
                           <span className="text-gray-400 text-sm">
-                            {new Date(Number(record.event.date)).toLocaleDateString("en-US", {
+                            {new Date(isNaN(Number(record.event.date)) ? record.event.date : Number(record.event.date)).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
                             })}
@@ -522,7 +569,7 @@ export default function Attendance() {
                         </p>
                         <p className="text-gray-400 text-xs">
                           {excuse.event.title} &middot;{" "}
-                          {new Date(Number(excuse.event.date)).toLocaleDateString("en-US", {
+                          {new Date(isNaN(Number(excuse.event.date)) ? excuse.event.date : Number(excuse.event.date)).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                           })}
@@ -547,6 +594,98 @@ export default function Attendance() {
                     )}
                   </div>
                   <p className="text-gray-300 text-sm mt-2 ml-[52px]">{excuse.reason}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Ad-Hoc Check-Ins Tab */}
+      {activeTab === "adhoc" && (
+        <div className="bg-gray-800 rounded-xl border border-gray-700">
+          <div className="px-6 py-4 border-b border-gray-700">
+            <h2 className="text-lg font-semibold text-white">Pending Ad-Hoc Check-Ins</h2>
+            <p className="text-gray-400 text-sm">
+              {pendingAdHocCheckIns.length} ad-hoc check-in{pendingAdHocCheckIns.length !== 1 ? "s" : ""} awaiting approval
+            </p>
+          </div>
+
+          {adHocLoading ? (
+            <div className="flex items-center justify-center h-48">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+            </div>
+          ) : pendingAdHocCheckIns.length === 0 ? (
+            <div className="p-12 text-center">
+              <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+              <p className="text-gray-400">No pending ad-hoc check-ins.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-700">
+              {pendingAdHocCheckIns.map((checkIn: any) => (
+                <div key={checkIn.id} className="px-6 py-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                        {checkIn.user.firstName[0]}
+                        {checkIn.user.lastName[0]}
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-white font-medium text-sm">
+                          {checkIn.user.firstName} {checkIn.user.lastName}
+                        </p>
+                        <p className="text-gray-400 text-xs">
+                          {checkIn.event.team?.name || "No team"} &middot;{" "}
+                          {(() => {
+                            const d = Number(checkIn.event.date);
+                            return new Date(isNaN(d) ? checkIn.event.date : d).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            });
+                          })()}
+                          {checkIn.checkInTime && (
+                            <>
+                              {" "}at{" "}
+                              {(() => {
+                                const t = Number(checkIn.checkInTime);
+                                return new Date(isNaN(t) ? checkIn.checkInTime : t).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                });
+                              })()}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="px-2.5 py-1 bg-yellow-500/20 text-yellow-500 rounded-lg text-xs font-medium">
+                        Ad-Hoc
+                      </span>
+                      {canEdit && (
+                        <div className="flex gap-2 shrink-0">
+                          <button
+                            onClick={() => handleApproveAdHoc(checkIn.id)}
+                            className="px-4 py-1.5 bg-green-600/20 text-green-500 rounded-lg text-sm font-medium hover:bg-green-600/30 transition-colors"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleDenyAdHoc(checkIn.id)}
+                            className="px-4 py-1.5 bg-red-600/20 text-red-500 rounded-lg text-sm font-medium hover:bg-red-600/30 transition-colors"
+                          >
+                            Deny
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {checkIn.note && (
+                    <div className="flex items-start gap-2 mt-2 ml-[52px]">
+                      <MessageCircle className="w-3.5 h-3.5 text-gray-500 mt-0.5 shrink-0" />
+                      <p className="text-gray-300 text-sm">{checkIn.note}</p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

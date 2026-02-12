@@ -2,8 +2,9 @@
 
 import { useQuery } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
-import { GET_ORGANIZATION, GET_ORGANIZATION_STATS, GET_PENDING_EXCUSE_REQUESTS } from "@/lib/graphql";
-import { Users, Calendar, TrendingUp, AlertCircle, CheckCircle, XCircle } from "lucide-react";
+import { GET_ORGANIZATION, GET_ORGANIZATION_STATS, GET_PENDING_EXCUSE_REQUESTS, GET_PENDING_AD_HOC_CHECK_INS } from "@/lib/graphql";
+import { Users, Calendar, TrendingUp, AlertCircle, CheckCircle, XCircle, Clock } from "lucide-react";
+import Link from "next/link";
 
 export default function Dashboard() {
   const { selectedOrganizationId, canEdit } = useAuth();
@@ -23,9 +24,15 @@ export default function Dashboard() {
     skip: !selectedOrganizationId,
   });
 
+  const { data: adHocData } = useQuery(GET_PENDING_AD_HOC_CHECK_INS, {
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId,
+  });
+
   const org = orgData?.organization;
   const teamRankings = statsData?.teamRankings || [];
   const pendingExcuses = excusesData?.pendingExcuseRequests || [];
+  const pendingAdHocCheckIns = adHocData?.pendingAdHocCheckIns || [];
 
   if (orgLoading || statsLoading) {
     return (
@@ -100,6 +107,29 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Pending Ad-Hoc Check-Ins Banner */}
+      {pendingAdHocCheckIns.length > 0 && (
+        <Link
+          href="/attendance"
+          className="block mb-8 bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 hover:bg-yellow-500/15 transition-colors"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center">
+                <Clock className="w-5 h-5 text-yellow-500" />
+              </div>
+              <div>
+                <p className="text-white font-medium">
+                  {pendingAdHocCheckIns.length} Pending Ad-Hoc Check-In{pendingAdHocCheckIns.length !== 1 ? "s" : ""}
+                </p>
+                <p className="text-gray-400 text-sm">Review and approve athlete ad-hoc check-ins</p>
+              </div>
+            </div>
+            <span className="text-gray-400 text-sm">View &rarr;</span>
+          </div>
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Team Rankings */}

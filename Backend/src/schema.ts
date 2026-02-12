@@ -180,6 +180,8 @@ export const typeDefs = `#graphql
     checkOutTime: String
     hoursLogged: Float
     note: String
+    isAdHoc: Boolean!
+    approved: Boolean!
     createdAt: String!
     updatedAt: String!
   }
@@ -337,6 +339,14 @@ export const typeDefs = `#graphql
     organizationId: ID!
   }
 
+  input AdHocNfcCheckInInput {
+    token: String!
+    teamId: ID!
+    startTime: String!
+    endTime: String!
+    note: String
+  }
+
   input CreateEventInput {
     title: String!
     type: EventType!
@@ -434,6 +444,7 @@ export const typeDefs = `#graphql
 
     # NFC queries
     organizationNfcTags(organizationId: ID!): [NfcTag!]!
+    pendingAdHocCheckIns(organizationId: ID!): [CheckIn!]!
 
     # Invite queries
     invite(token: String!): Invite
@@ -509,6 +520,9 @@ export const typeDefs = `#graphql
     registerNfcTag(input: RegisterNfcTagInput!): NfcTag!
     deactivateNfcTag(id: ID!): NfcTag!
     nfcCheckIn(token: String!): NfcCheckInResult!
+    adHocNfcCheckIn(input: AdHocNfcCheckInInput!): NfcCheckInResult!
+    approveAdHocCheckIn(checkInId: ID!): CheckIn!
+    denyAdHocCheckIn(checkInId: ID!): Boolean!
 
     # Excuse mutations
     createExcuseRequest(input: CreateExcuseRequestInput!): ExcuseRequest!
