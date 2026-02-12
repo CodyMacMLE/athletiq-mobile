@@ -37,6 +37,7 @@ import { useRouter } from "next/navigation";
 type TeamMember = {
   id: string;
   role: string;
+  joinedAt?: string;
   user: {
     id: string;
     firstName: string;
@@ -133,16 +134,16 @@ export default function EventDetailPage() {
     checkIn?: CheckIn;
   } | null>(null);
 
-  const { data, loading, refetch } = useQuery(GET_EVENT_DETAIL, {
+  const { data, loading, refetch } = useQuery<any>(GET_EVENT_DETAIL, {
     variables: { id: eventId },
     skip: !eventId,
   });
 
   const event: EventDetail | undefined = data?.event;
 
-  const [updateEvent] = useMutation(UPDATE_EVENT);
-  const [deleteEvent] = useMutation(DELETE_EVENT);
-  const [deleteRecurringEvent] = useMutation(DELETE_RECURRING_EVENT);
+  const [updateEvent] = useMutation<any>(UPDATE_EVENT);
+  const [deleteEvent] = useMutation<any>(DELETE_EVENT);
+  const [deleteRecurringEvent] = useMutation<any>(DELETE_RECURRING_EVENT);
 
   // Determine if the event has ended (past its end time)
   const eventHasEnded = useMemo(() => {
@@ -241,13 +242,20 @@ export default function EventDetailPage() {
     return teams;
   }, [event]);
 
-  // Extract coaches (COACH or ADMIN role) and athletes
+  // Extract coaches (COACH or ADMIN role) and athletes, filtering out members who joined after the event
   const { coaches, athletes } = useMemo(() => {
+    if (!event) return { coaches: [], athletes: [] };
+    const eventDate = parseDate(event.date);
     const coachMap = new Map<string, TeamMember["user"]>();
     const athleteMap = new Map<string, TeamMember["user"]>();
 
     for (const team of allTeams) {
       for (const member of team.members) {
+        // Skip members who joined after this event's date
+        if (member.joinedAt) {
+          const joinedDate = parseDate(member.joinedAt);
+          if (joinedDate > eventDate) continue;
+        }
         if (member.role === "COACH" || member.role === "ADMIN") {
           coachMap.set(member.user.id, member.user);
         } else {
@@ -260,7 +268,7 @@ export default function EventDetailPage() {
       coaches: Array.from(coachMap.values()),
       athletes: Array.from(athleteMap.values()),
     };
-  }, [allTeams]);
+  }, [allTeams, event]);
 
   // Build attendance rows: each athlete matched against checkIns
   const attendanceRows = useMemo(() => {
@@ -656,6 +664,19 @@ export default function EventDetailPage() {
 // ModifyAttendanceModal
 // ============================================
 
+function toLocalDatetimeValue(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  const num = Number(dateStr);
+  const d = isNaN(num) ? new Date(dateStr) : new Date(num);
+  if (isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const mins = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${mins}`;
+}
+
 function ModifyAttendanceModal({
   eventId,
   userId,
@@ -673,16 +694,11 @@ function ModifyAttendanceModal({
 }) {
   const [status, setStatus] = useState<string>(existingCheckIn?.status || "ON_TIME");
   const [note, setNote] = useState(existingCheckIn?.note || "");
+  const [checkInTimeValue, setCheckInTimeValue] = useState(toLocalDatetimeValue(existingCheckIn?.checkInTime));
+  const [checkOutTimeValue, setCheckOutTimeValue] = useState(toLocalDatetimeValue(existingCheckIn?.checkOutTime));
   const [saving, setSaving] = useState(false);
 
-  const [adminCheckIn] = useMutation(ADMIN_CHECK_IN);
-  const [checkOut] = useMutation(CHECK_OUT);
-
-  const canCheckOut =
-    existingCheckIn &&
-    (existingCheckIn.status === "ON_TIME" || existingCheckIn.status === "LATE") &&
-    existingCheckIn.checkInTime &&
-    !existingCheckIn.checkOutTime;
+  const [adminCheckIn] = useMutation<any>(ADMIN_CHECK_IN);
 
   const handleSave = async () => {
     setSaving(true);
@@ -694,29 +710,14 @@ function ModifyAttendanceModal({
             eventId,
             status,
             note: note.trim() || undefined,
+            checkInTime: checkInTimeValue ? new Date(checkInTimeValue).toISOString() : undefined,
+            checkOutTime: checkOutTimeValue ? new Date(checkOutTimeValue).toISOString() : undefined,
           },
         },
       });
       onSuccess();
     } catch (error) {
       console.error("Failed to update attendance:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCheckOut = async () => {
-    if (!existingCheckIn) return;
-    setSaving(true);
-    try {
-      await checkOut({
-        variables: {
-          input: { checkInId: existingCheckIn.id },
-        },
-      });
-      onSuccess();
-    } catch (error) {
-      console.error("Failed to check out:", error);
     } finally {
       setSaving(false);
     }
@@ -764,6 +765,28 @@ function ModifyAttendanceModal({
           </div>
         </div>
 
+        {/* Check-In Time */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-400 mb-1">Check-In Time</label>
+          <input
+            type="datetime-local"
+            value={checkInTimeValue}
+            onChange={(e) => setCheckInTimeValue(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
+
+        {/* Check-Out Time */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-400 mb-1">Check-Out Time</label>
+          <input
+            type="datetime-local"
+            value={checkOutTimeValue}
+            onChange={(e) => setCheckOutTimeValue(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
+
         {/* Note */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-400 mb-1">Note (optional)</label>
@@ -777,33 +800,20 @@ function ModifyAttendanceModal({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-between">
-          <div>
-            {canCheckOut && (
-              <button
-                onClick={handleCheckOut}
-                disabled={saving}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm disabled:opacity-50"
-              >
-                Check Out
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save"}
-            </button>
-          </div>
+        <div className="flex items-center justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
         </div>
       </div>
     </div>

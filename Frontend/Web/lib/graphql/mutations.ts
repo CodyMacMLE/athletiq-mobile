@@ -301,6 +301,8 @@ export const ADMIN_CHECK_IN = gql`
       id
       status
       checkInTime
+      checkOutTime
+      hoursLogged
       note
     }
   }

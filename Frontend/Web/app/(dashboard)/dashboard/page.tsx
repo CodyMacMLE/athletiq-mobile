@@ -9,22 +9,22 @@ import Link from "next/link";
 export default function Dashboard() {
   const { selectedOrganizationId, canEdit } = useAuth();
 
-  const { data: orgData, loading: orgLoading } = useQuery(GET_ORGANIZATION, {
+  const { data: orgData, loading: orgLoading } = useQuery<any>(GET_ORGANIZATION, {
     variables: { id: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const { data: statsData, loading: statsLoading } = useQuery(GET_ORGANIZATION_STATS, {
+  const { data: statsData, loading: statsLoading } = useQuery<any>(GET_ORGANIZATION_STATS, {
     variables: { organizationId: selectedOrganizationId, timeRange: "MONTH" },
     skip: !selectedOrganizationId,
   });
 
-  const { data: excusesData } = useQuery(GET_PENDING_EXCUSE_REQUESTS, {
+  const { data: excusesData } = useQuery<any>(GET_PENDING_EXCUSE_REQUESTS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const { data: adHocData } = useQuery(GET_PENDING_AD_HOC_CHECK_INS, {
+  const { data: adHocData } = useQuery<any>(GET_PENDING_AD_HOC_CHECK_INS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });

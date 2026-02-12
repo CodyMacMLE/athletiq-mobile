@@ -27,14 +27,14 @@ export function Teams() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
-  const { data, loading, refetch } = useQuery(GET_TEAMS, {
+  const { data, loading, refetch } = useQuery<any>(GET_TEAMS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const [createTeam] = useMutation(CREATE_TEAM);
-  const [updateTeam] = useMutation(UPDATE_TEAM);
-  const [deleteTeam] = useMutation(DELETE_TEAM);
+  const [createTeam] = useMutation<any>(CREATE_TEAM);
+  const [updateTeam] = useMutation<any>(UPDATE_TEAM);
+  const [deleteTeam] = useMutation<any>(DELETE_TEAM);
 
   const teams: Team[] = data?.teams || [];
 

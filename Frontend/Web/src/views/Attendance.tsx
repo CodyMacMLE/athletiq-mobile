@@ -42,12 +42,12 @@ export function Attendance() {
   const { selectedOrganizationId, canEdit } = useAuth();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
-  const { data: eventsData, loading: eventsLoading } = useQuery(GET_EVENTS, {
+  const { data: eventsData, loading: eventsLoading } = useQuery<any>(GET_EVENTS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const { data: attendanceData, loading: attendanceLoading, refetch: refetchAttendance } = useQuery(
+  const { data: attendanceData, loading: attendanceLoading, refetch: refetchAttendance } = useQuery<any>(
     GET_EVENT_ATTENDANCE,
     {
       variables: { eventId: selectedEventId },
@@ -55,12 +55,12 @@ export function Attendance() {
     }
   );
 
-  const { data: excusesData, refetch: refetchExcuses } = useQuery(GET_PENDING_EXCUSE_REQUESTS, {
+  const { data: excusesData, refetch: refetchExcuses } = useQuery<any>(GET_PENDING_EXCUSE_REQUESTS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const [updateExcuseRequest] = useMutation(UPDATE_EXCUSE_REQUEST);
+  const [updateExcuseRequest] = useMutation<any>(UPDATE_EXCUSE_REQUEST);
 
   const events: Event[] = eventsData?.events || [];
   const attendance: AttendanceRecord[] = attendanceData?.eventAttendance || [];

@@ -34,13 +34,13 @@ export function Athletes() {
   const [editingAthlete, setEditingAthlete] = useState<Athlete | null>(null);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
-  const { data, loading, refetch } = useQuery(GET_ORGANIZATION_MEMBERS, {
+  const { data, loading, refetch } = useQuery<any>(GET_ORGANIZATION_MEMBERS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const [updateUser] = useMutation(UPDATE_USER);
-  const [deleteUser] = useMutation(DELETE_USER);
+  const [updateUser] = useMutation<any>(UPDATE_USER);
+  const [deleteUser] = useMutation<any>(DELETE_USER);
 
   const teams: Team[] = data?.teams || [];
 
@@ -381,7 +381,7 @@ function InviteAthleteModal({
     teamId: teams[0]?.id || "",
   });
 
-  const [createUser] = useMutation(CREATE_USER);
+  const [createUser] = useMutation<any>(CREATE_USER);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

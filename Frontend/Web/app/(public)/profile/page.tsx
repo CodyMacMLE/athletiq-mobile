@@ -76,14 +76,14 @@ export default function ProfilePage() {
   const [createOrgError, setCreateOrgError] = useState("");
 
   // Mutations
-  const [updateUser, { loading: saving }] = useMutation(UPDATE_USER);
-  const [leaveOrganization, { loading: leaving }] = useMutation(LEAVE_ORGANIZATION);
-  const [transferOwnership, { loading: transferring }] = useMutation(TRANSFER_OWNERSHIP);
-  const [createInvite, { loading: inviting }] = useMutation(CREATE_INVITE);
-  const [createOrganization, { loading: creatingOrg }] = useMutation(CREATE_ORGANIZATION);
+  const [updateUser, { loading: saving }] = useMutation<any>(UPDATE_USER);
+  const [leaveOrganization, { loading: leaving }] = useMutation<any>(LEAVE_ORGANIZATION);
+  const [transferOwnership, { loading: transferring }] = useMutation<any>(TRANSFER_OWNERSHIP);
+  const [createInvite, { loading: inviting }] = useMutation<any>(CREATE_INVITE);
+  const [createOrganization, { loading: creatingOrg }] = useMutation<any>(CREATE_ORGANIZATION);
 
   // Lazy query for transfer modal members
-  const [fetchOrgUsers, { data: orgUsersData, loading: orgUsersLoading }] = useLazyQuery(GET_ORGANIZATION_USERS);
+  const [fetchOrgUsers, { data: orgUsersData, loading: orgUsersLoading }] = useLazyQuery<any>(GET_ORGANIZATION_USERS);
 
   // Populate form when user data loads
   useEffect(() => {

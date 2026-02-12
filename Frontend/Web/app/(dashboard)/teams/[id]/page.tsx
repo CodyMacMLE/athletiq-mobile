@@ -93,17 +93,17 @@ export default function TeamDetail() {
   const [coachSearch, setCoachSearch] = useState("");
   const [athleteSearch, setAthleteSearch] = useState("");
 
-  const { data, loading, refetch } = useQuery(GET_TEAM, {
+  const { data, loading, refetch } = useQuery<any>(GET_TEAM, {
     variables: { id: teamId },
     skip: !teamId,
   });
 
-  const [deleteEvent] = useMutation(DELETE_EVENT);
-  const [deleteRecurringEvent] = useMutation(DELETE_RECURRING_EVENT);
-  const [updateTeamMemberRole] = useMutation(UPDATE_TEAM_MEMBER_ROLE);
-  const [addTeamMember, { loading: assigning }] = useMutation(ADD_TEAM_MEMBER);
-  const [removeTeamMember] = useMutation(REMOVE_TEAM_MEMBER);
-  const [fetchOrgUsers, { data: orgUsersData, loading: orgUsersLoading }] = useLazyQuery(GET_ORGANIZATION_USERS);
+  const [deleteEvent] = useMutation<any>(DELETE_EVENT);
+  const [deleteRecurringEvent] = useMutation<any>(DELETE_RECURRING_EVENT);
+  const [updateTeamMemberRole] = useMutation<any>(UPDATE_TEAM_MEMBER_ROLE);
+  const [addTeamMember, { loading: assigning }] = useMutation<any>(ADD_TEAM_MEMBER);
+  const [removeTeamMember] = useMutation<any>(REMOVE_TEAM_MEMBER);
+  const [fetchOrgUsers, { data: orgUsersData, loading: orgUsersLoading }] = useLazyQuery<any>(GET_ORGANIZATION_USERS);
 
   const team = data?.team;
   const events: Event[] = team?.events || [];
@@ -981,8 +981,8 @@ function CreateEventModal({
     endDate: "",
   });
 
-  const [createEvent] = useMutation(CREATE_EVENT);
-  const [createRecurringEvent] = useMutation(CREATE_RECURRING_EVENT);
+  const [createEvent] = useMutation<any>(CREATE_EVENT);
+  const [createRecurringEvent] = useMutation<any>(CREATE_RECURRING_EVENT);
 
   const toggleDay = (day: number) => {
     setFormData((prev) => ({

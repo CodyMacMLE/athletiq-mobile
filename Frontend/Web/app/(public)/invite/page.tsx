@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "@apollo/client/react";
 import Link from "next/link";
@@ -28,15 +28,23 @@ type InviteData = {
   };
 };
 
-export default function AcceptInvitePage() {
+export default function AcceptInvitePageWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-purple-500" /></div>}>
+      <AcceptInvitePage />
+    </Suspense>
+  );
+}
+
+function AcceptInvitePage() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
 
-  const [acceptInvite] = useMutation(ACCEPT_INVITE);
-  const [createUser] = useMutation(CREATE_USER);
+  const [acceptInvite] = useMutation<any>(ACCEPT_INVITE);
+  const [createUser] = useMutation<any>(CREATE_USER);
 
-  const { data, loading: inviteLoading, error: inviteError } = useQuery(GET_INVITE, {
+  const { data, loading: inviteLoading, error: inviteError } = useQuery<any>(GET_INVITE, {
     variables: { token: token || "" },
     skip: !token,
   });

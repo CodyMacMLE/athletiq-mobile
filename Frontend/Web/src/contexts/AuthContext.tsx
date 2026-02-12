@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Fetch user data from GraphQL only when authenticated with Cognito
-  const [fetchMe, { data, loading: userLoading, refetch }] = useLazyQuery(GET_ME, {
+  const [fetchMe, { data, loading: userLoading, refetch }] = useLazyQuery<any>(GET_ME, {
     errorPolicy: "all",
   });
 

@@ -53,14 +53,14 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
-  const { data, loading, refetch } = useQuery(GET_ORGANIZATION_USERS, {
+  const { data, loading, refetch } = useQuery<any>(GET_ORGANIZATION_USERS, {
     variables: { id: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const [removeOrgMember] = useMutation(REMOVE_ORG_MEMBER);
-  const [cancelInvite] = useMutation(CANCEL_INVITE);
-  const [resendInvite] = useMutation(RESEND_INVITE);
+  const [removeOrgMember] = useMutation<any>(REMOVE_ORG_MEMBER);
+  const [cancelInvite] = useMutation<any>(CANCEL_INVITE);
+  const [resendInvite] = useMutation<any>(RESEND_INVITE);
 
   const orgMembers: OrgMember[] = data?.organization?.members || [];
   const pendingInvites: Invite[] = data?.organization?.invites || [];
@@ -366,11 +366,11 @@ function InviteUserModal({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
-  const { data: teamsData } = useQuery(GET_TEAMS, {
+  const { data: teamsData } = useQuery<any>(GET_TEAMS, {
     variables: { organizationId },
   });
 
-  const [createInvite] = useMutation(CREATE_INVITE);
+  const [createInvite] = useMutation<any>(CREATE_INVITE);
 
   const allTeams: { id: string; name: string }[] = teamsData?.teams || [];
   const filteredTeams = allTeams.filter(

@@ -140,14 +140,14 @@ export default function Events() {
     setPage(0);
   }, [timeFilter, pageSize]);
 
-  const { data, loading, refetch } = useQuery(GET_EVENTS, {
+  const { data, loading, refetch } = useQuery<any>(GET_EVENTS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const [updateEvent] = useMutation(UPDATE_EVENT);
-  const [deleteEvent] = useMutation(DELETE_EVENT);
-  const [deleteRecurringEvent] = useMutation(DELETE_RECURRING_EVENT);
+  const [updateEvent] = useMutation<any>(UPDATE_EVENT);
+  const [deleteEvent] = useMutation<any>(DELETE_EVENT);
+  const [deleteRecurringEvent] = useMutation<any>(DELETE_RECURRING_EVENT);
 
   const allEvents: Event[] = data?.events || [];
 
@@ -672,10 +672,10 @@ function EventModal({
   const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { data: teamsData } = useQuery(GET_TEAMS, {
+  const { data: teamsData } = useQuery<any>(GET_TEAMS, {
     variables: { organizationId },
   });
-  const [createEvent] = useMutation(CREATE_EVENT);
+  const [createEvent] = useMutation<any>(CREATE_EVENT);
 
   const allTeams: { id: string; name: string }[] = teamsData?.teams || [];
   const filteredTeams = allTeams.filter(

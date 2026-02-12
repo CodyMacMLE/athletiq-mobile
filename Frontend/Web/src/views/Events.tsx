@@ -32,17 +32,17 @@ export function Events() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<string>("all");
 
-  const { data, loading, refetch } = useQuery(GET_EVENTS, {
+  const { data, loading, refetch } = useQuery<any>(GET_EVENTS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const { data: teamsData } = useQuery(GET_TEAMS, {
+  const { data: teamsData } = useQuery<any>(GET_TEAMS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const [deleteEvent] = useMutation(DELETE_EVENT);
+  const [deleteEvent] = useMutation<any>(DELETE_EVENT);
 
   const events: Event[] = data?.events || [];
   const teams = teamsData?.teams || [];
@@ -229,7 +229,7 @@ function CreateEventModal({
     teamId: "",
   });
 
-  const [createEvent] = useMutation(CREATE_EVENT);
+  const [createEvent] = useMutation<any>(CREATE_EVENT);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

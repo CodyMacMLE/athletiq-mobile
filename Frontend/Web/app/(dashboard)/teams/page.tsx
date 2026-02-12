@@ -49,15 +49,15 @@ export default function Teams() {
   const [viewFilter, setViewFilter] = useState<ViewFilter>("active");
   const [sortBy, setSortBy] = useState<SortOption>("name");
 
-  const { data, loading, refetch } = useQuery(GET_TEAMS, {
+  const { data, loading, refetch } = useQuery<any>(GET_TEAMS, {
     variables: { organizationId: selectedOrganizationId, includeArchived: true },
     skip: !selectedOrganizationId,
   });
 
-  const [createTeam] = useMutation(CREATE_TEAM);
-  const [updateTeam] = useMutation(UPDATE_TEAM);
-  const [deleteTeam] = useMutation(DELETE_TEAM);
-  const [restoreTeam] = useMutation(RESTORE_TEAM);
+  const [createTeam] = useMutation<any>(CREATE_TEAM);
+  const [updateTeam] = useMutation<any>(UPDATE_TEAM);
+  const [deleteTeam] = useMutation<any>(DELETE_TEAM);
+  const [restoreTeam] = useMutation<any>(RESTORE_TEAM);
 
   const allTeams: Team[] = data?.teams || [];
   const activeCount = allTeams.filter((t) => !t.archivedAt).length;

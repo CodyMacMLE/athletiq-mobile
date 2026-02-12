@@ -36,8 +36,8 @@ export default function RegisterPage() {
   const [confirmationCode, setConfirmationCode] = useState("");
   const [resending, setResending] = useState(false);
 
-  const [createUser] = useMutation(CREATE_USER);
-  const [createOrganization] = useMutation(CREATE_ORGANIZATION);
+  const [createUser] = useMutation<any>(CREATE_USER);
+  const [createOrganization] = useMutation<any>(CREATE_ORGANIZATION);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));

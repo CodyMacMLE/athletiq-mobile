@@ -24,14 +24,14 @@ const authLink = setContext(async (_, { headers }) => {
   }
 });
 
-const errorLink = onError(({ graphQLErrors, networkError }) => {
-  if (graphQLErrors) {
-    graphQLErrors.forEach(({ message, locations, path }) =>
+const errorLink = onError((error: any) => {
+  if (error.graphQLErrors) {
+    error.graphQLErrors.forEach(({ message, locations, path }: any) =>
       console.error(`[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`)
     );
   }
-  if (networkError) {
-    console.error(`[Network error]: ${networkError}`);
+  if (error.networkError) {
+    console.error(`[Network error]: ${error.networkError}`);
   }
 });
 

@@ -92,26 +92,26 @@ export default function UserDetailPage() {
   const [activeTab, setActiveTab] = useState<"roles" | "attendance">("attendance");
   const [showAddTeamModal, setShowAddTeamModal] = useState(false);
 
-  const { data, loading, refetch } = useQuery(GET_ORGANIZATION_USERS, {
+  const { data, loading, refetch } = useQuery<any>(GET_ORGANIZATION_USERS, {
     variables: { id: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const { data: statsData, loading: statsLoading } = useQuery(GET_USER_STATS, {
+  const { data: statsData, loading: statsLoading } = useQuery<any>(GET_USER_STATS, {
     variables: { userId, organizationId: selectedOrganizationId, timeRange: "MONTH" },
     skip: !selectedOrganizationId || activeTab !== "attendance",
   });
 
-  const { data: checkInData, loading: checkInLoading } = useQuery(GET_CHECK_IN_HISTORY, {
+  const { data: checkInData, loading: checkInLoading } = useQuery<any>(GET_CHECK_IN_HISTORY, {
     variables: { userId, limit: 20 },
     skip: activeTab !== "attendance",
   });
 
-  const [updateOrgMemberRole] = useMutation(UPDATE_ORG_MEMBER_ROLE);
-  const [updateTeamMemberRole] = useMutation(UPDATE_TEAM_MEMBER_ROLE);
-  const [addTeamMember] = useMutation(ADD_TEAM_MEMBER);
-  const [removeTeamMember] = useMutation(REMOVE_TEAM_MEMBER);
-  const [removeOrgMember] = useMutation(REMOVE_ORG_MEMBER);
+  const [updateOrgMemberRole] = useMutation<any>(UPDATE_ORG_MEMBER_ROLE);
+  const [updateTeamMemberRole] = useMutation<any>(UPDATE_TEAM_MEMBER_ROLE);
+  const [addTeamMember] = useMutation<any>(ADD_TEAM_MEMBER);
+  const [removeTeamMember] = useMutation<any>(REMOVE_TEAM_MEMBER);
+  const [removeOrgMember] = useMutation<any>(REMOVE_ORG_MEMBER);
 
   const orgMembers: OrgMember[] = data?.organization?.members || [];
   const member = orgMembers.find((m) => m.user.id === userId);
@@ -580,11 +580,11 @@ function AddToTeamModal({
   const [submitting, setSubmitting] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { data: teamsData } = useQuery(GET_TEAMS, {
+  const { data: teamsData } = useQuery<any>(GET_TEAMS, {
     variables: { organizationId },
   });
 
-  const [addTeamMember] = useMutation(ADD_TEAM_MEMBER);
+  const [addTeamMember] = useMutation<any>(ADD_TEAM_MEMBER);
 
   const allTeams: { id: string; name: string }[] = teamsData?.teams || [];
   const availableTeams = allTeams.filter(

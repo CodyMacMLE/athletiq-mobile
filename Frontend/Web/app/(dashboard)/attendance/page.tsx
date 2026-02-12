@@ -114,27 +114,27 @@ export default function Attendance() {
     data: recordsData,
     loading: recordsLoading,
     refetch: refetchRecords,
-  } = useQuery(GET_ALL_ATTENDANCE_RECORDS, {
+  } = useQuery<any>(GET_ALL_ATTENDANCE_RECORDS, {
     variables: { organizationId: selectedOrganizationId, limit: 200 },
     skip: !selectedOrganizationId,
   });
 
-  const { data: excusesData, refetch: refetchExcuses } = useQuery(GET_PENDING_EXCUSE_REQUESTS, {
+  const { data: excusesData, refetch: refetchExcuses } = useQuery<any>(GET_PENDING_EXCUSE_REQUESTS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const { data: adHocData, loading: adHocLoading, refetch: refetchAdHoc } = useQuery(GET_PENDING_AD_HOC_CHECK_INS, {
+  const { data: adHocData, loading: adHocLoading, refetch: refetchAdHoc } = useQuery<any>(GET_PENDING_AD_HOC_CHECK_INS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
   // Mutations
-  const [markAbsentForPastEvents] = useMutation(MARK_ABSENT_FOR_PAST_EVENTS);
-  const [approveAdHocCheckIn] = useMutation(APPROVE_AD_HOC_CHECK_IN);
-  const [denyAdHocCheckIn] = useMutation(DENY_AD_HOC_CHECK_IN);
-  const [updateExcuseRequest] = useMutation(UPDATE_EXCUSE_REQUEST);
-  const [checkOut] = useMutation(CHECK_OUT);
+  const [markAbsentForPastEvents] = useMutation<any>(MARK_ABSENT_FOR_PAST_EVENTS);
+  const [approveAdHocCheckIn] = useMutation<any>(APPROVE_AD_HOC_CHECK_IN);
+  const [denyAdHocCheckIn] = useMutation<any>(DENY_AD_HOC_CHECK_IN);
+  const [updateExcuseRequest] = useMutation<any>(UPDATE_EXCUSE_REQUEST);
+  const [checkOut] = useMutation<any>(CHECK_OUT);
 
   // Auto-absent on mount
   useEffect(() => {

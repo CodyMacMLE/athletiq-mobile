@@ -11,17 +11,17 @@ export function Analytics() {
   const [timeRange, setTimeRange] = useState<TimeRange>("MONTH");
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
 
-  const { data: teamsData, loading: teamsLoading } = useQuery(GET_TEAMS, {
+  const { data: teamsData, loading: teamsLoading } = useQuery<any>(GET_TEAMS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
-  const { data: statsData, loading: statsLoading } = useQuery(GET_ORGANIZATION_STATS, {
+  const { data: statsData, loading: statsLoading } = useQuery<any>(GET_ORGANIZATION_STATS, {
     variables: { organizationId: selectedOrganizationId, timeRange },
     skip: !selectedOrganizationId,
   });
 
-  const { data: leaderboardData, loading: leaderboardLoading } = useQuery(GET_TEAM_LEADERBOARD, {
+  const { data: leaderboardData, loading: leaderboardLoading } = useQuery<any>(GET_TEAM_LEADERBOARD, {
     variables: { teamId: selectedTeamId, timeRange, limit: 20 },
     skip: !selectedTeamId,
   });
