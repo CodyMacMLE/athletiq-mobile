@@ -7,6 +7,7 @@ import {
   GET_EVENTS,
   GET_TEAMS,
   CREATE_EVENT,
+  CREATE_RECURRING_EVENT,
   UPDATE_EVENT,
   DELETE_EVENT,
   DELETE_RECURRING_EVENT,
@@ -608,6 +609,10 @@ type EventFormData = {
   date: string;
   endDate: string;
   isMultiDay: boolean;
+  isRecurring: boolean;
+  frequency: "WEEKLY" | "BIWEEKLY" | "DAILY";
+  daysOfWeek: number[];
+  recurringEndDate: string;
   startTime: string;
   endTime: string;
   location: string;
@@ -647,6 +652,10 @@ function EventModal({
         date: formatDateForInput(editingEvent.date),
         endDate: editingEvent.endDate ? formatDateForInput(editingEvent.endDate) : "",
         isMultiDay,
+        isRecurring: false,
+        frequency: "WEEKLY",
+        daysOfWeek: [],
+        recurringEndDate: "",
         startTime: isMultiDay ? "" : editingEvent.startTime,
         endTime: isMultiDay ? "" : editingEvent.endTime,
         location: editingEvent.location || "",
@@ -659,6 +668,10 @@ function EventModal({
       date: "",
       endDate: "",
       isMultiDay: false,
+      isRecurring: false,
+      frequency: "WEEKLY",
+      daysOfWeek: [],
+      recurringEndDate: "",
       startTime: "",
       endTime: "",
       location: "",
@@ -676,6 +689,7 @@ function EventModal({
     variables: { organizationId },
   });
   const [createEvent] = useMutation<any>(CREATE_EVENT);
+  const [createRecurringEvent] = useMutation<any>(CREATE_RECURRING_EVENT);
 
   const allTeams: { id: string; name: string }[] = teamsData?.teams || [];
   const filteredTeams = allTeams.filter(
@@ -711,22 +725,43 @@ function EventModal({
       return;
     }
     try {
-      await createEvent({
-        variables: {
-          input: {
-            title: formData.title,
-            type: formData.type,
-            date: formData.date,
-            ...(formData.isMultiDay
-              ? { endDate: formData.endDate, startTime: "All Day", endTime: "All Day" }
-              : { startTime: formData.startTime, endTime: formData.endTime }),
-            location: formData.location || undefined,
-            description: formData.description || undefined,
-            organizationId,
-            participatingTeamIds: selectedTeams.map((t) => t.id),
+      if (formData.isRecurring) {
+        await createRecurringEvent({
+          variables: {
+            input: {
+              title: formData.title,
+              type: formData.type,
+              startTime: formData.startTime,
+              endTime: formData.endTime,
+              frequency: formData.frequency,
+              daysOfWeek: formData.daysOfWeek,
+              startDate: formData.date,
+              endDate: formData.recurringEndDate,
+              location: formData.location || undefined,
+              description: formData.description || undefined,
+              organizationId,
+              teamId: selectedTeams.length === 1 ? selectedTeams[0].id : undefined,
+            },
           },
-        },
-      });
+        });
+      } else {
+        await createEvent({
+          variables: {
+            input: {
+              title: formData.title,
+              type: formData.type,
+              date: formData.date,
+              ...(formData.isMultiDay
+                ? { endDate: formData.endDate, startTime: "All Day", endTime: "All Day" }
+                : { startTime: formData.startTime, endTime: formData.endTime }),
+              location: formData.location || undefined,
+              description: formData.description || undefined,
+              organizationId,
+              participatingTeamIds: selectedTeams.map((t) => t.id),
+            },
+          },
+        });
+      }
       onSuccess?.();
     } catch (error) {
       console.error("Failed to create event:", error);
@@ -771,7 +806,7 @@ function EventModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1">
-              {formData.isMultiDay ? "Start Date" : "Date"}
+              {formData.isMultiDay || formData.isRecurring ? "Start Date" : "Date"}
             </label>
             <input
               type="date"
@@ -782,26 +817,107 @@ function EventModal({
             />
           </div>
 
-          {/* Multi-day Toggle */}
-          <div className="flex items-center justify-between py-2">
-            <label className="text-sm font-medium text-gray-400 flex items-center">
-              <Calendar className="w-4 h-4 mr-2" />
-              Multi-day Event
-            </label>
-            <button
-              type="button"
-              onClick={() => setFormData({ ...formData, isMultiDay: !formData.isMultiDay })}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                formData.isMultiDay ? "bg-purple-600" : "bg-gray-600"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  formData.isMultiDay ? "translate-x-6" : "translate-x-1"
+          {/* Multi-day Toggle (hidden when recurring is on) */}
+          {!formData.isRecurring && (
+            <div className="flex items-center justify-between py-2">
+              <label className="text-sm font-medium text-gray-400 flex items-center">
+                <Calendar className="w-4 h-4 mr-2" />
+                Multi-day Event
+              </label>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, isMultiDay: !formData.isMultiDay })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  formData.isMultiDay ? "bg-purple-600" : "bg-gray-600"
                 }`}
-              />
-            </button>
-          </div>
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    formData.isMultiDay ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+
+          {/* Recurring Event Toggle (create mode only, not multi-day) */}
+          {!isEdit && !formData.isMultiDay && (
+            <div className="flex items-center justify-between py-2">
+              <label className="text-sm font-medium text-gray-400 flex items-center">
+                <Repeat className="w-4 h-4 mr-2" />
+                Recurring Event
+              </label>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, isRecurring: !formData.isRecurring })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  formData.isRecurring ? "bg-purple-600" : "bg-gray-600"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    formData.isRecurring ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          )}
+
+          {/* Recurring Event Options */}
+          {formData.isRecurring && !formData.isMultiDay && (
+            <div className="space-y-4 p-4 bg-gray-750 rounded-lg border border-gray-600">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Frequency</label>
+                <select
+                  value={formData.frequency}
+                  onChange={(e) => setFormData({ ...formData, frequency: e.target.value as "WEEKLY" | "BIWEEKLY" | "DAILY" })}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="DAILY">Daily</option>
+                  <option value="WEEKLY">Weekly</option>
+                  <option value="BIWEEKLY">Biweekly</option>
+                </select>
+              </div>
+
+              {formData.frequency !== "DAILY" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Days of Week</label>
+                  <div className="flex gap-2">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, i) => (
+                      <button
+                        key={day}
+                        type="button"
+                        onClick={() => {
+                          const days = formData.daysOfWeek.includes(i)
+                            ? formData.daysOfWeek.filter((d) => d !== i)
+                            : [...formData.daysOfWeek, i];
+                          setFormData({ ...formData, daysOfWeek: days });
+                        }}
+                        className={`w-10 h-10 rounded-lg text-xs font-medium transition-colors ${
+                          formData.daysOfWeek.includes(i)
+                            ? "bg-purple-600 text-white"
+                            : "bg-gray-700 text-gray-400 hover:text-white"
+                        }`}
+                      >
+                        {day}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Repeat Until</label>
+                <input
+                  type="date"
+                  required
+                  value={formData.recurringEndDate}
+                  onChange={(e) => setFormData({ ...formData, recurringEndDate: e.target.value })}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+          )}
 
           {formData.isMultiDay ? (
             <div>
