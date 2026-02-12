@@ -42,6 +42,7 @@ export default function Analytics() {
     variables: {
       userId: user?.id,
       organizationId: selectedOrganization?.id,
+      teamId: selectedTeamId,
       timeRange: apiTimeRange,
     },
     skip: !user?.id || !selectedOrganization?.id,

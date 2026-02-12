@@ -386,6 +386,8 @@ export const typeDefs = `#graphql
     eventId: ID!
     status: AttendanceStatus!
     note: String
+    checkInTime: String
+    checkOutTime: String
   }
 
   input CheckOutInput {
@@ -457,7 +459,7 @@ export const typeDefs = `#graphql
     attendanceInsights(organizationId: ID!, timeRange: TimeRange): AttendanceInsights!
 
     # Analytics queries
-    userStats(userId: ID!, organizationId: ID!, timeRange: TimeRange): UserStats!
+    userStats(userId: ID!, organizationId: ID!, teamId: ID, timeRange: TimeRange): UserStats!
     teamLeaderboard(teamId: ID!, timeRange: TimeRange, limit: Int): [LeaderboardEntry!]!
     organizationLeaderboard(organizationId: ID!, timeRange: TimeRange, limit: Int): [LeaderboardEntry!]!
     teamRankings(organizationId: ID!, timeRange: TimeRange): [TeamRanking!]!

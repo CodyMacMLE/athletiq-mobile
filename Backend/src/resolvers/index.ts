@@ -477,34 +477,80 @@ export const resolvers = {
     // Analytics queries
     userStats: async (
       _: unknown,
-      { userId, organizationId, timeRange }: { userId: string; organizationId: string; timeRange?: string }
+      { userId, organizationId, teamId, timeRange }: { userId: string; organizationId: string; teamId?: string; timeRange?: string }
     ) => {
       const { startDate, endDate } = getDateRange(timeRange);
 
-      // Get user's team membership for this org
-      const membership = await prisma.teamMember.findFirst({
-        where: {
-          userId,
-          team: { organizationId },
-        },
-        include: { team: true },
-      });
+      const emptyStats = {
+        hoursLogged: 0,
+        hoursRequired: 0,
+        attendancePercent: 0,
+        teamRank: 0,
+        teamSize: 0,
+        orgRank: 0,
+        orgSize: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+      };
 
-      if (!membership) {
+      // When teamId is provided, scope stats to that team only
+      if (teamId) {
+        const membership = await prisma.teamMember.findFirst({
+          where: { userId, teamId },
+        });
+
+        if (!membership) return emptyStats;
+
+        // Get check-ins for events belonging to this team
+        const checkIns = await prisma.checkIn.findMany({
+          where: {
+            userId,
+            event: {
+              OR: [
+                { teamId },
+                { participatingTeams: { some: { id: teamId } } },
+              ],
+            },
+            createdAt: { gte: startDate, lte: endDate },
+            approved: true,
+          },
+        });
+
+        const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
+        const hoursRequired = membership.hoursRequired;
+        const attendancePercent = hoursRequired > 0 ? (hoursLogged / hoursRequired) * 100 : 0;
+
+        // Team rank — athletes only
+        const teamMembers = await prisma.teamMember.findMany({
+          where: { teamId, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
+        });
+
+        // Org rank — athletes only across all org teams
+        const orgMembers = await prisma.teamMember.findMany({
+          where: { team: { organizationId }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
+        });
+
         return {
-          hoursLogged: 0,
-          hoursRequired: 0,
-          attendancePercent: 0,
-          teamRank: 0,
-          teamSize: 0,
-          orgRank: 0,
-          orgSize: 0,
+          hoursLogged,
+          hoursRequired,
+          attendancePercent: Math.min(100, attendancePercent),
+          teamRank: 1,
+          teamSize: teamMembers.length,
+          orgRank: 1,
+          orgSize: orgMembers.length,
           currentStreak: 0,
           bestStreak: 0,
         };
       }
 
-      // Get check-ins for the period
+      // No teamId — aggregate all-around stats across the entire org
+      const memberships = await prisma.teamMember.findMany({
+        where: { userId, team: { organizationId } },
+      });
+
+      if (memberships.length === 0) return emptyStats;
+
+      // Get all check-ins across the org
       const checkIns = await prisma.checkIn.findMany({
         where: {
           userId,
@@ -515,15 +561,10 @@ export const resolvers = {
       });
 
       const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
-      const hoursRequired = membership.hoursRequired;
+      const hoursRequired = memberships.reduce((sum, m) => sum + m.hoursRequired, 0);
       const attendancePercent = hoursRequired > 0 ? (hoursLogged / hoursRequired) * 100 : 0;
 
-      // Calculate team rank (simplified) — athletes only
-      const teamMembers = await prisma.teamMember.findMany({
-        where: { teamId: membership.teamId, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
-      });
-
-      // Calculate org rank (simplified) — athletes only
+      // Org rank — athletes only
       const orgMembers = await prisma.teamMember.findMany({
         where: { team: { organizationId }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
       });
@@ -532,12 +573,12 @@ export const resolvers = {
         hoursLogged,
         hoursRequired,
         attendancePercent: Math.min(100, attendancePercent),
-        teamRank: 1, // Simplified - would need full calculation
-        teamSize: teamMembers.length,
-        orgRank: 1, // Simplified - would need full calculation
+        teamRank: 0,
+        teamSize: 0,
+        orgRank: 1,
         orgSize: orgMembers.length,
-        currentStreak: 0, // Would need streak calculation
-        bestStreak: 0, // Would need streak calculation
+        currentStreak: 0,
+        bestStreak: 0,
       };
     },
 
@@ -1186,10 +1227,10 @@ export const resolvers = {
         },
         include: {
           participatingTeams: {
-            include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } }, select: { userId: true } } },
+            include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } }, select: { userId: true, joinedAt: true } } },
           },
           team: {
-            include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } }, select: { userId: true } } },
+            include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } }, select: { userId: true, joinedAt: true } } },
           },
         },
       });
@@ -1205,16 +1246,20 @@ export const resolvers = {
 
         if (eventDate >= now) continue; // Event hasn't ended yet
 
-        // Collect all expected user IDs
+        // Collect user IDs, excluding members who joined after the event date
         const userIds = new Set<string>();
         if (event.team) {
           for (const member of event.team.members) {
-            userIds.add(member.userId);
+            if (member.joinedAt <= event.date) {
+              userIds.add(member.userId);
+            }
           }
         }
         for (const team of event.participatingTeams) {
           for (const member of team.members) {
-            userIds.add(member.userId);
+            if (member.joinedAt <= event.date) {
+              userIds.add(member.userId);
+            }
           }
         }
 
@@ -1261,38 +1306,81 @@ export const resolvers = {
     checkOut: async (_: unknown, { input }: { input: { checkInId: string } }) => {
       const checkIn = await prisma.checkIn.findUnique({
         where: { id: input.checkInId },
+        include: { event: true },
       });
       if (!checkIn) throw new Error("Check-in not found");
       if (!checkIn.checkInTime) throw new Error("No check-in time recorded");
 
       const now = new Date();
-      const hoursLogged = (now.getTime() - checkIn.checkInTime.getTime()) / (1000 * 60 * 60);
+
+      // Use event start time as effective start if athlete checked in early
+      let effectiveStart = checkIn.checkInTime;
+      if (checkIn.event) {
+        const eventDate = new Date(checkIn.event.date);
+        const { hours, minutes } = parseTimeString(checkIn.event.startTime);
+        const eventStart = new Date(eventDate);
+        eventStart.setHours(hours, minutes, 0, 0);
+        if (checkIn.checkInTime < eventStart) {
+          effectiveStart = eventStart;
+        }
+      }
+
+      const hoursLogged = Math.max(0, (now.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60));
 
       return prisma.checkIn.update({
         where: { id: input.checkInId },
         data: {
           checkOutTime: now,
-          hoursLogged: Math.round(hoursLogged * 100) / 100, // Round to 2 decimal places
+          hoursLogged: Math.round(hoursLogged * 100) / 100,
         },
       });
     },
 
     adminCheckIn: async (
       _: unknown,
-      { input }: { input: { userId: string; eventId: string; status: AttendanceStatus; note?: string } }
+      { input }: { input: { userId: string; eventId: string; status: AttendanceStatus; note?: string; checkInTime?: string; checkOutTime?: string } }
     ) => {
+      const checkInTime = input.checkInTime
+        ? new Date(input.checkInTime)
+        : input.status !== "EXCUSED" && input.status !== "ABSENT"
+          ? new Date()
+          : null;
+      const checkOutTime = input.checkOutTime ? new Date(input.checkOutTime) : null;
+
+      // Calculate hoursLogged when both times are provided
+      let hoursLogged: number | null = null;
+      if (checkInTime && checkOutTime) {
+        // Use event start as effective start if check-in was early
+        const event = await prisma.event.findUnique({ where: { id: input.eventId } });
+        let effectiveStart = checkInTime;
+        if (event) {
+          const eventDate = new Date(event.date);
+          const evTime = parseTimeString(event.startTime);
+          const evStart = new Date(eventDate);
+          evStart.setHours(evTime.hours, evTime.minutes, 0, 0);
+          if (checkInTime < evStart) {
+            effectiveStart = evStart;
+          }
+        }
+        hoursLogged = Math.round(Math.max(0, (checkOutTime.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60)) * 100) / 100;
+      }
+
       return prisma.checkIn.upsert({
         where: { userId_eventId: { userId: input.userId, eventId: input.eventId } },
         create: {
           userId: input.userId,
           eventId: input.eventId,
           status: input.status,
-          checkInTime: input.status !== "EXCUSED" ? new Date() : null,
+          checkInTime,
+          checkOutTime,
+          ...(hoursLogged !== null && { hoursLogged }),
           note: input.note,
         },
         update: {
           status: input.status,
-          checkInTime: input.status !== "EXCUSED" ? new Date() : null,
+          checkInTime,
+          checkOutTime,
+          ...(hoursLogged !== null && { hoursLogged }),
           note: input.note,
         },
       });
@@ -1621,9 +1709,19 @@ export const resolvers = {
         if (existingCheckIn.checkOutTime) {
           throw new Error("Already checked out");
         }
-        // Check out
+        // Check out — use event start time as effective start if checked in early
         if (!existingCheckIn.checkInTime) throw new Error("No check-in time recorded");
-        const hoursLogged = (now.getTime() - existingCheckIn.checkInTime.getTime()) / (1000 * 60 * 60);
+        let effectiveStart = existingCheckIn.checkInTime;
+        {
+          const evDate = new Date(selectedEvent.date);
+          const evTime = parseTimeString(selectedEvent.startTime);
+          const evStart = new Date(evDate);
+          evStart.setHours(evTime.hours, evTime.minutes, 0, 0);
+          if (existingCheckIn.checkInTime < evStart) {
+            effectiveStart = evStart;
+          }
+        }
+        const hoursLogged = Math.max(0, (now.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60));
         const updatedCheckIn = await prisma.checkIn.update({
           where: { id: existingCheckIn.id },
           data: {

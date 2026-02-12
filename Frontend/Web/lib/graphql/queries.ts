@@ -422,6 +422,7 @@ export const GET_EVENT_DETAIL = gql`
         members {
           id
           role
+          joinedAt
           user {
             id
             firstName
@@ -436,6 +437,7 @@ export const GET_EVENT_DETAIL = gql`
         members {
           id
           role
+          joinedAt
           user {
             id
             firstName
@@ -476,8 +478,8 @@ export const GET_ATTENDANCE_INSIGHTS = gql`
 `;
 
 export const GET_USER_STATS = gql`
-  query GetUserStats($userId: ID!, $organizationId: ID!, $timeRange: TimeRange) {
-    userStats(userId: $userId, organizationId: $organizationId, timeRange: $timeRange) {
+  query GetUserStats($userId: ID!, $organizationId: ID!, $teamId: ID, $timeRange: TimeRange) {
+    userStats(userId: $userId, organizationId: $organizationId, teamId: $teamId, timeRange: $timeRange) {
       hoursLogged
       hoursRequired
       attendancePercent

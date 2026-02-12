@@ -38,6 +38,7 @@ export default function Index() {
     variables: {
       userId: user?.id,
       organizationId: selectedOrganization?.id,
+      teamId: selectedTeamId,
     },
     skip: !user?.id || !selectedOrganization?.id,
   });

@@ -11,12 +11,13 @@ import { useAuth } from "@/contexts/AuthContext";
 type TimeRange = "WEEK" | "MONTH" | "ALL";
 
 export function useUserStats(timeRange: TimeRange = "WEEK") {
-  const { user, selectedOrganization } = useAuth();
+  const { user, selectedOrganization, selectedTeamId } = useAuth();
 
   const { data, loading, error, refetch } = useQuery(GET_USER_STATS, {
     variables: {
       userId: user?.id,
       organizationId: selectedOrganization?.id,
+      teamId: selectedTeamId,
       timeRange,
     },
     skip: !user?.id || !selectedOrganization?.id,
