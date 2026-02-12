@@ -1,21 +1,34 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
-import { GET_EVENT_DETAIL, ADMIN_CHECK_IN, CHECK_OUT } from "@/lib/graphql";
+import {
+  GET_EVENT_DETAIL,
+  GET_EVENTS,
+  GET_TEAMS,
+  CREATE_EVENT,
+  UPDATE_EVENT,
+  DELETE_EVENT,
+  DELETE_RECURRING_EVENT,
+  ADMIN_CHECK_IN,
+  CHECK_OUT,
+} from "@/lib/graphql";
 import {
   ArrowLeft,
   Calendar,
   Clock,
+  Edit2,
   MapPin,
   Repeat,
   Search,
+  Trash2,
   Users,
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 // ============================================
 // Types
@@ -109,8 +122,11 @@ function parseDate(dateStr: string) {
 export default function EventDetailPage() {
   const params = useParams();
   const eventId = params.id as string;
-  const { canEdit } = useAuth();
+  const router = useRouter();
+  const { canEdit, selectedOrganizationId } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [modifyAthlete, setModifyAthlete] = useState<{
     userId: string;
     name: string;
@@ -123,6 +139,94 @@ export default function EventDetailPage() {
   });
 
   const event: EventDetail | undefined = data?.event;
+
+  const [updateEvent] = useMutation(UPDATE_EVENT);
+  const [deleteEvent] = useMutation(DELETE_EVENT);
+  const [deleteRecurringEvent] = useMutation(DELETE_RECURRING_EVENT);
+
+  // Determine if the event has ended (past its end time)
+  const eventHasEnded = useMemo(() => {
+    if (!event) return false;
+    const now = new Date();
+    const eventDate = parseDate(event.date);
+    const endDate = event.endDate ? parseDate(event.endDate) : eventDate;
+
+    // For multi-day events, check if we're past the end date
+    const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const eventEndUTC = Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate());
+    if (todayUTC > eventEndUTC) return true;
+    if (todayUTC < eventEndUTC) return false;
+
+    // Same day — check end time
+    if (event.endTime && event.endTime !== "All Day") {
+      const match = event.endTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (match) {
+        let hours = parseInt(match[1]);
+        const minutes = parseInt(match[2]);
+        const period = match[3].toUpperCase();
+        if (period === "PM" && hours !== 12) hours += 12;
+        if (period === "AM" && hours === 12) hours = 0;
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        if (nowMinutes > hours * 60 + minutes) return true;
+      }
+    }
+    return false;
+  }, [event]);
+
+  const handleUpdateEvent = async (formData: {
+    title: string;
+    type: string;
+    date: string;
+    endDate: string;
+    isMultiDay: boolean;
+    startTime: string;
+    endTime: string;
+    location: string;
+    description: string;
+  }) => {
+    if (!event) return;
+    try {
+      await updateEvent({
+        variables: {
+          id: event.id,
+          title: formData.title,
+          type: formData.type,
+          date: formData.date,
+          endDate: formData.isMultiDay ? formData.endDate : null,
+          startTime: formData.isMultiDay ? "All Day" : formData.startTime,
+          endTime: formData.isMultiDay ? "All Day" : formData.endTime,
+          location: formData.location || null,
+          description: formData.description || null,
+        },
+      });
+      setIsEditModalOpen(false);
+      refetch();
+    } catch (error) {
+      console.error("Failed to update event:", error);
+    }
+  };
+
+  const handleDeleteThisOnly = async () => {
+    if (!event) return;
+    try {
+      await deleteEvent({ variables: { id: event.id } });
+      setDeleteDialogOpen(false);
+      router.push("/events");
+    } catch (error) {
+      console.error("Failed to delete event:", error);
+    }
+  };
+
+  const handleDeleteSeries = async () => {
+    if (!event?.recurringEvent) return;
+    try {
+      await deleteRecurringEvent({ variables: { id: event.recurringEvent.id } });
+      setDeleteDialogOpen(false);
+      router.push("/events");
+    } catch (error) {
+      console.error("Failed to delete recurring event:", error);
+    }
+  };
 
   // Collect all teams
   const allTeams = useMemo(() => {
@@ -215,13 +319,14 @@ export default function EventDetailPage() {
   let dateLabel: string;
   if (isMultiDay) {
     const endDate = parseDate(event.endDate!);
-    const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
     dateLabel = `${fmt(eventDate)} - ${fmt(endDate)}`;
   } else {
     dateLabel = eventDate.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
+      timeZone: "UTC",
     });
   }
 
@@ -254,7 +359,27 @@ export default function EventDetailPage() {
           )}
         </div>
 
-        <h1 className="text-2xl font-bold text-white mb-3">{event.title}</h1>
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-2xl font-bold text-white">{event.title}</h1>
+          {canEdit && (
+            <div className="flex items-center gap-1">
+              {!eventHasEnded && (
+                <button
+                  onClick={() => setIsEditModalOpen(true)}
+                  className="p-2 text-gray-400 hover:text-purple-400 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                onClick={() => setDeleteDialogOpen(true)}
+                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center flex-wrap gap-4 text-sm text-gray-400">
           <div className="flex items-center">
@@ -466,6 +591,63 @@ export default function EventDetailPage() {
           }}
         />
       )}
+
+      {/* Edit Event Modal */}
+      {isEditModalOpen && event && selectedOrganizationId && (
+        <EditEventModal
+          organizationId={selectedOrganizationId}
+          event={event}
+          onClose={() => setIsEditModalOpen(false)}
+          onUpdate={handleUpdateEvent}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteDialogOpen && event && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-xl w-full max-w-sm p-6 border border-gray-700">
+            <h3 className="text-lg font-bold text-white mb-2">
+              {event.recurringEvent ? "Delete Recurring Event" : "Delete Event"}
+            </h3>
+            <p className="text-gray-400 text-sm mb-6">
+              {event.recurringEvent
+                ? "This event is part of a recurring series. What would you like to do?"
+                : `Are you sure you want to delete "${event.title}"? This action cannot be undone.`}
+            </p>
+            <div className="space-y-3">
+              {event.recurringEvent ? (
+                <>
+                  <button
+                    onClick={handleDeleteThisOnly}
+                    className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                  >
+                    Delete this event only
+                  </button>
+                  <button
+                    onClick={handleDeleteSeries}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                  >
+                    Delete all events in series
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleDeleteThisOnly}
+                  className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                >
+                  Delete Event
+                </button>
+              )}
+              <button
+                onClick={() => setDeleteDialogOpen(false)}
+                className="w-full px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -623,6 +805,222 @@ function ModifyAttendanceModal({
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// EditEventModal
+// ============================================
+
+type EditEventFormData = {
+  title: string;
+  type: "PRACTICE" | "EVENT" | "MEETING";
+  date: string;
+  endDate: string;
+  isMultiDay: boolean;
+  startTime: string;
+  endTime: string;
+  location: string;
+  description: string;
+};
+
+function formatDateForInput(dateStr: string): string {
+  const num = Number(dateStr);
+  const d = isNaN(num) ? new Date(dateStr) : new Date(num);
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function EditEventModal({
+  organizationId,
+  event,
+  onClose,
+  onUpdate,
+}: {
+  organizationId: string;
+  event: EventDetail;
+  onClose: () => void;
+  onUpdate: (data: EditEventFormData) => void;
+}) {
+  const isMultiDay = !!event.endDate;
+
+  const [formData, setFormData] = useState<EditEventFormData>({
+    title: event.title,
+    type: event.type as "PRACTICE" | "EVENT" | "MEETING",
+    date: formatDateForInput(event.date),
+    endDate: event.endDate ? formatDateForInput(event.endDate) : "",
+    isMultiDay,
+    startTime: isMultiDay ? "" : event.startTime,
+    endTime: isMultiDay ? "" : event.endTime,
+    location: event.location || "",
+    description: event.description || "",
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdate(formData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-xl w-full max-w-lg p-6 border border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-white">Edit Event</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">Title</label>
+            <input
+              type="text"
+              required
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="e.g., Spring Tournament"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">Type</label>
+            <select
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value as "PRACTICE" | "EVENT" | "MEETING" })}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              <option value="PRACTICE">Practice</option>
+              <option value="EVENT">Tournament</option>
+              <option value="MEETING">Meeting</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">
+              {formData.isMultiDay ? "Start Date" : "Date"}
+            </label>
+            <input
+              type="date"
+              required
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+          </div>
+
+          {/* Multi-day Toggle */}
+          <div className="flex items-center justify-between py-2">
+            <label className="text-sm font-medium text-gray-400 flex items-center">
+              <Calendar className="w-4 h-4 mr-2" />
+              Multi-day Event
+            </label>
+            <button
+              type="button"
+              onClick={() => setFormData({ ...formData, isMultiDay: !formData.isMultiDay })}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                formData.isMultiDay ? "bg-purple-600" : "bg-gray-600"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  formData.isMultiDay ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {formData.isMultiDay ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">End Date</label>
+              <input
+                type="date"
+                required
+                value={formData.endDate}
+                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Start Time</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.startTime}
+                  onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="6:00 PM"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">End Time</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.endTime}
+                  onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="8:00 PM"
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">Location</label>
+            <input
+              type="text"
+              value={formData.location}
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              placeholder="e.g., Main Gym"
+            />
+          </div>
+
+          {/* Teams (read-only) */}
+          {event.participatingTeams.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Teams</label>
+              <div className="flex flex-wrap gap-2">
+                {event.participatingTeams.map((team) => (
+                  <span
+                    key={team.id}
+                    className="px-2.5 py-1 bg-purple-600/20 text-purple-400 rounded-lg text-sm"
+                  >
+                    {team.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={3}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              placeholder="Event details..."
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 mt-6">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">
+              Cancel
+            </button>
+            <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+              Save Changes
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

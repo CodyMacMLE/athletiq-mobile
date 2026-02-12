@@ -335,6 +335,24 @@ export const GET_PENDING_AD_HOC_CHECK_INS = gql`
 `;
 
 // ============================================
+// Active Check-In Query
+// ============================================
+
+export const GET_ACTIVE_CHECKIN = gql`
+  query GetActiveCheckIn {
+    activeCheckIn {
+      id
+      checkInTime
+      event {
+        id
+        title
+        endTime
+      }
+    }
+  }
+`;
+
+// ============================================
 // Excuse Queries
 // ============================================
 

@@ -7,6 +7,7 @@ import {
   GET_EVENTS,
   GET_TEAMS,
   CREATE_EVENT,
+  UPDATE_EVENT,
   DELETE_EVENT,
   DELETE_RECURRING_EVENT,
 } from "@/lib/graphql";
@@ -16,6 +17,7 @@ import {
   MapPin,
   Clock,
   Trash2,
+  Edit2,
   X,
   Repeat,
   Search,
@@ -114,6 +116,7 @@ function getDateRange(filter: TimeFilter): { start: Date; end: Date } | null {
 export default function Events() {
   const { selectedOrganizationId, canEdit } = useAuth();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [deleteDialogEvent, setDeleteDialogEvent] = useState<Event | null>(null);
 
   // Tab state
@@ -142,6 +145,7 @@ export default function Events() {
     skip: !selectedOrganizationId,
   });
 
+  const [updateEvent] = useMutation(UPDATE_EVENT);
   const [deleteEvent] = useMutation(DELETE_EVENT);
   const [deleteRecurringEvent] = useMutation(DELETE_RECURRING_EVENT);
 
@@ -179,6 +183,44 @@ export default function Events() {
   const past = paginatedEvents
     .filter((e) => parseDate(e.date) < today)
     .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
+
+  // Edit handler
+  const handleEditClick = (event: Event) => {
+    setEditingEvent(event);
+  };
+
+  const handleUpdateEvent = async (data: {
+    title: string;
+    type: string;
+    date: string;
+    endDate: string;
+    isMultiDay: boolean;
+    startTime: string;
+    endTime: string;
+    location: string;
+    description: string;
+  }) => {
+    if (!editingEvent) return;
+    try {
+      await updateEvent({
+        variables: {
+          id: editingEvent.id,
+          title: data.title,
+          type: data.type,
+          date: data.date,
+          endDate: data.isMultiDay ? data.endDate : null,
+          startTime: data.isMultiDay ? "All Day" : data.startTime,
+          endTime: data.isMultiDay ? "All Day" : data.endTime,
+          location: data.location || null,
+          description: data.description || null,
+        },
+      });
+      setEditingEvent(null);
+      refetch();
+    } catch (error) {
+      console.error("Failed to update event:", error);
+    }
+  };
 
   // Delete handlers
   const handleDeleteClick = (event: Event) => {
@@ -297,7 +339,7 @@ export default function Events() {
       <div className="space-y-2">
         {upcoming.map((event) => (
           <Link key={event.id} href={`/events/${event.id}`}>
-            <EventCard event={event} canEdit={canEdit} onDelete={handleDeleteClick} dimmed={false} />
+            <EventCard event={event} canEdit={canEdit} onEdit={handleEditClick} onDelete={handleDeleteClick} dimmed={false} />
           </Link>
         ))}
 
@@ -311,7 +353,7 @@ export default function Events() {
 
         {past.map((event) => (
           <Link key={event.id} href={`/events/${event.id}`}>
-            <EventCard event={event} canEdit={canEdit} onDelete={handleDeleteClick} dimmed />
+            <EventCard event={event} canEdit={canEdit} onEdit={handleEditClick} onDelete={handleDeleteClick} dimmed />
           </Link>
         ))}
 
@@ -366,13 +408,23 @@ export default function Events() {
 
       {/* Create Event Modal */}
       {isCreateModalOpen && (
-        <CreateEventModal
+        <EventModal
           organizationId={selectedOrganizationId!}
           onClose={() => setIsCreateModalOpen(false)}
           onSuccess={() => {
             setIsCreateModalOpen(false);
             refetch();
           }}
+        />
+      )}
+
+      {/* Edit Event Modal */}
+      {editingEvent && (
+        <EventModal
+          organizationId={selectedOrganizationId!}
+          editingEvent={editingEvent}
+          onClose={() => setEditingEvent(null)}
+          onUpdate={handleUpdateEvent}
         />
       )}
 
@@ -418,11 +470,13 @@ export default function Events() {
 function EventCard({
   event,
   canEdit,
+  onEdit,
   onDelete,
   dimmed,
 }: {
   event: Event;
   canEdit: boolean;
+  onEdit: (event: Event) => void;
   onDelete: (event: Event) => void;
   dimmed: boolean;
 }) {
@@ -432,13 +486,14 @@ function EventCard({
   let dateLabel: string;
   if (isMultiDay) {
     const endDate = parseDate(event.endDate!);
-    const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
     dateLabel = `${fmt(eventDate)} - ${fmt(endDate)}`;
   } else {
     dateLabel = eventDate.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
+      timeZone: "UTC",
     });
   }
 
@@ -512,16 +567,30 @@ function EventCard({
             <p className="text-gray-400 text-xs">checked in</p>
           </div>
           {canEdit && (
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onDelete(event);
-              }}
-              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <div className="flex items-center">
+              {!dimmed && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onEdit(event);
+                  }}
+                  className="p-2 text-gray-400 hover:text-purple-400 transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDelete(event);
+                }}
+                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -530,30 +599,75 @@ function EventCard({
 }
 
 // ============================================
-// CreateEventModal
+// EventModal (Create & Edit)
 // ============================================
 
-function CreateEventModal({
+type EventFormData = {
+  title: string;
+  type: "PRACTICE" | "EVENT" | "MEETING";
+  date: string;
+  endDate: string;
+  isMultiDay: boolean;
+  startTime: string;
+  endTime: string;
+  location: string;
+  description: string;
+};
+
+function formatDateForInput(dateStr: string): string {
+  const num = Number(dateStr);
+  const d = isNaN(num) ? new Date(dateStr) : new Date(num);
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function EventModal({
   organizationId,
+  editingEvent,
   onClose,
   onSuccess,
+  onUpdate,
 }: {
   organizationId: string;
+  editingEvent?: Event;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
+  onUpdate?: (data: EventFormData) => void;
 }) {
-  const [formData, setFormData] = useState({
-    title: "",
-    type: "EVENT" as "PRACTICE" | "EVENT" | "MEETING",
-    date: "",
-    endDate: "",
-    isMultiDay: false,
-    startTime: "",
-    endTime: "",
-    location: "",
-    description: "",
+  const isEdit = !!editingEvent;
+
+  const [formData, setFormData] = useState<EventFormData>(() => {
+    if (editingEvent) {
+      const isMultiDay = !!editingEvent.endDate;
+      return {
+        title: editingEvent.title,
+        type: editingEvent.type as "PRACTICE" | "EVENT" | "MEETING",
+        date: formatDateForInput(editingEvent.date),
+        endDate: editingEvent.endDate ? formatDateForInput(editingEvent.endDate) : "",
+        isMultiDay,
+        startTime: isMultiDay ? "" : editingEvent.startTime,
+        endTime: isMultiDay ? "" : editingEvent.endTime,
+        location: editingEvent.location || "",
+        description: editingEvent.description || "",
+      };
+    }
+    return {
+      title: "",
+      type: "EVENT",
+      date: "",
+      endDate: "",
+      isMultiDay: false,
+      startTime: "",
+      endTime: "",
+      location: "",
+      description: "",
+    };
   });
-  const [selectedTeams, setSelectedTeams] = useState<{ id: string; name: string }[]>([]);
+  const [selectedTeams, setSelectedTeams] = useState<{ id: string; name: string }[]>(
+    () => editingEvent?.participatingTeams || []
+  );
   const [teamSearch, setTeamSearch] = useState("");
   const [showTeamDropdown, setShowTeamDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -592,6 +706,10 @@ function CreateEventModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isEdit && onUpdate) {
+      onUpdate(formData);
+      return;
+    }
     try {
       await createEvent({
         variables: {
@@ -609,7 +727,7 @@ function CreateEventModal({
           },
         },
       });
-      onSuccess();
+      onSuccess?.();
     } catch (error) {
       console.error("Failed to create event:", error);
     }
@@ -619,7 +737,7 @@ function CreateEventModal({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-gray-800 rounded-xl w-full max-w-lg p-6 border border-gray-700 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">Create Event</h2>
+          <h2 className="text-xl font-bold text-white">{isEdit ? "Edit Event" : "Create Event"}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
@@ -734,64 +852,83 @@ function CreateEventModal({
             />
           </div>
 
-          {/* Teams Picker */}
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Teams</label>
+          {/* Teams Picker (create mode only — team changes not supported in edit) */}
+          {!isEdit && (
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Teams</label>
 
-            {selectedTeams.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {selectedTeams.map((team) => (
-                  <span
-                    key={team.id}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-purple-600/20 text-purple-400 rounded-lg text-sm"
-                  >
-                    {team.name}
-                    <button type="button" onClick={() => removeTeam(team.id)} className="hover:text-white transition-colors">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            <div className="relative" ref={dropdownRef}>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={teamSearch}
-                  onChange={(e) => {
-                    setTeamSearch(e.target.value);
-                    setShowTeamDropdown(true);
-                  }}
-                  onFocus={() => setShowTeamDropdown(true)}
-                  className="w-full pl-9 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                  placeholder="Search teams..."
-                />
-              </div>
-
-              {showTeamDropdown && filteredTeams.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                  {filteredTeams.map((team) => (
-                    <button
+              {selectedTeams.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {selectedTeams.map((team) => (
+                    <span
                       key={team.id}
-                      type="button"
-                      onClick={() => addTeam(team)}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                      className="flex items-center gap-1 px-2.5 py-1 bg-purple-600/20 text-purple-400 rounded-lg text-sm"
                     >
                       {team.name}
-                    </button>
+                      <button type="button" onClick={() => removeTeam(team.id)} className="hover:text-white transition-colors">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
                   ))}
                 </div>
               )}
 
-              {showTeamDropdown && teamSearch && filteredTeams.length === 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg">
-                  <p className="px-4 py-2 text-sm text-gray-400">No teams found</p>
+              <div className="relative" ref={dropdownRef}>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={teamSearch}
+                    onChange={(e) => {
+                      setTeamSearch(e.target.value);
+                      setShowTeamDropdown(true);
+                    }}
+                    onFocus={() => setShowTeamDropdown(true)}
+                    className="w-full pl-9 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    placeholder="Search teams..."
+                  />
                 </div>
-              )}
+
+                {showTeamDropdown && filteredTeams.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                    {filteredTeams.map((team) => (
+                      <button
+                        key={team.id}
+                        type="button"
+                        onClick={() => addTeam(team)}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                      >
+                        {team.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {showTeamDropdown && teamSearch && filteredTeams.length === 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg">
+                    <p className="px-4 py-2 text-sm text-gray-400">No teams found</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Teams display (edit mode — read-only) */}
+          {isEdit && editingEvent?.participatingTeams && editingEvent.participatingTeams.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Teams</label>
+              <div className="flex flex-wrap gap-2">
+                {editingEvent.participatingTeams.map((team) => (
+                  <span
+                    key={team.id}
+                    className="px-2.5 py-1 bg-purple-600/20 text-purple-400 rounded-lg text-sm"
+                  >
+                    {team.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
@@ -809,7 +946,7 @@ function CreateEventModal({
               Cancel
             </button>
             <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-              Create Event
+              {isEdit ? "Save Changes" : "Create Event"}
             </button>
           </div>
         </form>

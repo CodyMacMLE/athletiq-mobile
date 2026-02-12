@@ -170,6 +170,7 @@ export const UPDATE_EVENT = gql`
     $title: String
     $type: EventType
     $date: String
+    $endDate: String
     $startTime: String
     $endTime: String
     $location: String
@@ -180,6 +181,7 @@ export const UPDATE_EVENT = gql`
       title: $title
       type: $type
       date: $date
+      endDate: $endDate
       startTime: $startTime
       endTime: $endTime
       location: $location

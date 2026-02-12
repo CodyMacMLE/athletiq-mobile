@@ -445,6 +445,7 @@ export const typeDefs = `#graphql
     # NFC queries
     organizationNfcTags(organizationId: ID!): [NfcTag!]!
     pendingAdHocCheckIns(organizationId: ID!): [CheckIn!]!
+    activeCheckIn: CheckIn
 
     # Invite queries
     invite(token: String!): Invite
@@ -496,7 +497,7 @@ export const typeDefs = `#graphql
 
     # Event mutations
     createEvent(input: CreateEventInput!): Event!
-    updateEvent(id: ID!, title: String, type: EventType, date: String, startTime: String, endTime: String, location: String, description: String): Event!
+    updateEvent(id: ID!, title: String, type: EventType, date: String, endDate: String, startTime: String, endTime: String, location: String, description: String): Event!
     deleteEvent(id: ID!): Boolean!
 
     # Recurring event mutations

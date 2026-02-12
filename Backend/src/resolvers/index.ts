@@ -136,6 +136,16 @@ function isAthleteCheckIn(
 // Helper to safely serialize Date objects to ISO strings for GraphQL String fields
 const toISO = (val: any) => val instanceof Date ? val.toISOString() : val;
 
+// Parse a date-only string (YYYY-MM-DD) to noon UTC to avoid timezone off-by-one.
+// new Date("2026-02-11") parses as UTC midnight, which is Feb 10th in US timezones.
+// Noon UTC is the same calendar date in every inhabited timezone.
+function parseDateInput(dateStr: string): Date {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return new Date(dateStr + "T12:00:00.000Z");
+  }
+  return new Date(dateStr);
+}
+
 export const resolvers = {
   Query: {
     // User queries
@@ -271,6 +281,30 @@ export const resolvers = {
       return prisma.checkIn.findMany({
         where: { isAdHoc: true, approved: false, event: { organizationId } },
         orderBy: { createdAt: "desc" },
+      });
+    },
+
+    // Active check-in query (for dashboard check-out button)
+    activeCheckIn: async (_: unknown, __: unknown, context: { userId?: string }) => {
+      if (!context.userId) return null;
+
+      const now = new Date();
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(now);
+      todayEnd.setHours(23, 59, 59, 999);
+
+      return prisma.checkIn.findFirst({
+        where: {
+          userId: context.userId,
+          checkInTime: { not: null },
+          checkOutTime: null,
+          approved: true,
+          event: {
+            date: { gte: todayStart, lte: todayEnd },
+          },
+        },
+        orderBy: { checkInTime: "desc" },
       });
     },
 
@@ -980,8 +1014,8 @@ export const resolvers = {
       return prisma.event.create({
         data: {
           ...eventData,
-          date: new Date(input.date),
-          ...(endDate && { endDate: new Date(endDate) }),
+          date: parseDateInput(input.date),
+          ...(endDate && { endDate: parseDateInput(endDate) }),
           ...(participatingTeamIds && participatingTeamIds.length > 0 && {
             participatingTeams: {
               connect: participatingTeamIds.map((id) => ({ id })),
@@ -998,6 +1032,7 @@ export const resolvers = {
         title,
         type,
         date,
+        endDate,
         startTime,
         endTime,
         location,
@@ -1007,6 +1042,7 @@ export const resolvers = {
         title?: string;
         type?: EventType;
         date?: string;
+        endDate?: string | null;
         startTime?: string;
         endTime?: string;
         location?: string;
@@ -1018,7 +1054,8 @@ export const resolvers = {
         data: {
           ...(title && { title }),
           ...(type && { type }),
-          ...(date && { date: new Date(date) }),
+          ...(date && { date: parseDateInput(date) }),
+          ...(endDate !== undefined && { endDate: endDate ? parseDateInput(endDate) : null }),
           ...(startTime && { startTime }),
           ...(endTime && { endTime }),
           ...(location !== undefined && { location }),
@@ -1208,9 +1245,8 @@ export const resolvers = {
       const { hours, minutes } = parseTimeString(event.startTime);
       eventStart.setHours(hours, minutes);
 
-      // Determine if on time or late (15 minute grace period)
-      const gracePeriod = 15 * 60 * 1000; // 15 minutes
-      const status: AttendanceStatus = now.getTime() <= eventStart.getTime() + gracePeriod ? "ON_TIME" : "LATE";
+      // Determine if on time or late (on-time = before start, late = after start)
+      const status: AttendanceStatus = now.getTime() <= eventStart.getTime() ? "ON_TIME" : "LATE";
 
       return prisma.checkIn.create({
         data: {
@@ -1525,11 +1561,24 @@ export const resolvers = {
 
       if (todaysEvents.length === 0) throw new Error("No events today");
 
+      // Pre-fetch user's check-ins for today's events to skip already-checked-out ones
+      const todayCheckIns = await prisma.checkIn.findMany({
+        where: {
+          userId: context.userId,
+          eventId: { in: todaysEvents.map((e) => e.id) },
+        },
+      });
+      const checkedOutEventIds = new Set(
+        todayCheckIns.filter((ci) => ci.checkOutTime !== null).map((ci) => ci.eventId)
+      );
+
       // Find event in check-in window (30 min before start to event end)
       const CHECK_IN_WINDOW_MINUTES = 30;
       let selectedEvent = null;
 
       for (const event of todaysEvents) {
+        if (checkedOutEventIds.has(event.id)) continue;
+
         const eventDate = new Date(event.date);
         const start = parseTimeString(event.startTime);
         const end = parseTimeString(event.endTime);
@@ -1550,6 +1599,7 @@ export const resolvers = {
       // If no event in window, find the next upcoming event and tell user to wait
       if (!selectedEvent) {
         for (const event of todaysEvents) {
+          if (checkedOutEventIds.has(event.id)) continue;
           const eventDate = new Date(event.date);
           const start = parseTimeString(event.startTime);
           const eventStart = new Date(eventDate);
@@ -1558,9 +1608,8 @@ export const resolvers = {
             throw new Error(`TOO_EARLY:${event.title}:${event.startTime}`);
           }
         }
-        // All events already ended — also too late
-        const lastEvent = todaysEvents[todaysEvents.length - 1];
-        throw new Error(`TOO_EARLY:${lastEvent.title}:${lastEvent.startTime}`);
+        // All remaining events already ended
+        throw new Error("No events today");
       }
 
       // 5. Toggle logic
@@ -1585,13 +1634,12 @@ export const resolvers = {
         return { checkIn: updatedCheckIn, action: "CHECKED_OUT", event: selectedEvent };
       }
 
-      // Check in — determine ON_TIME vs LATE
+      // Check in — determine ON_TIME vs LATE (on-time = before start, late = after start)
       const eventDate = new Date(selectedEvent.date);
       const { hours, minutes } = parseTimeString(selectedEvent.startTime);
       const eventStart = new Date(eventDate);
       eventStart.setHours(hours, minutes, 0, 0);
-      const gracePeriod = 15 * 60 * 1000;
-      const status: AttendanceStatus = now.getTime() <= eventStart.getTime() + gracePeriod ? "ON_TIME" : "LATE";
+      const status: AttendanceStatus = now.getTime() <= eventStart.getTime() ? "ON_TIME" : "LATE";
 
       const newCheckIn = await prisma.checkIn.create({
         data: {

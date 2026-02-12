@@ -1,11 +1,13 @@
 import { useAuth } from "@/contexts/AuthContext";
 import {
+  GET_ACTIVE_CHECKIN,
   GET_CHECKIN_HISTORY,
   GET_PENDING_AD_HOC_CHECK_INS,
   GET_RECENT_ACTIVITY,
   GET_USER_STATS,
 } from "@/lib/graphql/queries";
-import { useQuery } from "@apollo/client";
+import { CHECK_OUT } from "@/lib/graphql/mutations";
+import { useQuery, useMutation } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -14,6 +16,7 @@ import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -46,6 +49,36 @@ export default function Index() {
     },
     skip: !selectedOrganization?.id,
   });
+
+  const { data: activeCheckInData, refetch: refetchActiveCheckIn } = useQuery(GET_ACTIVE_CHECKIN);
+
+  const activeCheckIn = activeCheckInData?.activeCheckIn;
+
+  const [checkOut] = useMutation(CHECK_OUT, {
+    refetchQueries: ["GetActiveCheckIn", "GetCheckInHistory", "GetRecentActivity"],
+  });
+
+  const handleCheckOut = () => {
+    if (!activeCheckIn) return;
+    Alert.alert(
+      "Check Out",
+      `Are you sure you want to check out of ${activeCheckIn.event.title}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Check Out",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await checkOut({ variables: { input: { checkInId: activeCheckIn.id } } });
+            } catch (error) {
+              console.error("Failed to check out:", error);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const { data: checkinData } = useQuery(GET_CHECKIN_HISTORY, {
     variables: {
@@ -197,24 +230,29 @@ export default function Index() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Check-In Button */}
+        {/* Check-In / Check-Out Button */}
         <Pressable
-          onPress={() => router.push("/checkin")}
+          onPress={activeCheckIn ? handleCheckOut : () => router.push("/checkin")}
           style={({ pressed }) => [
             styles.checkInButton,
             pressed && styles.checkInButtonPressed,
+            activeCheckIn && styles.checkOutButtonShadow,
           ]}
         >
           <LinearGradient
-            colors={["#6c5ce7", "#a855f7"]}
+            colors={activeCheckIn ? ["#dc2626", "#ef4444"] : ["#6c5ce7", "#a855f7"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.checkInGradient}
           >
-            <Feather name="check-circle" size={28} color="white" />
-            <Text style={styles.checkInText}>Check In</Text>
+            <Feather name={activeCheckIn ? "log-out" : "check-circle"} size={28} color="white" />
+            <Text style={styles.checkInText}>
+              {activeCheckIn ? "Check Out" : "Check In"}
+            </Text>
             <Text style={styles.checkInSubtext}>
-              Tap to record your attendance
+              {activeCheckIn
+                ? `${activeCheckIn.event.title} \u2022 Ends ${activeCheckIn.event.endTime}`
+                : "Tap to record your attendance"}
             </Text>
           </LinearGradient>
         </Pressable>
@@ -493,6 +531,9 @@ const styles = StyleSheet.create({
   checkInButtonPressed: {
     opacity: 0.9,
     transform: [{ scale: 0.98 }],
+  },
+  checkOutButtonShadow: {
+    shadowColor: "#ef4444",
   },
   checkInGradient: {
     paddingVertical: 28,

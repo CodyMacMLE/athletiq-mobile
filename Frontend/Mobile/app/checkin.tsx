@@ -80,7 +80,9 @@ export default function CheckIn() {
   const [adHocNote, setAdHocNote] = useState("");
   const [adHocSubmitting, setAdHocSubmitting] = useState(false);
 
-  const [nfcCheckIn] = useMutation(NFC_CHECK_IN);
+  const [nfcCheckIn] = useMutation(NFC_CHECK_IN, {
+    refetchQueries: ["GetActiveCheckIn"],
+  });
   const [adHocNfcCheckIn] = useMutation(AD_HOC_NFC_CHECK_IN);
 
   // Get user's teams in selected org (only teams where user is an athlete, not a coach)
