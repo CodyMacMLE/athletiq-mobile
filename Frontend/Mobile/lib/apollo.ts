@@ -20,8 +20,8 @@ const getApiUrl = () => {
     }
     return "http://localhost:4000/graphql";
   }
-  // Production URL - update this when you deploy
-  return "https://api.athletiq.app/graphql";
+  // Production URL
+  return "https://api.athletiq.fitness/graphql";
 };
 
 const httpLink = createHttpLink({
