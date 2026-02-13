@@ -1,13 +1,16 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { GET_EVENTS } from "@/lib/graphql/queries";
-import { useQuery } from "@apollo/client";
+import { GET_EVENTS, GET_CHECKIN_HISTORY, GET_MY_EXCUSE_REQUESTS } from "@/lib/graphql/queries";
+import { CANCEL_EXCUSE_REQUEST } from "@/lib/graphql/mutations";
+import { useQuery, useMutation } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
   Modal,
@@ -61,6 +64,13 @@ const EVENT_ICONS: Record<string, string> = {
   EVENT: "award",
   MEETING: "users",
   GAME: "award",
+};
+
+const STATUS_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
+  ON_TIME: { color: "#27ae60", icon: "check-circle", label: "On Time" },
+  LATE: { color: "#f39c12", icon: "clock", label: "Late" },
+  ABSENT: { color: "#e74c3c", icon: "x-circle", label: "Absent" },
+  EXCUSED: { color: "#9b59b6", icon: "info", label: "Excused" },
 };
 
 function getMonthData(year: number, month: number) {
@@ -127,6 +137,7 @@ export default function Calendar() {
   const [modalVisible, setModalVisible] = useState(false);
   const [eventsTab, setEventsTab] = useState<"upcoming" | "past">("upcoming");
   const flatListRef = useRef<FlatList>(null);
+  const router = useRouter();
 
   const currentMonth = monthsList[currentMonthIndex];
   const today = new Date();
@@ -150,6 +161,40 @@ export default function Calendar() {
     },
     skip: !selectedOrganization?.id,
   });
+
+  // Fetch user's check-in history and excuse requests
+  const { data: checkinData } = useQuery(GET_CHECKIN_HISTORY, {
+    variables: { userId: user?.id, limit: 100 },
+    skip: !user?.id,
+  });
+
+  const { data: excuseData } = useQuery(GET_MY_EXCUSE_REQUESTS, {
+    variables: { userId: user?.id },
+    skip: !user?.id,
+  });
+
+  const [cancelExcuse] = useMutation(CANCEL_EXCUSE_REQUEST, {
+    refetchQueries: ["GetMyExcuseRequests"],
+  });
+
+  // Build lookup maps for check-ins and excuses by eventId
+  const checkinByEvent = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const ci of (checkinData?.checkInHistory || [])) {
+      map.set(ci.event.id, ci);
+    }
+    return map;
+  }, [checkinData]);
+
+  const excuseByEvent = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const er of (excuseData?.myExcuseRequests || [])) {
+      if (er.status === "PENDING" || er.status === "APPROVED") {
+        map.set(er.event.id, er);
+      }
+    }
+    return map;
+  }, [excuseData]);
 
   // Parse API events into CalendarEvent objects
   const events: CalendarEvent[] = useMemo(() => {
@@ -307,6 +352,44 @@ export default function Calendar() {
 
   const displayedEvents = eventsTab === "upcoming" ? monthUpcoming : monthPast;
 
+  const isEventPast = selectedEvent ? selectedEvent.date < (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })() : false;
+  const selectedCheckIn = selectedEvent ? checkinByEvent.get(selectedEvent.id) : null;
+  const selectedExcuse = selectedEvent ? excuseByEvent.get(selectedEvent.id) : null;
+
+  const handleRequestAbsence = () => {
+    if (!selectedEvent) return;
+    setModalVisible(false);
+    router.push({
+      pathname: "/request-absence",
+      params: {
+        eventId: selectedEvent.id,
+        eventTitle: selectedEvent.title,
+        eventDate: selectedEvent.date.toISOString(),
+        eventStartTime: selectedEvent.startTime || "",
+        eventEndTime: selectedEvent.endTime || "",
+        eventType: selectedEvent.type || "",
+        teamName: selectedEvent.team?.name || "",
+      },
+    });
+  };
+
+  const handleCancelExcuse = (excuseId: string) => {
+    Alert.alert("Cancel Excuse", "Are you sure you want to cancel this excuse request?", [
+      { text: "No", style: "cancel" },
+      {
+        text: "Yes, Cancel",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await cancelExcuse({ variables: { id: excuseId } });
+          } catch (error: any) {
+            Alert.alert("Error", error.message || "Failed to cancel excuse request.");
+          }
+        },
+      },
+    ]);
+  };
+
   if (!user || !selectedOrganization) return null;
 
   return (
@@ -328,9 +411,10 @@ export default function Calendar() {
           style={styles.modalOverlay}
           onPress={() => setModalVisible(false)}
         >
-          <View style={styles.eventModalContainer}>
+            <Pressable style={styles.eventModalContainer} onPress={(e) => e.stopPropagation()}>
             {selectedEvent && (
-              <>
+              <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+                {/* Header */}
                 <View
                   style={[
                     styles.eventModalHeader,
@@ -347,17 +431,15 @@ export default function Calendar() {
                       selectedEvent.type.slice(1)}
                   </Text>
                 </View>
+
                 <View style={styles.eventModalContent}>
+                  {/* Event Summary */}
                   <Text style={styles.eventModalTitle}>
                     {selectedEvent.title}
                   </Text>
 
                   <View style={styles.eventModalRow}>
-                    <Feather
-                      name="calendar"
-                      size={16}
-                      color="rgba(255,255,255,0.6)"
-                    />
+                    <Feather name="calendar" size={16} color="rgba(255,255,255,0.6)" />
                     <Text style={styles.eventModalText}>
                       {selectedEvent.date.toLocaleDateString("en-US", {
                         weekday: "long",
@@ -369,11 +451,7 @@ export default function Calendar() {
 
                   {selectedEvent.startTime && (
                     <View style={styles.eventModalRow}>
-                      <Feather
-                        name="clock"
-                        size={16}
-                        color="rgba(255,255,255,0.6)"
-                      />
+                      <Feather name="clock" size={16} color="rgba(255,255,255,0.6)" />
                       <Text style={styles.eventModalText}>
                         {selectedEvent.startTime} - {selectedEvent.endTime}
                       </Text>
@@ -382,13 +460,18 @@ export default function Calendar() {
 
                   {selectedEvent.location && (
                     <View style={styles.eventModalRow}>
-                      <Feather
-                        name="map-pin"
-                        size={16}
-                        color="rgba(255,255,255,0.6)"
-                      />
+                      <Feather name="map-pin" size={16} color="rgba(255,255,255,0.6)" />
                       <Text style={styles.eventModalText}>
                         {selectedEvent.location}
+                      </Text>
+                    </View>
+                  )}
+
+                  {selectedEvent.team && (
+                    <View style={styles.eventModalRow}>
+                      <Feather name="users" size={16} color="rgba(255,255,255,0.6)" />
+                      <Text style={styles.eventModalText}>
+                        {selectedEvent.team.name}
                       </Text>
                     </View>
                   )}
@@ -397,6 +480,140 @@ export default function Calendar() {
                     <Text style={styles.eventModalDescription}>
                       {selectedEvent.description}
                     </Text>
+                  )}
+
+                  {/* Past Event: Attendance Info */}
+                  {isEventPast && (
+                    <View style={styles.attendanceSection}>
+                      <Text style={styles.attendanceSectionTitle}>Your Attendance</Text>
+
+                      {selectedCheckIn ? (
+                        <View style={styles.attendanceCard}>
+                          {/* Status Badge */}
+                          <View style={styles.attendanceStatusRow}>
+                            <View style={[
+                              styles.attendanceStatusBadge,
+                              { backgroundColor: `${(STATUS_CONFIG[selectedCheckIn.status] || STATUS_CONFIG.ABSENT).color}20` },
+                            ]}>
+                              <Feather
+                                name={(STATUS_CONFIG[selectedCheckIn.status] || STATUS_CONFIG.ABSENT).icon as any}
+                                size={14}
+                                color={(STATUS_CONFIG[selectedCheckIn.status] || STATUS_CONFIG.ABSENT).color}
+                              />
+                              <Text style={[
+                                styles.attendanceStatusText,
+                                { color: (STATUS_CONFIG[selectedCheckIn.status] || STATUS_CONFIG.ABSENT).color },
+                              ]}>
+                                {(STATUS_CONFIG[selectedCheckIn.status] || STATUS_CONFIG.ABSENT).label}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Check-in/out times */}
+                          {selectedCheckIn.checkInTime && (
+                            <View style={styles.attendanceDetailRow}>
+                              <Text style={styles.attendanceLabel}>Check-in</Text>
+                              <Text style={styles.attendanceValue}>
+                                {new Date(selectedCheckIn.checkInTime).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </Text>
+                            </View>
+                          )}
+
+                          {selectedCheckIn.checkOutTime && (
+                            <View style={styles.attendanceDetailRow}>
+                              <Text style={styles.attendanceLabel}>Check-out</Text>
+                              <Text style={styles.attendanceValue}>
+                                {new Date(selectedCheckIn.checkOutTime).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </Text>
+                            </View>
+                          )}
+
+                          {selectedCheckIn.hoursLogged != null && selectedCheckIn.hoursLogged > 0 && (
+                            <View style={styles.attendanceDetailRow}>
+                              <Text style={styles.attendanceLabel}>Hours Logged</Text>
+                              <Text style={[styles.attendanceValue, { color: "#27ae60", fontWeight: "700" }]}>
+                                {selectedCheckIn.hoursLogged.toFixed(2)}h
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      ) : selectedExcuse ? (
+                        <View style={styles.attendanceCard}>
+                          <View style={styles.attendanceStatusRow}>
+                            <View style={[styles.attendanceStatusBadge, { backgroundColor: "rgba(155,89,182,0.2)" }]}>
+                              <Feather name="info" size={14} color="#9b59b6" />
+                              <Text style={[styles.attendanceStatusText, { color: "#9b59b6" }]}>
+                                {selectedExcuse.status === "APPROVED" ? "Excused" : "Excuse Pending"}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.excuseReasonBox}>
+                            <Text style={styles.excuseReasonLabel}>Reason</Text>
+                            <Text style={styles.excuseReasonText}>{selectedExcuse.reason}</Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={styles.attendanceCard}>
+                          <View style={styles.attendanceStatusRow}>
+                            <View style={[styles.attendanceStatusBadge, { backgroundColor: "rgba(231,76,60,0.2)" }]}>
+                              <Feather name="x-circle" size={14} color="#e74c3c" />
+                              <Text style={[styles.attendanceStatusText, { color: "#e74c3c" }]}>
+                                Absent
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.noAttendanceText}>No check-in recorded</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Upcoming Event: Excuse Request */}
+                  {!isEventPast && (
+                    <View style={styles.attendanceSection}>
+                      {selectedExcuse ? (
+                        <View style={styles.attendanceCard}>
+                          <View style={styles.attendanceStatusRow}>
+                            <View style={[styles.attendanceStatusBadge, { backgroundColor: "rgba(155,89,182,0.2)" }]}>
+                              <Feather
+                                name={selectedExcuse.status === "APPROVED" ? "check" : "clock"}
+                                size={14}
+                                color="#9b59b6"
+                              />
+                              <Text style={[styles.attendanceStatusText, { color: "#9b59b6" }]}>
+                                {selectedExcuse.status === "APPROVED" ? "Excused" : "Excuse Pending"}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.excuseReasonBox}>
+                            <Text style={styles.excuseReasonLabel}>Reason</Text>
+                            <Text style={styles.excuseReasonText}>{selectedExcuse.reason}</Text>
+                          </View>
+                          {selectedExcuse.status === "PENDING" && (
+                            <Pressable
+                              style={({ pressed }) => [styles.cancelExcuseBtn, pressed && { opacity: 0.7 }]}
+                              onPress={() => handleCancelExcuse(selectedExcuse.id)}
+                            >
+                              <Text style={styles.cancelExcuseBtnText}>Cancel Request</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      ) : (
+                        <Pressable
+                          style={({ pressed }) => [styles.requestExcuseBtn, pressed && { opacity: 0.7 }]}
+                          onPress={handleRequestAbsence}
+                        >
+                          <Feather name="alert-circle" size={16} color="#a855f7" />
+                          <Text style={styles.requestExcuseBtnText}>Request Absence</Text>
+                        </Pressable>
+                      )}
+                    </View>
                   )}
 
                   <Pressable
@@ -409,9 +626,9 @@ export default function Calendar() {
                     <Text style={styles.eventModalButtonText}>Close</Text>
                   </Pressable>
                 </View>
-              </>
+              </ScrollView>
             )}
-          </View>
+          </Pressable>
         </Pressable>
       </Modal>
 
@@ -909,6 +1126,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     width: "100%",
     maxWidth: 340,
+    maxHeight: "80%",
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
@@ -956,15 +1174,112 @@ const styles = StyleSheet.create({
     borderTopColor: "rgba(255,255,255,0.1)",
   },
   eventModalButton: {
-    backgroundColor: "#6c5ce7",
+    backgroundColor: "rgba(255,255,255,0.1)",
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
     marginTop: 20,
   },
   eventModalButtonText: {
-    color: "white",
+    color: "rgba(255,255,255,0.7)",
     fontSize: 16,
     fontWeight: "600",
+  },
+
+  // Attendance section in modal
+  attendanceSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.1)",
+  },
+  attendanceSectionTitle: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  attendanceCard: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  attendanceStatusRow: {
+    flexDirection: "row",
+    marginBottom: 10,
+  },
+  attendanceStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  attendanceStatusText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  attendanceDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 5,
+  },
+  attendanceLabel: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 13,
+  },
+  attendanceValue: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  noAttendanceText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 13,
+  },
+  excuseReasonBox: {
+    marginTop: 4,
+  },
+  excuseReasonLabel: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  excuseReasonText: {
+    color: "#9b59b6",
+    fontSize: 13,
+    fontStyle: "italic",
+  },
+
+  // Excuse request button
+  requestExcuseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(168,85,247,0.15)",
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  requestExcuseBtnText: {
+    color: "#a855f7",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  cancelExcuseBtn: {
+    alignItems: "center",
+    marginTop: 10,
+    paddingVertical: 8,
+  },
+  cancelExcuseBtnText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 13,
+    fontWeight: "500",
   },
 });

@@ -4,23 +4,21 @@ import {
   GET_CHECKIN_HISTORY,
   GET_MY_EXCUSE_REQUESTS,
 } from "@/lib/graphql/queries";
-import { CREATE_EXCUSE_REQUEST, CANCEL_EXCUSE_REQUEST } from "@/lib/graphql/mutations";
+import { CANCEL_EXCUSE_REQUEST } from "@/lib/graphql/mutations";
 import { useQuery, useMutation } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 
@@ -82,11 +80,6 @@ function formatFutureDate(isoDate: string): string {
 export default function ActivityFeed() {
   const router = useRouter();
   const { user, selectedOrganization } = useAuth();
-  const [excuseModalVisible, setExcuseModalVisible] = useState(false);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [selectedEventName, setSelectedEventName] = useState("");
-  const [selectedEventDate, setSelectedEventDate] = useState("");
-  const [excuseReason, setExcuseReason] = useState("");
 
   // Queries
   const { data: upcomingData, loading: upcomingLoading } = useQuery(GET_UPCOMING_EVENTS, {
@@ -102,11 +95,6 @@ export default function ActivityFeed() {
   const { data: excuseData } = useQuery(GET_MY_EXCUSE_REQUESTS, {
     variables: { userId: user?.id },
     skip: !user?.id,
-  });
-
-  // Mutations
-  const [createExcuse, { loading: creatingExcuse }] = useMutation(CREATE_EXCUSE_REQUEST, {
-    refetchQueries: ["GetMyExcuseRequests"],
   });
 
   const [cancelExcuse] = useMutation(CANCEL_EXCUSE_REQUEST, {
@@ -153,32 +141,18 @@ export default function ActivityFeed() {
   }, [allCheckInHistory]);
 
   const handleExcusePress = (event: any) => {
-    setSelectedEventId(event.id);
-    setSelectedEventName(event.title);
-    setSelectedEventDate(event.date);
-    setExcuseReason("");
-    setExcuseModalVisible(true);
-  };
-
-  const handleSubmitExcuse = async () => {
-    if (!selectedEventId || !excuseReason.trim() || !user?.id) return;
-
-    try {
-      await createExcuse({
-        variables: {
-          input: {
-            userId: user.id,
-            eventId: selectedEventId,
-            reason: excuseReason.trim(),
-          },
-        },
-      });
-      setExcuseModalVisible(false);
-      setSelectedEventId(null);
-      setExcuseReason("");
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to submit excuse request.");
-    }
+    router.push({
+      pathname: "/request-absence",
+      params: {
+        eventId: event.id,
+        eventTitle: event.title,
+        eventDate: event.date,
+        eventStartTime: event.startTime || "",
+        eventEndTime: event.endTime || "",
+        eventType: event.type || "",
+        teamName: event.team?.name || "",
+      },
+    });
   };
 
   const handleCancelExcuse = (excuseId: string) => {
@@ -207,64 +181,6 @@ export default function ActivityFeed() {
       locations={[0.1, 0.6, 1]}
     >
       <StatusBar style="light" />
-
-      {/* Excuse Modal */}
-      <Modal
-        visible={excuseModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setExcuseModalVisible(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setExcuseModalVisible(false)}
-        >
-          <Pressable style={styles.excuseModalContainer} onPress={e => e.stopPropagation()}>
-            <Text style={styles.excuseModalTitle}>Request Excuse</Text>
-            {selectedEventId && (
-              <View style={styles.excuseEventInfo}>
-                <Text style={styles.excuseEventName}>{selectedEventName}</Text>
-                <Text style={styles.excuseEventDate}>
-                  {formatFutureDate(selectedEventDate)}
-                </Text>
-              </View>
-            )}
-            <Text style={styles.excuseLabel}>Reason for absence</Text>
-            <TextInput
-              style={styles.excuseInput}
-              placeholder="e.g., Doctor's appointment, family event..."
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              value={excuseReason}
-              onChangeText={setExcuseReason}
-              multiline
-              numberOfLines={3}
-            />
-            <View style={styles.excuseModalButtons}>
-              <Pressable
-                style={[styles.excuseButton, styles.excuseButtonCancel]}
-                onPress={() => setExcuseModalVisible(false)}
-              >
-                <Text style={styles.excuseButtonCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.excuseButton,
-                  styles.excuseButtonSubmit,
-                  (!excuseReason.trim() || creatingExcuse) && styles.excuseButtonDisabled,
-                ]}
-                onPress={handleSubmitExcuse}
-                disabled={!excuseReason.trim() || creatingExcuse}
-              >
-                {creatingExcuse ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <Text style={styles.excuseButtonSubmitText}>Submit</Text>
-                )}
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       {/* Header */}
       <View style={styles.header}>
@@ -391,7 +307,7 @@ export default function ActivityFeed() {
                           onPress={() => handleExcusePress(event)}
                         >
                           <Feather name="alert-circle" size={14} color="#a855f7" />
-                          <Text style={styles.excuseRequestText}>Request Excuse</Text>
+                          <Text style={styles.excuseRequestText}>Request Absence</Text>
                         </Pressable>
                       )}
                     </View>
@@ -817,92 +733,6 @@ const styles = StyleSheet.create({
   },
   logHours: {
     color: "#27ae60",
-    fontWeight: "600",
-  },
-
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  excuseModalContainer: {
-    backgroundColor: "#2a2550",
-    borderRadius: 16,
-    width: "100%",
-    maxWidth: 340,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
-  excuseModalTitle: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 16,
-  },
-  excuseEventInfo: {
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-  },
-  excuseEventName: {
-    color: "white",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  excuseEventDate: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 13,
-    marginTop: 2,
-  },
-  excuseLabel: {
-    color: "rgba(255,255,255,0.6)",
-    fontSize: 13,
-    marginBottom: 8,
-  },
-  excuseInput: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 10,
-    padding: 12,
-    color: "white",
-    fontSize: 14,
-    minHeight: 80,
-    textAlignVertical: "top",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-  },
-  excuseModalButtons: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 20,
-  },
-  excuseButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  excuseButtonCancel: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-  },
-  excuseButtonCancelText: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-  excuseButtonSubmit: {
-    backgroundColor: "#6c5ce7",
-  },
-  excuseButtonDisabled: {
-    opacity: 0.5,
-  },
-  excuseButtonSubmitText: {
-    color: "white",
-    fontSize: 15,
     fontWeight: "600",
   },
 });

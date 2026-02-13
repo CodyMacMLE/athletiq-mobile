@@ -53,6 +53,13 @@ function RootNavigator() {
           animation: "slide_from_right",
         }}
       />
+      <Stack.Screen
+        name="request-absence"
+        options={{
+          animation: "slide_from_bottom",
+          presentation: "modal",
+        }}
+      />
     </Stack>
   );
 }
