@@ -1,10 +1,20 @@
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  GET_UPCOMING_EVENTS,
+  GET_CHECKIN_HISTORY,
+  GET_MY_EXCUSE_REQUESTS,
+} from "@/lib/graphql/queries";
+import { CREATE_EXCUSE_REQUEST, CANCEL_EXCUSE_REQUEST } from "@/lib/graphql/mutations";
+import { useQuery, useMutation } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -14,207 +24,56 @@ import {
   View,
 } from "react-native";
 
-type User = {
-  image?: string;
-  firstName: string;
-  lastName: string;
-};
-
-type AttendanceStatus = "on-time" | "late" | "absent" | "excused";
-
-type CheckInLog = {
-  id: string;
-  date: Date;
-  eventName: string;
-  eventType: "practice" | "event" | "meeting";
-  status: AttendanceStatus;
-  checkInTime?: string;
-  checkOutTime?: string;
-  scheduledStart: string;
-  scheduledEnd: string;
-  hoursLogged?: number;
-  excuseReason?: string;
-};
-
-type UpcomingEvent = {
-  id: string;
-  date: Date;
-  eventName: string;
-  eventType: "practice" | "event" | "meeting";
-  scheduledStart: string;
-  scheduledEnd: string;
-  isExcused: boolean;
-  excuseReason?: string;
-};
-
-const user: User = {
-  image: undefined,
-  firstName: "Cody",
-  lastName: "MacDonald",
-};
+type AttendanceStatus = "ON_TIME" | "LATE" | "ABSENT" | "EXCUSED";
 
 const AVATAR_SIZE = 45;
 
-// Helper to get relative date
-function getRelativeDate(daysFromNow: number): Date {
-  const date = new Date();
-  date.setDate(date.getDate() + daysFromNow);
-  date.setHours(0, 0, 0, 0);
-  return date;
-}
-
-// Mock check-in history
-const checkInHistory: CheckInLog[] = [
-  {
-    id: "1",
-    date: getRelativeDate(0),
-    eventName: "Team Practice",
-    eventType: "practice",
-    status: "on-time",
-    checkInTime: "5:58 PM",
-    checkOutTime: "8:02 PM",
-    scheduledStart: "6:00 PM",
-    scheduledEnd: "8:00 PM",
-    hoursLogged: 2.07,
-  },
-  {
-    id: "2",
-    date: getRelativeDate(-1),
-    eventName: "Team Practice",
-    eventType: "practice",
-    status: "late",
-    checkInTime: "6:18 PM",
-    checkOutTime: "8:00 PM",
-    scheduledStart: "6:00 PM",
-    scheduledEnd: "8:00 PM",
-    hoursLogged: 1.7,
-  },
-  {
-    id: "3",
-    date: getRelativeDate(-2),
-    eventName: "Team Meeting",
-    eventType: "meeting",
-    status: "on-time",
-    checkInTime: "4:55 PM",
-    checkOutTime: "6:00 PM",
-    scheduledStart: "5:00 PM",
-    scheduledEnd: "6:00 PM",
-    hoursLogged: 1.08,
-  },
-  {
-    id: "4",
-    date: getRelativeDate(-3),
-    eventName: "Team Practice",
-    eventType: "practice",
-    status: "excused",
-    scheduledStart: "6:00 PM",
-    scheduledEnd: "8:00 PM",
-    excuseReason: "Doctor's appointment",
-  },
-  {
-    id: "5",
-    date: getRelativeDate(-4),
-    eventName: "Game vs Eagles",
-    eventType: "event",
-    status: "on-time",
-    checkInTime: "6:00 PM",
-    checkOutTime: "9:15 PM",
-    scheduledStart: "7:00 PM",
-    scheduledEnd: "9:00 PM",
-    hoursLogged: 3.25,
-  },
-  {
-    id: "6",
-    date: getRelativeDate(-6),
-    eventName: "Team Practice",
-    eventType: "practice",
-    status: "absent",
-    scheduledStart: "6:00 PM",
-    scheduledEnd: "8:00 PM",
-  },
-  {
-    id: "7",
-    date: getRelativeDate(-7),
-    eventName: "Team Practice",
-    eventType: "practice",
-    status: "on-time",
-    checkInTime: "5:55 PM",
-    checkOutTime: "8:00 PM",
-    scheduledStart: "6:00 PM",
-    scheduledEnd: "8:00 PM",
-    hoursLogged: 2.08,
-  },
-];
-
-// Mock upcoming events that can be excused
-const upcomingEvents: UpcomingEvent[] = [
-  {
-    id: "u1",
-    date: getRelativeDate(1),
-    eventName: "Team Practice",
-    eventType: "practice",
-    scheduledStart: "6:00 PM",
-    scheduledEnd: "8:00 PM",
-    isExcused: false,
-  },
-  {
-    id: "u2",
-    date: getRelativeDate(2),
-    eventName: "Team Practice",
-    eventType: "practice",
-    scheduledStart: "6:00 PM",
-    scheduledEnd: "8:00 PM",
-    isExcused: false,
-  },
-  {
-    id: "u3",
-    date: getRelativeDate(4),
-    eventName: "Game vs Thunder",
-    eventType: "event",
-    scheduledStart: "7:00 PM",
-    scheduledEnd: "9:00 PM",
-    isExcused: false,
-  },
-];
-
 const STATUS_CONFIG: Record<AttendanceStatus, { color: string; icon: string; label: string }> = {
-  "on-time": { color: "#27ae60", icon: "check-circle", label: "On Time" },
-  "late": { color: "#f39c12", icon: "clock", label: "Late" },
-  "absent": { color: "#e74c3c", icon: "x-circle", label: "Absent" },
-  "excused": { color: "#9b59b6", icon: "info", label: "Excused" },
+  ON_TIME: { color: "#27ae60", icon: "check-circle", label: "On Time" },
+  LATE: { color: "#f39c12", icon: "clock", label: "Late" },
+  ABSENT: { color: "#e74c3c", icon: "x-circle", label: "Absent" },
+  EXCUSED: { color: "#9b59b6", icon: "info", label: "Excused" },
 };
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
-  practice: "#6c5ce7",
-  event: "#e74c3c",
-  meeting: "#f39c12",
+  PRACTICE: "#6c5ce7",
+  EVENT: "#e74c3c",
+  MEETING: "#f39c12",
+  GAME: "#e74c3c",
+  REST: "#27ae60",
 };
 
-function formatDate(date: Date): string {
+function formatDate(isoDate: string): string {
+  const date = new Date(isoDate);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  if (date.getTime() === today.getTime()) return "Today";
-  if (date.getTime() === yesterday.getTime()) return "Yesterday";
+  const eventDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-  const diffDays = Math.floor((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (eventDate.getTime() === today.getTime()) return "Today";
+  if (eventDate.getTime() === yesterday.getTime()) return "Yesterday";
+
+  const diffDays = Math.floor((today.getTime() - eventDate.getTime()) / (1000 * 60 * 60 * 24));
   if (diffDays < 7) return date.toLocaleDateString("en-US", { weekday: "long" });
 
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function formatFutureDate(date: Date): string {
+function formatFutureDate(isoDate: string): string {
+  const date = new Date(isoDate);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  if (date.getTime() === today.getTime()) return "Today";
-  if (date.getTime() === tomorrow.getTime()) return "Tomorrow";
+  const eventDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-  const diffDays = Math.floor((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (eventDate.getTime() === today.getTime()) return "Today";
+  if (eventDate.getTime() === tomorrow.getTime()) return "Tomorrow";
+
+  const diffDays = Math.floor((eventDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   if (diffDays < 7) return date.toLocaleDateString("en-US", { weekday: "long" });
 
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -222,43 +81,113 @@ function formatFutureDate(date: Date): string {
 
 export default function ActivityFeed() {
   const router = useRouter();
+  const { user, selectedOrganization } = useAuth();
   const [excuseModalVisible, setExcuseModalVisible] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<UpcomingEvent | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedEventName, setSelectedEventName] = useState("");
+  const [selectedEventDate, setSelectedEventDate] = useState("");
   const [excuseReason, setExcuseReason] = useState("");
-  const [events, setEvents] = useState(upcomingEvents);
 
-  const handleExcusePress = (event: UpcomingEvent) => {
-    setSelectedEvent(event);
+  // Queries
+  const { data: upcomingData, loading: upcomingLoading } = useQuery(GET_UPCOMING_EVENTS, {
+    variables: { organizationId: selectedOrganization?.id, limit: 10 },
+    skip: !selectedOrganization?.id,
+  });
+
+  const { data: checkinData, loading: checkinLoading } = useQuery(GET_CHECKIN_HISTORY, {
+    variables: { userId: user?.id, limit: 15 },
+    skip: !user?.id,
+  });
+
+  const { data: excuseData } = useQuery(GET_MY_EXCUSE_REQUESTS, {
+    variables: { userId: user?.id },
+    skip: !user?.id,
+  });
+
+  // Mutations
+  const [createExcuse, { loading: creatingExcuse }] = useMutation(CREATE_EXCUSE_REQUEST, {
+    refetchQueries: ["GetMyExcuseRequests"],
+  });
+
+  const [cancelExcuse] = useMutation(CANCEL_EXCUSE_REQUEST, {
+    refetchQueries: ["GetMyExcuseRequests"],
+  });
+
+  const upcomingEvents = upcomingData?.upcomingEvents || [];
+  const checkInHistory = checkinData?.checkInHistory || [];
+  const excuseRequests = excuseData?.myExcuseRequests || [];
+
+  // Map excuse requests by eventId for quick lookup
+  const excusesByEvent = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const er of excuseRequests) {
+      if (er.status === "PENDING" || er.status === "APPROVED") {
+        map.set(er.event.id, er);
+      }
+    }
+    return map;
+  }, [excuseRequests]);
+
+  // Stats from check-in history
+  const stats = useMemo(() => {
+    let onTime = 0;
+    let late = 0;
+    let absent = 0;
+    for (const ci of checkInHistory) {
+      if (ci.status === "ON_TIME") onTime++;
+      else if (ci.status === "LATE") late++;
+      else if (ci.status === "ABSENT") absent++;
+    }
+    return { onTime, late, absent };
+  }, [checkInHistory]);
+
+  const handleExcusePress = (event: any) => {
+    setSelectedEventId(event.id);
+    setSelectedEventName(event.title);
+    setSelectedEventDate(event.date);
     setExcuseReason("");
     setExcuseModalVisible(true);
   };
 
-  const handleSubmitExcuse = () => {
-    if (selectedEvent && excuseReason.trim()) {
-      setEvents(events.map(e =>
-        e.id === selectedEvent.id
-          ? { ...e, isExcused: true, excuseReason: excuseReason.trim() }
-          : e
-      ));
+  const handleSubmitExcuse = async () => {
+    if (!selectedEventId || !excuseReason.trim() || !user?.id) return;
+
+    try {
+      await createExcuse({
+        variables: {
+          input: {
+            userId: user.id,
+            eventId: selectedEventId,
+            reason: excuseReason.trim(),
+          },
+        },
+      });
       setExcuseModalVisible(false);
-      setSelectedEvent(null);
+      setSelectedEventId(null);
       setExcuseReason("");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to submit excuse request.");
     }
   };
 
-  const handleCancelExcuse = (eventId: string) => {
-    setEvents(events.map(e =>
-      e.id === eventId
-        ? { ...e, isExcused: false, excuseReason: undefined }
-        : e
-    ));
+  const handleCancelExcuse = (excuseId: string) => {
+    Alert.alert("Cancel Excuse", "Are you sure you want to cancel this excuse request?", [
+      { text: "No", style: "cancel" },
+      {
+        text: "Yes, Cancel",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await cancelExcuse({ variables: { id: excuseId } });
+          } catch (error: any) {
+            Alert.alert("Error", error.message || "Failed to cancel excuse request.");
+          }
+        },
+      },
+    ]);
   };
 
-  // Calculate summary stats
-  const totalLogs = checkInHistory.length;
-  const onTimeCount = checkInHistory.filter(l => l.status === "on-time").length;
-  const lateCount = checkInHistory.filter(l => l.status === "late").length;
-  const absentCount = checkInHistory.filter(l => l.status === "absent").length;
+  if (!user || !selectedOrganization) return null;
 
   return (
     <LinearGradient
@@ -281,11 +210,11 @@ export default function ActivityFeed() {
         >
           <Pressable style={styles.excuseModalContainer} onPress={e => e.stopPropagation()}>
             <Text style={styles.excuseModalTitle}>Request Excuse</Text>
-            {selectedEvent && (
+            {selectedEventId && (
               <View style={styles.excuseEventInfo}>
-                <Text style={styles.excuseEventName}>{selectedEvent.eventName}</Text>
+                <Text style={styles.excuseEventName}>{selectedEventName}</Text>
                 <Text style={styles.excuseEventDate}>
-                  {formatFutureDate(selectedEvent.date)} • {selectedEvent.scheduledStart}
+                  {formatFutureDate(selectedEventDate)}
                 </Text>
               </View>
             )}
@@ -310,12 +239,16 @@ export default function ActivityFeed() {
                 style={[
                   styles.excuseButton,
                   styles.excuseButtonSubmit,
-                  !excuseReason.trim() && styles.excuseButtonDisabled,
+                  (!excuseReason.trim() || creatingExcuse) && styles.excuseButtonDisabled,
                 ]}
                 onPress={handleSubmitExcuse}
-                disabled={!excuseReason.trim()}
+                disabled={!excuseReason.trim() || creatingExcuse}
               >
-                <Text style={styles.excuseButtonSubmitText}>Submit</Text>
+                {creatingExcuse ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.excuseButtonSubmitText}>Submit</Text>
+                )}
               </Pressable>
             </View>
           </Pressable>
@@ -350,24 +283,32 @@ export default function ActivityFeed() {
       >
         {/* Quick Stats */}
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: STATUS_CONFIG["on-time"].color }]}>
-              {onTimeCount}
-            </Text>
-            <Text style={styles.statLabel}>On Time</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: STATUS_CONFIG["late"].color }]}>
-              {lateCount}
-            </Text>
-            <Text style={styles.statLabel}>Late</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { color: STATUS_CONFIG["absent"].color }]}>
-              {absentCount}
-            </Text>
-            <Text style={styles.statLabel}>Absent</Text>
-          </View>
+          {checkinLoading ? (
+            <View style={[styles.statCard, { flex: 1 }]}>
+              <ActivityIndicator color="#a855f7" />
+            </View>
+          ) : (
+            <>
+              <View style={styles.statCard}>
+                <Text style={[styles.statValue, { color: STATUS_CONFIG.ON_TIME.color }]}>
+                  {stats.onTime}
+                </Text>
+                <Text style={styles.statLabel}>On Time</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={[styles.statValue, { color: STATUS_CONFIG.LATE.color }]}>
+                  {stats.late}
+                </Text>
+                <Text style={styles.statLabel}>Late</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={[styles.statValue, { color: STATUS_CONFIG.ABSENT.color }]}>
+                  {stats.absent}
+                </Text>
+                <Text style={styles.statLabel}>Absent</Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Upcoming - Request Excuse */}
@@ -375,53 +316,79 @@ export default function ActivityFeed() {
           <Text style={styles.sectionTitle}>Upcoming</Text>
           <Text style={styles.sectionSubtitle}>Request an excuse if you can't attend</Text>
 
-          <View style={styles.upcomingList}>
-            {events.map((event) => (
-              <View key={event.id} style={styles.upcomingCard}>
-                <View
-                  style={[
-                    styles.upcomingAccent,
-                    { backgroundColor: EVENT_TYPE_COLORS[event.eventType] },
-                  ]}
-                />
-                <View style={styles.upcomingContent}>
-                  <View style={styles.upcomingHeader}>
-                    <View>
-                      <Text style={styles.upcomingName}>{event.eventName}</Text>
-                      <Text style={styles.upcomingDate}>
-                        {formatFutureDate(event.date)} • {event.scheduledStart} - {event.scheduledEnd}
-                      </Text>
+          {upcomingLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#a855f7" />
+            </View>
+          ) : upcomingEvents.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Feather name="calendar" size={20} color="rgba(255,255,255,0.3)" />
+              <Text style={styles.emptyText}>No upcoming events</Text>
+            </View>
+          ) : (
+            <View style={styles.upcomingList}>
+              {upcomingEvents.map((event: any) => {
+                const excuse = excusesByEvent.get(event.id);
+                const eventColor = EVENT_TYPE_COLORS[event.type] || "#6c5ce7";
+
+                return (
+                  <View key={event.id} style={styles.upcomingCard}>
+                    <View
+                      style={[styles.upcomingAccent, { backgroundColor: eventColor }]}
+                    />
+                    <View style={styles.upcomingContent}>
+                      <View style={styles.upcomingHeader}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.upcomingName}>{event.title}</Text>
+                          <Text style={styles.upcomingDate}>
+                            {formatFutureDate(event.date)}
+                            {event.startTime ? ` \u2022 ${event.startTime}` : ""}
+                            {event.endTime ? ` - ${event.endTime}` : ""}
+                          </Text>
+                          {event.team && (
+                            <Text style={styles.upcomingTeam}>{event.team.name}</Text>
+                          )}
+                        </View>
+                      </View>
+                      {excuse ? (
+                        <View style={styles.excusedBadgeContainer}>
+                          <View style={styles.excusedBadge}>
+                            <Feather
+                              name={excuse.status === "APPROVED" ? "check" : "clock"}
+                              size={12}
+                              color="#9b59b6"
+                            />
+                            <Text style={styles.excusedBadgeText}>
+                              {excuse.status === "APPROVED" ? "Excused" : "Pending"}
+                            </Text>
+                          </View>
+                          {excuse.status === "PENDING" && (
+                            <Pressable
+                              style={styles.cancelExcuseButton}
+                              onPress={() => handleCancelExcuse(excuse.id)}
+                            >
+                              <Text style={styles.cancelExcuseText}>Cancel</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      ) : (
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.excuseRequestButton,
+                            pressed && { opacity: 0.7 },
+                          ]}
+                          onPress={() => handleExcusePress(event)}
+                        >
+                          <Feather name="alert-circle" size={14} color="#a855f7" />
+                          <Text style={styles.excuseRequestText}>Request Excuse</Text>
+                        </Pressable>
+                      )}
                     </View>
                   </View>
-                  {event.isExcused ? (
-                    <View style={styles.excusedBadgeContainer}>
-                      <View style={styles.excusedBadge}>
-                        <Feather name="check" size={12} color="#9b59b6" />
-                        <Text style={styles.excusedBadgeText}>Excused</Text>
-                      </View>
-                      <Pressable
-                        style={styles.cancelExcuseButton}
-                        onPress={() => handleCancelExcuse(event.id)}
-                      >
-                        <Text style={styles.cancelExcuseText}>Cancel</Text>
-                      </Pressable>
-                    </View>
-                  ) : (
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.excuseRequestButton,
-                        pressed && { opacity: 0.7 },
-                      ]}
-                      onPress={() => handleExcusePress(event)}
-                    >
-                      <Feather name="alert-circle" size={14} color="#a855f7" />
-                      <Text style={styles.excuseRequestText}>Request Excuse</Text>
-                    </Pressable>
-                  )}
-                </View>
-              </View>
-            ))}
-          </View>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         {/* Check-In History */}
@@ -433,92 +400,108 @@ export default function ActivityFeed() {
             </Pressable>
           </View>
 
-          <View style={styles.timelineContainer}>
-            {checkInHistory.map((log, index) => {
-              const config = STATUS_CONFIG[log.status];
-              const isLast = index === checkInHistory.length - 1;
+          {checkinLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#a855f7" />
+            </View>
+          ) : checkInHistory.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Feather name="clipboard" size={20} color="rgba(255,255,255,0.3)" />
+              <Text style={styles.emptyText}>No check-in history yet</Text>
+            </View>
+          ) : (
+            <View style={styles.timelineContainer}>
+              {checkInHistory.map((log: any, index: number) => {
+                const config = STATUS_CONFIG[log.status as AttendanceStatus] || STATUS_CONFIG.ON_TIME;
+                const isLast = index === checkInHistory.length - 1;
+                const eventColor = EVENT_TYPE_COLORS[log.event?.type] || "#6c5ce7";
 
-              return (
-                <View key={log.id} style={styles.timelineItem}>
-                  {/* Timeline connector */}
-                  <View style={styles.timelineLeft}>
-                    <View
-                      style={[
-                        styles.timelineDot,
-                        { backgroundColor: config.color },
-                      ]}
-                    >
-                      <Feather name={config.icon as any} size={12} color="white" />
+                return (
+                  <View key={log.id} style={styles.timelineItem}>
+                    {/* Timeline connector */}
+                    <View style={styles.timelineLeft}>
+                      <View
+                        style={[styles.timelineDot, { backgroundColor: config.color }]}
+                      >
+                        <Feather name={config.icon as any} size={12} color="white" />
+                      </View>
+                      {!isLast && <View style={styles.timelineLine} />}
                     </View>
-                    {!isLast && <View style={styles.timelineLine} />}
-                  </View>
 
-                  {/* Log content */}
-                  <View style={[styles.timelineContent, isLast && { marginBottom: 0 }]}>
-                    <View style={styles.logHeader}>
-                      <Text style={styles.logDate}>{formatDate(log.date)}</Text>
-                      <View style={[styles.statusBadge, { backgroundColor: `${config.color}20` }]}>
-                        <Text style={[styles.statusBadgeText, { color: config.color }]}>
-                          {config.label}
+                    {/* Log content */}
+                    <View style={[styles.timelineContent, isLast && { marginBottom: 0 }]}>
+                      <View style={styles.logHeader}>
+                        <Text style={styles.logDate}>
+                          {log.event?.date ? formatDate(log.event.date) : ""}
                         </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.logCard}>
-                      <View style={styles.logCardHeader}>
-                        <View
-                          style={[
-                            styles.logEventDot,
-                            { backgroundColor: EVENT_TYPE_COLORS[log.eventType] },
-                          ]}
-                        />
-                        <Text style={styles.logEventName}>{log.eventName}</Text>
+                        <View style={[styles.statusBadge, { backgroundColor: `${config.color}20` }]}>
+                          <Text style={[styles.statusBadgeText, { color: config.color }]}>
+                            {config.label}
+                          </Text>
+                        </View>
                       </View>
 
-                      <View style={styles.logDetails}>
-                        <View style={styles.logDetailRow}>
-                          <Text style={styles.logDetailLabel}>Scheduled</Text>
-                          <Text style={styles.logDetailValue}>
-                            {log.scheduledStart} - {log.scheduledEnd}
+                      <View style={styles.logCard}>
+                        <View style={styles.logCardHeader}>
+                          <View
+                            style={[styles.logEventDot, { backgroundColor: eventColor }]}
+                          />
+                          <Text style={styles.logEventName}>
+                            {log.event?.title || "Unknown Event"}
                           </Text>
                         </View>
 
-                        {log.checkInTime && (
-                          <View style={styles.logDetailRow}>
-                            <Text style={styles.logDetailLabel}>Check-in</Text>
-                            <Text style={styles.logDetailValue}>{log.checkInTime}</Text>
-                          </View>
-                        )}
+                        <View style={styles.logDetails}>
+                          {log.event?.startTime && (
+                            <View style={styles.logDetailRow}>
+                              <Text style={styles.logDetailLabel}>Scheduled</Text>
+                              <Text style={styles.logDetailValue}>
+                                {log.event.startTime}
+                                {log.event.endTime ? ` - ${log.event.endTime}` : ""}
+                              </Text>
+                            </View>
+                          )}
 
-                        {log.checkOutTime && (
-                          <View style={styles.logDetailRow}>
-                            <Text style={styles.logDetailLabel}>Check-out</Text>
-                            <Text style={styles.logDetailValue}>{log.checkOutTime}</Text>
-                          </View>
-                        )}
+                          {log.checkInTime && (
+                            <View style={styles.logDetailRow}>
+                              <Text style={styles.logDetailLabel}>Check-in</Text>
+                              <Text style={styles.logDetailValue}>
+                                {new Date(log.checkInTime).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </Text>
+                            </View>
+                          )}
 
-                        {log.hoursLogged !== undefined && (
-                          <View style={styles.logDetailRow}>
-                            <Text style={styles.logDetailLabel}>Hours Logged</Text>
-                            <Text style={[styles.logDetailValue, styles.logHours]}>
-                              {log.hoursLogged.toFixed(2)}h
-                            </Text>
-                          </View>
-                        )}
+                          {log.checkOutTime && (
+                            <View style={styles.logDetailRow}>
+                              <Text style={styles.logDetailLabel}>Check-out</Text>
+                              <Text style={styles.logDetailValue}>
+                                {new Date(log.checkOutTime).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </Text>
+                            </View>
+                          )}
 
-                        {log.excuseReason && (
-                          <View style={styles.excuseReasonContainer}>
-                            <Text style={styles.excuseReasonLabel}>Reason:</Text>
-                            <Text style={styles.excuseReasonText}>{log.excuseReason}</Text>
-                          </View>
-                        )}
+                          {log.hoursLogged != null && log.hoursLogged > 0 && (
+                            <View style={styles.logDetailRow}>
+                              <Text style={styles.logDetailLabel}>Hours Logged</Text>
+                              <Text style={[styles.logDetailValue, styles.logHours]}>
+                                {log.hoursLogged.toFixed(2)}h
+                              </Text>
+                            </View>
+                          )}
+                        </View>
                       </View>
                     </View>
                   </View>
-                </View>
-              );
-            })}
-          </View>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
     </LinearGradient>
@@ -601,6 +584,25 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  // Loading / Empty
+  loadingContainer: {
+    paddingVertical: 24,
+    alignItems: "center",
+  },
+  emptyContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 12,
+    paddingVertical: 20,
+  },
+  emptyText: {
+    color: "rgba(255,255,255,0.3)",
+    fontSize: 14,
+  },
+
   // Sections
   section: {
     marginTop: 24,
@@ -660,6 +662,11 @@ const styles = StyleSheet.create({
   upcomingDate: {
     color: "rgba(255,255,255,0.5)",
     fontSize: 13,
+    marginTop: 2,
+  },
+  upcomingTeam: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 12,
     marginTop: 2,
   },
   excuseRequestButton: {
@@ -800,22 +807,6 @@ const styles = StyleSheet.create({
   logHours: {
     color: "#27ae60",
     fontWeight: "600",
-  },
-  excuseReasonContainer: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.1)",
-  },
-  excuseReasonLabel: {
-    color: "rgba(255,255,255,0.5)",
-    fontSize: 12,
-    marginBottom: 2,
-  },
-  excuseReasonText: {
-    color: "#9b59b6",
-    fontSize: 13,
-    fontStyle: "italic",
   },
 
   // Modal
