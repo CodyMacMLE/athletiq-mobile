@@ -45,7 +45,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="fixed inset-y-0 left-0 w-64 bg-gray-800 border-r border-gray-700 z-50 flex flex-col">
         {/* Logo */}
         <div className="flex items-center justify-center h-16 px-6 border-b border-gray-700">
-          <Image src="/logo/white_icon_transparent_background.png" alt="Athletiq" width={120} height={40} />
+          <Image src="/logo/white_icon_transparent_background.png" alt="Athletiq" width={110} height={30} className="object-contain max-h-10" />
         </div>
 
         {/* Organization Selector */}

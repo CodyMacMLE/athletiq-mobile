@@ -25,6 +25,8 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
+  LayoutList,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -125,6 +127,10 @@ export default function Events() {
   const defaultFilter = TAB_CONFIG.find((t) => t.key === activeTab)!.defaultFilter;
   const [timeFilter, setTimeFilter] = useState<TimeFilter>(defaultFilter);
 
+  // Team grouping
+  const [groupByTeam, setGroupByTeam] = useState(false);
+  const [teamFilter, setTeamFilter] = useState<string>("ALL");
+
   // Pagination
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
@@ -139,9 +145,14 @@ export default function Events() {
   // Reset page when filter or page size changes
   useEffect(() => {
     setPage(0);
-  }, [timeFilter, pageSize]);
+  }, [timeFilter, pageSize, teamFilter]);
 
   const { data, loading, refetch } = useQuery<any>(GET_EVENTS, {
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId,
+  });
+
+  const { data: teamsData } = useQuery<any>(GET_TEAMS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
@@ -151,8 +162,9 @@ export default function Events() {
   const [deleteRecurringEvent] = useMutation<any>(DELETE_RECURRING_EVENT);
 
   const allEvents: Event[] = data?.events || [];
+  const allTeams: { id: string; name: string }[] = teamsData?.teams || [];
 
-  // Filter by type, then by time range, then sort by date desc
+  // Filter by type, then by time range, then by team, then sort by date desc
   const filteredEvents = useMemo(() => {
     let result = allEvents.filter((e) => e.type === activeTab);
 
@@ -164,10 +176,18 @@ export default function Events() {
       });
     }
 
+    if (teamFilter !== "ALL") {
+      result = result.filter(
+        (e) =>
+          e.team?.id === teamFilter ||
+          e.participatingTeams?.some((t) => t.id === teamFilter)
+      );
+    }
+
     // Sort: newest first
     result.sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
     return result;
-  }, [allEvents, activeTab, timeFilter]);
+  }, [allEvents, activeTab, timeFilter, teamFilter]);
 
   // Pagination derived values
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
@@ -184,6 +204,47 @@ export default function Events() {
   const past = paginatedEvents
     .filter((e) => parseDate(e.date) < today)
     .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
+
+  // Grouped events by team (when groupByTeam is enabled)
+  const groupedEvents = useMemo(() => {
+    if (!groupByTeam) return null;
+
+    const groups = new Map<string, { teamName: string; events: Event[] }>();
+
+    for (const event of paginatedEvents) {
+      // An event belongs to its primary team, or each of its participating teams
+      const teamEntries: { id: string; name: string }[] = [];
+      if (event.team) {
+        teamEntries.push(event.team);
+      }
+      if (event.participatingTeams?.length > 0) {
+        for (const t of event.participatingTeams) {
+          if (!teamEntries.some((te) => te.id === t.id)) {
+            teamEntries.push(t);
+          }
+        }
+      }
+
+      if (teamEntries.length === 0) {
+        // Organization-wide event (no team)
+        const key = "__org_wide__";
+        if (!groups.has(key)) groups.set(key, { teamName: "Organization-wide", events: [] });
+        groups.get(key)!.events.push(event);
+      } else {
+        for (const team of teamEntries) {
+          if (!groups.has(team.id)) groups.set(team.id, { teamName: team.name, events: [] });
+          groups.get(team.id)!.events.push(event);
+        }
+      }
+    }
+
+    // Sort groups alphabetically, with org-wide last
+    return Array.from(groups.entries()).sort((a, b) => {
+      if (a[0] === "__org_wide__") return 1;
+      if (b[0] === "__org_wide__") return -1;
+      return a[1].teamName.localeCompare(b[1].teamName);
+    });
+  }, [groupByTeam, paginatedEvents]);
 
   // Edit handler
   const handleEditClick = (event: Event) => {
@@ -316,8 +377,8 @@ export default function Events() {
         })}
       </div>
 
-      {/* Time Range Filters */}
-      <div className="flex items-center gap-2 mb-6">
+      {/* Time Range Filters + Team Filter + Group Toggle */}
+      <div className="flex items-center gap-2 mb-6 flex-wrap">
         {TIME_FILTERS.map(({ value, label }) => (
           <button
             key={value}
@@ -331,40 +392,129 @@ export default function Events() {
             {label}
           </button>
         ))}
+
+        <div className="h-4 w-px bg-gray-700 mx-1" />
+
+        {/* Team Filter */}
+        <div className="relative">
+          <select
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
+            className="appearance-none pl-3 pr-7 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-xs font-medium text-gray-400 hover:text-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-500 cursor-pointer"
+          >
+            <option value="ALL">All Teams</option>
+            {allTeams.map((team) => (
+              <option key={team.id} value={team.id}>
+                {team.name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
+        </div>
+
+        {/* Group by Team Toggle */}
+        <button
+          onClick={() => setGroupByTeam((g) => !g)}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+            groupByTeam
+              ? "bg-purple-600/20 text-purple-400 border border-purple-500/30"
+              : "bg-gray-800 text-gray-500 border border-gray-700 hover:text-gray-300"
+          }`}
+        >
+          <LayoutList className="w-3.5 h-3.5" />
+          Group by Team
+        </button>
+
         <span className="text-gray-600 text-xs ml-2">
           {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"}
         </span>
       </div>
 
       {/* Event List */}
-      <div className="space-y-2">
-        {upcoming.map((event) => (
-          <Link key={event.id} href={`/events/${event.id}`}>
-            <EventCard event={event} canEdit={canEdit} onEdit={handleEditClick} onDelete={handleDeleteClick} dimmed={false} />
-          </Link>
-        ))}
+      {groupByTeam && groupedEvents ? (
+        <div className="space-y-6">
+          {groupedEvents.map(([teamId, group]) => {
+            const groupUpcoming = group.events
+              .filter((e) => parseDate(e.date) >= today)
+              .sort((a, b) => parseDate(a.date).getTime() - parseDate(b.date).getTime());
+            const groupPast = group.events
+              .filter((e) => parseDate(e.date) < today)
+              .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
 
-        {past.length > 0 && upcoming.length > 0 && (
-          <div className="flex items-center gap-3 py-2">
-            <div className="h-px flex-1 bg-gray-700" />
-            <span className="text-xs text-gray-500 uppercase tracking-wider">Past</span>
-            <div className="h-px flex-1 bg-gray-700" />
-          </div>
-        )}
+            return (
+              <div key={teamId}>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-purple-400" />
+                    <h2 className="text-sm font-semibold text-white">{group.teamName}</h2>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    {group.events.length} {group.events.length === 1 ? "event" : "events"}
+                  </span>
+                  <div className="h-px flex-1 bg-gray-700" />
+                </div>
+                <div className="space-y-2">
+                  {groupUpcoming.map((event) => (
+                    <Link key={event.id} href={`/events/${event.id}`}>
+                      <EventCard event={event} canEdit={canEdit} onEdit={handleEditClick} onDelete={handleDeleteClick} dimmed={false} />
+                    </Link>
+                  ))}
 
-        {past.map((event) => (
-          <Link key={event.id} href={`/events/${event.id}`}>
-            <EventCard event={event} canEdit={canEdit} onEdit={handleEditClick} onDelete={handleDeleteClick} dimmed />
-          </Link>
-        ))}
+                  {groupPast.length > 0 && groupUpcoming.length > 0 && (
+                    <div className="flex items-center gap-3 py-2">
+                      <div className="h-px flex-1 bg-gray-700" />
+                      <span className="text-xs text-gray-500 uppercase tracking-wider">Past</span>
+                      <div className="h-px flex-1 bg-gray-700" />
+                    </div>
+                  )}
 
-        {filteredEvents.length === 0 && (
-          <div className="text-center py-12">
-            <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">No {EVENT_TYPE_LABELS[activeTab]?.toLowerCase() || "event"}s found</p>
-          </div>
-        )}
-      </div>
+                  {groupPast.map((event) => (
+                    <Link key={event.id} href={`/events/${event.id}`}>
+                      <EventCard event={event} canEdit={canEdit} onEdit={handleEditClick} onDelete={handleDeleteClick} dimmed />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {groupedEvents.length === 0 && (
+            <div className="text-center py-12">
+              <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400">No {EVENT_TYPE_LABELS[activeTab]?.toLowerCase() || "event"}s found</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {upcoming.map((event) => (
+            <Link key={event.id} href={`/events/${event.id}`}>
+              <EventCard event={event} canEdit={canEdit} onEdit={handleEditClick} onDelete={handleDeleteClick} dimmed={false} />
+            </Link>
+          ))}
+
+          {past.length > 0 && upcoming.length > 0 && (
+            <div className="flex items-center gap-3 py-2">
+              <div className="h-px flex-1 bg-gray-700" />
+              <span className="text-xs text-gray-500 uppercase tracking-wider">Past</span>
+              <div className="h-px flex-1 bg-gray-700" />
+            </div>
+          )}
+
+          {past.map((event) => (
+            <Link key={event.id} href={`/events/${event.id}`}>
+              <EventCard event={event} canEdit={canEdit} onEdit={handleEditClick} onDelete={handleDeleteClick} dimmed />
+            </Link>
+          ))}
+
+          {filteredEvents.length === 0 && (
+            <div className="text-center py-12">
+              <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400">No {EVENT_TYPE_LABELS[activeTab]?.toLowerCase() || "event"}s found</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pagination */}
       {filteredEvents.length > 0 && (

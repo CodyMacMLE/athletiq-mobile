@@ -1,6 +1,8 @@
 import { prisma } from "../db.js";
 import { AttendanceStatus, EventType, ExcuseRequestStatus, InviteStatus, OrgRole, RecurrenceFrequency, TeamRole } from "@prisma/client";
 import { sendInviteEmail } from "../email.js";
+import { parseTimeString } from "../utils/time.js";
+import { markAbsentForEndedEvents } from "../services/markAbsent.js";
 
 // Helper to calculate date range
 function getDateRange(timeRange: string | undefined) {
@@ -22,21 +24,6 @@ function getDateRange(timeRange: string | undefined) {
   }
 
   return { startDate, endDate: now };
-}
-
-// Parse time strings like "6:00 PM" or "14:00" into hours/minutes
-function parseTimeString(timeStr: string): { hours: number; minutes: number } {
-  const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (match) {
-    let hours = parseInt(match[1]);
-    const minutes = parseInt(match[2]);
-    const period = match[3].toUpperCase();
-    if (period === "PM" && hours !== 12) hours += 12;
-    if (period === "AM" && hours === 12) hours = 0;
-    return { hours, minutes };
-  }
-  const [h, m] = timeStr.split(":").map(Number);
-  return { hours: h, minutes: m };
 }
 
 // Generate recurring event dates based on frequency and pattern
@@ -1218,69 +1205,7 @@ export const resolvers = {
       _: unknown,
       { organizationId }: { organizationId: string }
     ) => {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      // Find events from the past 7 days
-      const events = await prisma.event.findMany({
-        where: {
-          organizationId,
-          date: { gte: sevenDaysAgo, lte: new Date() },
-        },
-        include: {
-          participatingTeams: {
-            include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } }, select: { userId: true, joinedAt: true } } },
-          },
-          team: {
-            include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } }, select: { userId: true, joinedAt: true } } },
-          },
-        },
-      });
-
-      const now = new Date();
-      let totalCreated = 0;
-
-      for (const event of events) {
-        // Check if event has ended
-        const eventDate = new Date(event.date);
-        const { hours, minutes } = parseTimeString(event.endTime);
-        eventDate.setHours(hours, minutes, 0, 0);
-
-        if (eventDate >= now) continue; // Event hasn't ended yet
-
-        // Collect user IDs, excluding members who joined after the event date
-        const userIds = new Set<string>();
-        if (event.team) {
-          for (const member of event.team.members) {
-            if (member.joinedAt <= event.date) {
-              userIds.add(member.userId);
-            }
-          }
-        }
-        for (const team of event.participatingTeams) {
-          for (const member of team.members) {
-            if (member.joinedAt <= event.date) {
-              userIds.add(member.userId);
-            }
-          }
-        }
-
-        if (userIds.size === 0) continue;
-
-        // Bulk create ABSENT records, skipping duplicates (unique constraint on userId_eventId)
-        const result = await prisma.checkIn.createMany({
-          data: Array.from(userIds).map((userId) => ({
-            userId,
-            eventId: event.id,
-            status: "ABSENT" as const,
-          })),
-          skipDuplicates: true,
-        });
-
-        totalCreated += result.count;
-      }
-
-      return totalCreated;
+      return markAbsentForEndedEvents({ organizationId, lookbackMinutes: 10080 });
     },
 
     checkIn: async (_: unknown, { input }: { input: { userId: string; eventId: string } }) => {

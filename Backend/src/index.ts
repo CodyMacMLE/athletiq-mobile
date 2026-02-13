@@ -5,6 +5,7 @@ import cors from "cors";
 import { typeDefs } from "./schema.js";
 import { resolvers } from "./resolvers/index.js";
 import { prisma } from "./db.js";
+import { startAbsentMarkerCron, stopAbsentMarkerCron } from "./cron/absentMarker.js";
 
 interface Context {
   userId?: string;
@@ -72,16 +73,19 @@ async function main() {
 
   app.listen(4000, "0.0.0.0", () => {
     console.log(`🚀 Server ready at http://localhost:4000/graphql`);
+    startAbsentMarkerCron();
   });
 }
 
 // Graceful shutdown
 process.on("SIGINT", async () => {
+  stopAbsentMarkerCron();
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
+  stopAbsentMarkerCron();
   await prisma.$disconnect();
   process.exit(0);
 });
