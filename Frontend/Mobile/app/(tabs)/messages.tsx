@@ -90,12 +90,12 @@ export default function ActivityFeed() {
 
   // Queries
   const { data: upcomingData, loading: upcomingLoading } = useQuery(GET_UPCOMING_EVENTS, {
-    variables: { organizationId: selectedOrganization?.id, limit: 10 },
+    variables: { organizationId: selectedOrganization?.id, limit: 3 },
     skip: !selectedOrganization?.id,
   });
 
   const { data: checkinData, loading: checkinLoading } = useQuery(GET_CHECKIN_HISTORY, {
-    variables: { userId: user?.id, limit: 15 },
+    variables: { userId: user?.id, limit: 50 },
     skip: !user?.id,
   });
 
@@ -114,8 +114,19 @@ export default function ActivityFeed() {
   });
 
   const upcomingEvents = upcomingData?.upcomingEvents || [];
-  const checkInHistory = checkinData?.checkInHistory || [];
+  const allCheckInHistory = checkinData?.checkInHistory || [];
   const excuseRequests = excuseData?.myExcuseRequests || [];
+
+  // Only show check-ins from the last 7 days on this page
+  const checkInHistory = useMemo(() => {
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    oneWeekAgo.setHours(0, 0, 0, 0);
+    return allCheckInHistory.filter((ci: any) => {
+      const ciDate = new Date(ci.event?.date || ci.checkInTime);
+      return ciDate >= oneWeekAgo;
+    });
+  }, [allCheckInHistory]);
 
   // Map excuse requests by eventId for quick lookup
   const excusesByEvent = useMemo(() => {
@@ -128,18 +139,18 @@ export default function ActivityFeed() {
     return map;
   }, [excuseRequests]);
 
-  // Stats from check-in history
+  // Stats from all check-in history (not just this week)
   const stats = useMemo(() => {
     let onTime = 0;
     let late = 0;
     let absent = 0;
-    for (const ci of checkInHistory) {
+    for (const ci of allCheckInHistory) {
       if (ci.status === "ON_TIME") onTime++;
       else if (ci.status === "LATE") late++;
       else if (ci.status === "ABSENT") absent++;
     }
     return { onTime, late, absent };
-  }, [checkInHistory]);
+  }, [allCheckInHistory]);
 
   const handleExcusePress = (event: any) => {
     setSelectedEventId(event.id);
