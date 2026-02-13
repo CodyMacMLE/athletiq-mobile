@@ -47,55 +47,57 @@ function generateRecurringDates(
   daysOfWeek: number[]
 ): Date[] {
   const dates: Date[] = [];
-  const current = new Date(startDate);
-  current.setHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setHours(23, 59, 59, 999);
+  // Use UTC methods throughout to avoid local-timezone shifts
+  const current = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), 12, 0, 0));
+  const end = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59));
+
+  // Helper to push a noon-UTC copy of a date
+  const pushNoonUTC = (d: Date) => {
+    dates.push(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 12, 0, 0)));
+  };
 
   switch (frequency) {
     case "DAILY":
       while (current <= end) {
-        dates.push(new Date(current));
-        current.setDate(current.getDate() + 1);
+        pushNoonUTC(current);
+        current.setUTCDate(current.getUTCDate() + 1);
       }
       break;
 
     case "WEEKLY":
       while (current <= end) {
-        if (daysOfWeek.includes(current.getDay())) {
-          dates.push(new Date(current));
+        if (daysOfWeek.includes(current.getUTCDay())) {
+          pushNoonUTC(current);
         }
-        current.setDate(current.getDate() + 1);
+        current.setUTCDate(current.getUTCDate() + 1);
       }
       break;
 
     case "BIWEEKLY": {
-      const weekStart = new Date(startDate);
-      weekStart.setHours(0, 0, 0, 0);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const weekStart = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), 12, 0, 0));
+      weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay());
       while (current <= end) {
         const daysSinceWeekStart = Math.floor(
           (current.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24)
         );
         const weekNumber = Math.floor(daysSinceWeekStart / 7);
-        if (weekNumber % 2 === 0 && daysOfWeek.includes(current.getDay())) {
-          dates.push(new Date(current));
+        if (weekNumber % 2 === 0 && daysOfWeek.includes(current.getUTCDay())) {
+          pushNoonUTC(current);
         }
-        current.setDate(current.getDate() + 1);
+        current.setUTCDate(current.getUTCDate() + 1);
       }
       break;
     }
 
     case "MONTHLY": {
-      const dayOfMonth = startDate.getDate();
-      const currentMonth = new Date(startDate);
-      currentMonth.setHours(0, 0, 0, 0);
+      const dayOfMonth = startDate.getUTCDate();
+      const currentMonth = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1, 12, 0, 0));
       while (currentMonth <= end) {
-        const targetDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayOfMonth);
-        if (targetDate >= startDate && targetDate <= end && targetDate.getDate() === dayOfMonth) {
-          dates.push(targetDate);
+        const targetDate = new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth(), dayOfMonth, 12, 0, 0));
+        if (targetDate >= startDate && targetDate <= end && targetDate.getUTCDate() === dayOfMonth) {
+          pushNoonUTC(targetDate);
         }
-        currentMonth.setMonth(currentMonth.getMonth() + 1);
+        currentMonth.setUTCMonth(currentMonth.getUTCMonth() + 1);
       }
       break;
     }
@@ -1132,8 +1134,8 @@ export const resolvers = {
         };
       }
     ) => {
-      const start = new Date(input.startDate);
-      const end = new Date(input.endDate);
+      const start = parseDateInput(input.startDate);
+      const end = parseDateInput(input.endDate);
 
       if (end <= start) {
         throw new Error("End date must be after start date");

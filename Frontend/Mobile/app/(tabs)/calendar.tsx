@@ -82,6 +82,13 @@ function getMonthData(year: number, month: number) {
   return days;
 }
 
+// Parse an ISO date string (e.g. "2026-02-12T12:00:00.000Z") into a local Date
+// by extracting the YYYY-MM-DD portion. This avoids timezone offset shifting the day.
+function parseEventDate(iso: string): Date {
+  const [year, month, day] = iso.split("T")[0].split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
 function formatRelativeDate(date: Date): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -118,6 +125,7 @@ export default function Calendar() {
   const [currentMonthIndex, setCurrentMonthIndex] = useState(initialIndex);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [eventsTab, setEventsTab] = useState<"upcoming" | "past">("upcoming");
   const flatListRef = useRef<FlatList>(null);
 
   const currentMonth = monthsList[currentMonthIndex];
@@ -150,7 +158,7 @@ export default function Calendar() {
       id: e.id,
       title: e.title,
       type: (e.type || "event").toLowerCase() as EventType,
-      date: new Date(e.date),
+      date: parseEventDate(e.date),
       startTime: e.startTime || "",
       endTime: e.endTime || "",
       location: e.location,
@@ -168,15 +176,31 @@ export default function Calendar() {
     );
   }
 
-  function getUpcomingEvents(limit: number = 4): CalendarEvent[] {
+  // Events for the currently viewed month
+  const currentMonthEvents = useMemo(() =>
+    events.filter(
+      (e) =>
+        e.date.getFullYear() === currentMonth.year &&
+        e.date.getMonth() === currentMonth.month
+    ),
+    [events, currentMonth.year, currentMonth.month]
+  );
+
+  // Split current month's events into upcoming (today+future) and past
+  const { monthUpcoming, monthPast } = useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
-    return events
-      .filter((event) => event.date >= now)
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .slice(0, limit);
-  }
+    const upcoming = currentMonthEvents
+      .filter((e) => e.date >= now)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    const past = currentMonthEvents
+      .filter((e) => e.date < now)
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    return { monthUpcoming: upcoming, monthPast: past };
+  }, [currentMonthEvents]);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -277,16 +301,11 @@ export default function Calendar() {
   };
 
   // Calculate stats for current month
-  const currentMonthEvents = events.filter(
-    (e) =>
-      e.date.getFullYear() === currentMonth.year &&
-      e.date.getMonth() === currentMonth.month
-  );
   const practiceCount = currentMonthEvents.filter((e) => e.type === "practice").length;
   const eventCount = currentMonthEvents.filter((e) => e.type === "event" || e.type === "game").length;
   const meetingCount = currentMonthEvents.filter((e) => e.type === "meeting").length;
 
-  const upcomingEvents = getUpcomingEvents(4);
+  const displayedEvents = eventsTab === "upcoming" ? monthUpcoming : monthPast;
 
   if (!user || !selectedOrganization) return null;
 
@@ -509,9 +528,26 @@ export default function Calendar() {
         style={styles.calendarList}
       />
 
-      {/* Upcoming Events */}
-      <View style={styles.upcomingSection}>
-        <Text style={styles.upcomingTitle}>Upcoming</Text>
+      {/* Events Tabs */}
+      <View style={styles.tabSection}>
+        <View style={styles.tabRow}>
+          <Pressable
+            style={[styles.tab, eventsTab === "upcoming" && styles.tabActive]}
+            onPress={() => setEventsTab("upcoming")}
+          >
+            <Text style={[styles.tabText, eventsTab === "upcoming" && styles.tabTextActive]}>
+              Upcoming ({monthUpcoming.length})
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tab, eventsTab === "past" && styles.tabActive]}
+            onPress={() => setEventsTab("past")}
+          >
+            <Text style={[styles.tabText, eventsTab === "past" && styles.tabTextActive]}>
+              Past ({monthPast.length})
+            </Text>
+          </Pressable>
+        </View>
       </View>
       <ScrollView
         style={styles.scrollView}
@@ -523,13 +559,15 @@ export default function Calendar() {
             <View style={styles.noEventsCard}>
               <ActivityIndicator color="#a855f7" />
             </View>
-          ) : upcomingEvents.length === 0 ? (
+          ) : displayedEvents.length === 0 ? (
             <View style={styles.noEventsCard}>
               <Feather name="calendar" size={20} color="rgba(255,255,255,0.3)" />
-              <Text style={styles.noEventsText}>No upcoming events</Text>
+              <Text style={styles.noEventsText}>
+                {eventsTab === "upcoming" ? "No upcoming events this month" : "No past events this month"}
+              </Text>
             </View>
           ) : (
-            upcomingEvents.map((event) => (
+            displayedEvents.map((event) => (
               <Pressable
                 key={event.id}
                 style={({ pressed }) => [
@@ -760,16 +798,36 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
 
-  // Upcoming Events
-  upcomingSection: {
+  // Tabs
+  tabSection: {
     paddingHorizontal: 20,
     marginTop: 4,
   },
-  upcomingTitle: {
-    color: "white",
-    fontSize: 17,
+  tabRow: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 10,
+    padding: 3,
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  tabActive: {
+    backgroundColor: "rgba(108,92,231,0.4)",
+  },
+  tabText: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 14,
     fontWeight: "600",
   },
+  tabTextActive: {
+    color: "white",
+  },
+
+  // Event Cards
   upcomingList: {
     gap: 10,
     paddingHorizontal: 20,
