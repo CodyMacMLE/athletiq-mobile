@@ -44,9 +44,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 w-64 bg-gray-800 border-r border-gray-700 z-50 flex flex-col">
         {/* Logo */}
-        <div className="flex items-center h-16 px-6 border-b border-gray-700">
-          <Image src="/logo/white_icon_transparent_background.png" alt="Athletiq" width={32} height={32} />
-          <span className="text-xl font-bold text-white ml-2">Athletiq</span>
+        <div className="flex items-center justify-center h-16 px-6 border-b border-gray-700">
+          <Image src="/logo/white_icon_transparent_background.png" alt="Athletiq" width={120} height={40} />
         </div>
 
         {/* Organization Selector */}
