@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -108,10 +109,7 @@ export default function Login() {
           >
             {/* Branding */}
             <View style={styles.branding}>
-              <View style={styles.iconContainer}>
-                <Feather name="activity" size={40} color="#a855f7" />
-              </View>
-              <Text style={styles.appName}>Athletiq</Text>
+              <Image source={require("@/assets/logo/white_icon_transparent_background.png")} style={styles.logoImage} resizeMode="contain" />
             </View>
 
             <Text style={styles.heading}>Set New Password</Text>
@@ -317,20 +315,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 40,
   },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: "rgba(168,85,247,0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  appName: {
-    color: "white",
-    fontSize: 32,
-    fontWeight: "bold",
-    letterSpacing: 1,
+  logoImage: {
+    width: 160,
+    height: 160,
   },
   heading: {
     color: "white",
