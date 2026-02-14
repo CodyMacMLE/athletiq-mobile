@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { UPDATE_USER } from "@/lib/graphql/mutations";
+import { UPDATE_USER, GENERATE_UPLOAD_URL } from "@/lib/graphql/mutations";
 import { useMutation } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -49,9 +49,71 @@ export default function Profile() {
   const [editingField, setEditingField] = useState<EditField | null>(null);
   const [editValue, setEditValue] = useState("");
 
+  const [uploadingImage, setUploadingImage] = useState(false);
+
   const [updateUser, { loading: saving }] = useMutation(UPDATE_USER);
+  const [generateUploadUrl] = useMutation(GENERATE_UPLOAD_URL);
 
   if (!user) return null;
+
+  const handlePickImage = async () => {
+    let ImagePicker: typeof import("expo-image-picker");
+    try {
+      ImagePicker = await import("expo-image-picker");
+    } catch {
+      Alert.alert("Rebuild Required", "Profile picture uploads require a native rebuild. Run 'npx expo run:ios' or 'npx expo run:android'.");
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission Required", "Please allow access to your photo library to upload a profile picture.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    const asset = result.assets[0];
+    const mimeType = asset.mimeType || "image/jpeg";
+
+    setUploadingImage(true);
+    try {
+      const { data } = await generateUploadUrl({
+        variables: { fileType: mimeType },
+      });
+
+      const { uploadUrl, publicUrl } = data.generateUploadUrl;
+
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+
+      await fetch(uploadUrl, {
+        method: "PUT",
+        body: blob,
+        headers: { "Content-Type": mimeType },
+      });
+
+      await updateUser({
+        variables: {
+          id: user.id,
+          input: { image: `${publicUrl}?t=${Date.now()}` },
+        },
+      });
+
+      await refetchUser();
+    } catch (err: any) {
+      Alert.alert("Upload Failed", err.message || "Could not upload profile picture.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const handleEditPress = (field: EditField) => {
     setEditingField(field);
@@ -160,15 +222,24 @@ export default function Profile() {
       >
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <Pressable style={styles.avatarContainer}>
-            {user.image ? (
-              <Image source={user.image} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatar}>
+          <Pressable style={styles.avatarContainer} onPress={handlePickImage}>
+            <View style={styles.avatar}>
+              {user.image ? (
+                <Image
+                  source={{ uri: user.image }}
+                  style={styles.avatarImage}
+                  contentFit="cover"
+                />
+              ) : (
                 <Text style={styles.avatarText}>
                   {user.firstName.charAt(0)}
                   {user.lastName.charAt(0)}
                 </Text>
+              )}
+            </View>
+            {uploadingImage && (
+              <View style={styles.avatarLoadingOverlay}>
+                <ActivityIndicator color="white" size="small" />
               </View>
             )}
             <View style={styles.avatarEditBadge}>
@@ -343,11 +414,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 3,
     borderColor: "#6c5ce7",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
   },
   avatarText: {
     color: "white",
     fontSize: 32,
     fontWeight: "600",
+  },
+  avatarLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: AVATAR_SIZE / 2,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarEditBadge: {
     position: "absolute",

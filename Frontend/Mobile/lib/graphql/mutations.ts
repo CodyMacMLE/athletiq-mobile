@@ -15,6 +15,19 @@ export const UPDATE_USER = gql`
 `;
 
 // ============================================
+// Upload Mutations
+// ============================================
+
+export const GENERATE_UPLOAD_URL = gql`
+  mutation GenerateUploadUrl($fileType: String!) {
+    generateUploadUrl(fileType: $fileType) {
+      uploadUrl
+      publicUrl
+    }
+  }
+`;
+
+// ============================================
 // Check-in Mutations
 // ============================================
 

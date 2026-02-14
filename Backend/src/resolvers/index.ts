@@ -1,6 +1,7 @@
 import { prisma } from "../db.js";
 import { AttendanceStatus, EventType, ExcuseRequestStatus, InviteStatus, OrgRole, RecurrenceFrequency, TeamRole } from "@prisma/client";
 import { sendInviteEmail } from "../email.js";
+import { generateProfilePictureUploadUrl } from "../s3.js";
 import { parseTimeString } from "../utils/time.js";
 import { markAbsentForEndedEvents } from "../services/markAbsent.js";
 
@@ -760,6 +761,16 @@ export const resolvers = {
     deleteUser: async (_: unknown, { id }: { id: string }) => {
       await prisma.user.delete({ where: { id } });
       return true;
+    },
+
+    // Upload mutations
+    generateUploadUrl: async (
+      _: unknown,
+      { fileType }: { fileType: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      return generateProfilePictureUploadUrl(context.userId, fileType);
     },
 
     // Organization mutations

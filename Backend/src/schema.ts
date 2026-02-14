@@ -224,6 +224,11 @@ export const typeDefs = `#graphql
     event: Event!
   }
 
+  type UploadUrl {
+    uploadUrl: String!
+    publicUrl: String!
+  }
+
   # ============================================
   # Analytics Types
   # ============================================
@@ -526,6 +531,9 @@ export const typeDefs = `#graphql
     adHocNfcCheckIn(input: AdHocNfcCheckInInput!): NfcCheckInResult!
     approveAdHocCheckIn(checkInId: ID!): CheckIn!
     denyAdHocCheckIn(checkInId: ID!): Boolean!
+
+    # Upload mutations
+    generateUploadUrl(fileType: String!): UploadUrl!
 
     # Excuse mutations
     createExcuseRequest(input: CreateExcuseRequestInput!): ExcuseRequest!
