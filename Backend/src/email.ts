@@ -95,3 +95,83 @@ export async function sendInviteEmail({
 
   await ses.send(command);
 }
+
+export async function sendFeedbackEmail({
+  userEmail,
+  userName,
+  category,
+  message,
+}: {
+  userEmail: string;
+  userName: string;
+  category: string;
+  message: string;
+}) {
+  const categoryLabel = category.replace("_", " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background-color:#111827;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#111827;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#1f2937;border-radius:12px;border:1px solid #374151;">
+          <tr>
+            <td style="padding:32px 32px 24px;">
+              <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#ffffff;">Athletiq Feedback</h1>
+              <p style="margin:0;font-size:14px;color:#9ca3af;">New ${categoryLabel} submission</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+                <tr>
+                  <td style="padding:8px 0;font-size:13px;color:#9ca3af;width:80px;">From</td>
+                  <td style="padding:8px 0;font-size:15px;color:#d1d5db;">${userName} &lt;${userEmail}&gt;</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px 0;font-size:13px;color:#9ca3af;width:80px;">Category</td>
+                  <td style="padding:8px 0;font-size:15px;color:#a78bfa;font-weight:600;">${categoryLabel}</td>
+                </tr>
+              </table>
+              <div style="background-color:#111827;border-radius:8px;padding:16px;border:1px solid #374151;">
+                <p style="margin:0;font-size:15px;color:#d1d5db;line-height:1.6;white-space:pre-wrap;">${message}</p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 32px;">
+              <p style="margin:0;font-size:12px;color:#6b7280;">
+                Reply directly to this email to respond to the user at ${userEmail}.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = `New ${categoryLabel} from ${userName} (${userEmail}):\n\n${message}`;
+
+  const command = new SendEmailCommand({
+    Source: FROM_EMAIL,
+    Destination: { ToAddresses: [FROM_EMAIL] },
+    ReplyToAddresses: [userEmail],
+    Message: {
+      Subject: { Data: `[Athletiq ${categoryLabel}] from ${userName}` },
+      Body: {
+        Html: { Data: html },
+        Text: { Data: text },
+      },
+    },
+  });
+
+  await ses.send(command);
+}

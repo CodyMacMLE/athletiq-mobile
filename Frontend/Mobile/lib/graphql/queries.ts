@@ -152,6 +152,10 @@ export const GET_EVENTS = gql`
         id
         name
       }
+      participatingTeams {
+        id
+        name
+      }
     }
   }
   ${EVENT_FRAGMENT}
@@ -368,6 +372,75 @@ export const GET_MY_EXCUSE_REQUESTS = gql`
     }
   }
   ${EVENT_FRAGMENT}
+`;
+
+// ============================================
+// Team Management Queries
+// ============================================
+
+export const GET_TEAM_ROSTER = gql`
+  query GetTeamRoster($teamId: ID!, $timeRange: TimeRange) {
+    team(id: $teamId) {
+      id
+      name
+      memberCount
+      members {
+        id
+        role
+        hoursRequired
+        hoursLogged(timeRange: $timeRange)
+        attendancePercent(timeRange: $timeRange)
+        joinedAt
+        user {
+          id
+          firstName
+          lastName
+          email
+          image
+        }
+      }
+    }
+  }
+`;
+
+export const GET_TEAM_ATTENDANCE_INSIGHTS = gql`
+  query GetTeamAttendanceInsights($organizationId: ID!, $teamId: ID, $timeRange: TimeRange) {
+    attendanceInsights(organizationId: $organizationId, teamId: $teamId, timeRange: $timeRange) {
+      totalExpected
+      onTimeCount
+      lateCount
+      absentCount
+      excusedCount
+      attendanceRate
+      eventCount
+    }
+  }
+`;
+
+export const GET_TEAM_ATTENDANCE_RECORDS = gql`
+  query GetTeamAttendanceRecords($teamId: ID!, $limit: Int, $offset: Int) {
+    teamAttendanceRecords(teamId: $teamId, limit: $limit, offset: $offset) {
+      id
+      status
+      checkInTime
+      checkOutTime
+      hoursLogged
+      user {
+        id
+        firstName
+        lastName
+        image
+      }
+      event {
+        id
+        title
+        type
+        date
+        startTime
+        endTime
+      }
+    }
+  }
 `;
 
 // ============================================

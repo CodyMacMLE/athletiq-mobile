@@ -343,6 +343,7 @@ export default function Profile() {
                 styles.fieldItem,
                 pressed && styles.fieldItemPressed,
               ]}
+              onPress={() => router.push("/help-support")}
             >
               <View style={styles.fieldIconContainer}>
                 <Feather name="help-circle" size={18} color="#a855f7" />

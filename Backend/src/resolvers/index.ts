@@ -1,6 +1,6 @@
 import { prisma } from "../db.js";
 import { AttendanceStatus, EventType, ExcuseRequestStatus, InviteStatus, OrgRole, RecurrenceFrequency, TeamRole } from "@prisma/client";
-import { sendInviteEmail } from "../email.js";
+import { sendInviteEmail, sendFeedbackEmail } from "../email.js";
 import { generateProfilePictureUploadUrl } from "../s3.js";
 import { parseTimeString } from "../utils/time.js";
 import { markAbsentForEndedEvents } from "../services/markAbsent.js";
@@ -435,14 +435,22 @@ export const resolvers = {
 
     attendanceInsights: async (
       _: unknown,
-      { organizationId, timeRange }: { organizationId: string; timeRange?: string }
+      { organizationId, teamId, timeRange }: { organizationId: string; teamId?: string; timeRange?: string }
     ) => {
       const { startDate, endDate } = getDateRange(timeRange);
       const coachTeamMap = await getNonAthleteTeamMap(organizationId);
 
+      const eventWhere: any = { organizationId, date: { gte: startDate, lte: endDate } };
+      if (teamId) {
+        eventWhere.OR = [
+          { teamId },
+          { participatingTeams: { some: { id: teamId } } },
+        ];
+      }
+
       const allCheckIns = await prisma.checkIn.findMany({
         where: {
-          event: { organizationId, date: { gte: startDate, lte: endDate } },
+          event: eventWhere,
           approved: true,
         },
         include: { event: { select: { teamId: true } } },
@@ -454,14 +462,32 @@ export const resolvers = {
       const lateCount = filtered.filter(c => c.status === "LATE").length;
       const absentCount = filtered.filter(c => c.status === "ABSENT").length;
       const excusedCount = filtered.filter(c => c.status === "EXCUSED").length;
-      const eventCount = await prisma.event.count({
-        where: { organizationId, date: { gte: startDate, lte: endDate } },
-      });
+      const eventCount = await prisma.event.count({ where: eventWhere });
 
       const totalExpected = onTimeCount + lateCount + absentCount + excusedCount;
       const attendanceRate = totalExpected > 0 ? (onTimeCount + lateCount) / totalExpected : 0;
 
       return { totalExpected, onTimeCount, lateCount, absentCount, excusedCount, attendanceRate, eventCount };
+    },
+
+    teamAttendanceRecords: async (
+      _: unknown,
+      { teamId, limit, offset }: { teamId: string; limit?: number; offset?: number }
+    ) => {
+      return prisma.checkIn.findMany({
+        where: {
+          event: {
+            OR: [
+              { teamId },
+              { participatingTeams: { some: { id: teamId } } },
+            ],
+          },
+          approved: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip: offset || 0,
+        take: limit || 30,
+      });
     },
 
     // Analytics queries
@@ -1823,6 +1849,27 @@ export const resolvers = {
       // Delete the check-in and the auto-created ad-hoc event
       await prisma.checkIn.delete({ where: { id: checkInId } });
       await prisma.event.delete({ where: { id: checkIn.eventId } });
+      return true;
+    },
+
+    // Feedback mutations
+    submitFeedback: async (
+      _: unknown,
+      { input }: { input: { category: string; message: string } },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const user = await prisma.user.findUnique({ where: { id: context.userId } });
+      if (!user) throw new Error("User not found");
+
+      await sendFeedbackEmail({
+        userEmail: user.email,
+        userName: `${user.firstName} ${user.lastName}`,
+        category: input.category,
+        message: input.message,
+      });
+
       return true;
     },
 

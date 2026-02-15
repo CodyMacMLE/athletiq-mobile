@@ -1,4 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { OrgTeamPicker } from "@/components/OrgTeamPicker";
+import { OrgTeamSubtitle } from "@/components/OrgTeamSubtitle";
+import { CoachView } from "@/components/team/CoachView";
 import {
   GET_UPCOMING_EVENTS,
   GET_CHECKIN_HISTORY,
@@ -11,7 +14,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -77,11 +80,60 @@ function formatFutureDate(isoDate: string): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export default function ActivityFeed() {
+export default function ActivityTab() {
+  const { user, selectedOrganization, isTeamCoach, selectedTeam } = useAuth();
+  const [pickerVisible, setPickerVisible] = useState(false);
+
+  if (!user || !selectedOrganization) return null;
+
+  return (
+    <LinearGradient
+      colors={["#302b6f", "#4d2a69", "#302b6f"]}
+      style={styles.gradient}
+      locations={[0.1, 0.6, 1]}
+    >
+      <StatusBar style="light" />
+
+      <OrgTeamPicker visible={pickerVisible} onClose={() => setPickerVisible(false)} />
+
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.title}>
+            {isTeamCoach ? "Team Management" : "Activity"}
+          </Text>
+          <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
+        </View>
+
+        {user.image ? (
+          <Image
+            source={user.image}
+            style={[styles.avatar, styles.avatarImage]}
+          />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {user.firstName.charAt(0)}
+              {user.lastName.charAt(0)}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Content based on role */}
+      {isTeamCoach && selectedTeam ? (
+        <CoachView />
+      ) : (
+        <AthleteActivityView />
+      )}
+    </LinearGradient>
+  );
+}
+
+function AthleteActivityView() {
   const router = useRouter();
   const { user, selectedOrganization } = useAuth();
 
-  // Queries
   const { data: upcomingData, loading: upcomingLoading } = useQuery(GET_UPCOMING_EVENTS, {
     variables: { organizationId: selectedOrganization?.id, limit: 3 },
     skip: !selectedOrganization?.id,
@@ -105,7 +157,6 @@ export default function ActivityFeed() {
   const allCheckInHistory = checkinData?.checkInHistory || [];
   const excuseRequests = excuseData?.myExcuseRequests || [];
 
-  // Only show check-ins from the last 7 days on this page
   const checkInHistory = useMemo(() => {
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
@@ -116,7 +167,6 @@ export default function ActivityFeed() {
     });
   }, [allCheckInHistory]);
 
-  // Map excuse requests by eventId for quick lookup
   const excusesByEvent = useMemo(() => {
     const map = new Map<string, any>();
     for (const er of excuseRequests) {
@@ -127,7 +177,6 @@ export default function ActivityFeed() {
     return map;
   }, [excuseRequests]);
 
-  // Stats from all check-in history (not just this week)
   const stats = useMemo(() => {
     let onTime = 0;
     let late = 0;
@@ -172,266 +221,235 @@ export default function ActivityFeed() {
     ]);
   };
 
-  if (!user || !selectedOrganization) return null;
-
   return (
-    <LinearGradient
-      colors={["#302b6f", "#4d2a69", "#302b6f"]}
-      style={styles.gradient}
-      locations={[0.1, 0.6, 1]}
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
     >
-      <StatusBar style="light" />
-
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.title}>Activity</Text>
-        </View>
-
-        {user.image ? (
-          <Image
-            source={user.image}
-            style={[styles.avatar, styles.avatarImage]}
-          />
+      {/* Quick Stats */}
+      <View style={styles.statsRow}>
+        {checkinLoading ? (
+          <View style={[styles.statCard, { flex: 1 }]}>
+            <ActivityIndicator color="#a855f7" />
+          </View>
         ) : (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user.firstName.charAt(0)}
-              {user.lastName.charAt(0)}
-            </Text>
+          <>
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: STATUS_CONFIG.ON_TIME.color }]}>
+                {stats.onTime}
+              </Text>
+              <Text style={styles.statLabel}>On Time</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: STATUS_CONFIG.LATE.color }]}>
+                {stats.late}
+              </Text>
+              <Text style={styles.statLabel}>Late</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={[styles.statValue, { color: STATUS_CONFIG.ABSENT.color }]}>
+                {stats.absent}
+              </Text>
+              <Text style={styles.statLabel}>Absent</Text>
+            </View>
+          </>
+        )}
+      </View>
+
+      {/* Upcoming - Request Excuse */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Upcoming</Text>
+        <Text style={styles.sectionSubtitle}>Request an excuse if you can't attend</Text>
+
+        {upcomingLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color="#a855f7" />
+          </View>
+        ) : upcomingEvents.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Feather name="calendar" size={20} color="rgba(255,255,255,0.3)" />
+            <Text style={styles.emptyText}>No upcoming events</Text>
+          </View>
+        ) : (
+          <View style={styles.upcomingList}>
+            {upcomingEvents.map((event: any) => {
+              const excuse = excusesByEvent.get(event.id);
+              const eventColor = EVENT_TYPE_COLORS[event.type] || "#6c5ce7";
+
+              return (
+                <View key={event.id} style={styles.upcomingCard}>
+                  <View
+                    style={[styles.upcomingAccent, { backgroundColor: eventColor }]}
+                  />
+                  <View style={styles.upcomingContent}>
+                    <View style={styles.upcomingHeader}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.upcomingName}>{event.title}</Text>
+                        <Text style={styles.upcomingDate}>
+                          {formatFutureDate(event.date)}
+                          {event.startTime ? ` \u2022 ${event.startTime}` : ""}
+                          {event.endTime ? ` - ${event.endTime}` : ""}
+                        </Text>
+                        {event.team && (
+                          <Text style={styles.upcomingTeam}>{event.team.name}</Text>
+                        )}
+                      </View>
+                    </View>
+                    {excuse ? (
+                      <View style={styles.excusedBadgeContainer}>
+                        <View style={styles.excusedBadge}>
+                          <Feather
+                            name={excuse.status === "APPROVED" ? "check" : "clock"}
+                            size={12}
+                            color="#9b59b6"
+                          />
+                          <Text style={styles.excusedBadgeText}>
+                            {excuse.status === "APPROVED" ? "Excused" : "Pending"}
+                          </Text>
+                        </View>
+                        {excuse.status === "PENDING" && (
+                          <Pressable
+                            style={styles.cancelExcuseButton}
+                            onPress={() => handleCancelExcuse(excuse.id)}
+                          >
+                            <Text style={styles.cancelExcuseText}>Cancel</Text>
+                          </Pressable>
+                        )}
+                      </View>
+                    ) : (
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.excuseRequestButton,
+                          pressed && { opacity: 0.7 },
+                        ]}
+                        onPress={() => handleExcusePress(event)}
+                      >
+                        <Feather name="alert-circle" size={14} color="#a855f7" />
+                        <Text style={styles.excuseRequestText}>Request Absence</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
           </View>
         )}
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Quick Stats */}
-        <View style={styles.statsRow}>
-          {checkinLoading ? (
-            <View style={[styles.statCard, { flex: 1 }]}>
-              <ActivityIndicator color="#a855f7" />
-            </View>
-          ) : (
-            <>
-              <View style={styles.statCard}>
-                <Text style={[styles.statValue, { color: STATUS_CONFIG.ON_TIME.color }]}>
-                  {stats.onTime}
-                </Text>
-                <Text style={styles.statLabel}>On Time</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={[styles.statValue, { color: STATUS_CONFIG.LATE.color }]}>
-                  {stats.late}
-                </Text>
-                <Text style={styles.statLabel}>Late</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={[styles.statValue, { color: STATUS_CONFIG.ABSENT.color }]}>
-                  {stats.absent}
-                </Text>
-                <Text style={styles.statLabel}>Absent</Text>
-              </View>
-            </>
-          )}
+      {/* Check-In History */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Check-In History</Text>
+          <Pressable onPress={() => router.push("/checkin-history")}>
+            <Text style={styles.seeAll}>See All</Text>
+          </Pressable>
         </View>
 
-        {/* Upcoming - Request Excuse */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Upcoming</Text>
-          <Text style={styles.sectionSubtitle}>Request an excuse if you can't attend</Text>
+        {checkinLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color="#a855f7" />
+          </View>
+        ) : checkInHistory.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Feather name="clipboard" size={20} color="rgba(255,255,255,0.3)" />
+            <Text style={styles.emptyText}>No check-in history yet</Text>
+          </View>
+        ) : (
+          <View style={styles.timelineContainer}>
+            {checkInHistory.map((log: any, index: number) => {
+              const config = STATUS_CONFIG[log.status as AttendanceStatus] || STATUS_CONFIG.ON_TIME;
+              const isLast = index === checkInHistory.length - 1;
+              const eventColor = EVENT_TYPE_COLORS[log.event?.type] || "#6c5ce7";
 
-          {upcomingLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color="#a855f7" />
-            </View>
-          ) : upcomingEvents.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Feather name="calendar" size={20} color="rgba(255,255,255,0.3)" />
-              <Text style={styles.emptyText}>No upcoming events</Text>
-            </View>
-          ) : (
-            <View style={styles.upcomingList}>
-              {upcomingEvents.map((event: any) => {
-                const excuse = excusesByEvent.get(event.id);
-                const eventColor = EVENT_TYPE_COLORS[event.type] || "#6c5ce7";
-
-                return (
-                  <View key={event.id} style={styles.upcomingCard}>
+              return (
+                <View key={log.id} style={styles.timelineItem}>
+                  {/* Timeline connector */}
+                  <View style={styles.timelineLeft}>
                     <View
-                      style={[styles.upcomingAccent, { backgroundColor: eventColor }]}
-                    />
-                    <View style={styles.upcomingContent}>
-                      <View style={styles.upcomingHeader}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.upcomingName}>{event.title}</Text>
-                          <Text style={styles.upcomingDate}>
-                            {formatFutureDate(event.date)}
-                            {event.startTime ? ` \u2022 ${event.startTime}` : ""}
-                            {event.endTime ? ` - ${event.endTime}` : ""}
-                          </Text>
-                          {event.team && (
-                            <Text style={styles.upcomingTeam}>{event.team.name}</Text>
-                          )}
-                        </View>
+                      style={[styles.timelineDot, { backgroundColor: config.color }]}
+                    >
+                      <Feather name={config.icon as any} size={12} color="white" />
+                    </View>
+                    {!isLast && <View style={styles.timelineLine} />}
+                  </View>
+
+                  {/* Log content */}
+                  <View style={[styles.timelineContent, isLast && { marginBottom: 0 }]}>
+                    <View style={styles.logHeader}>
+                      <Text style={styles.logDate}>
+                        {log.event?.date ? formatDate(log.event.date) : ""}
+                      </Text>
+                      <View style={[styles.statusBadge, { backgroundColor: `${config.color}20` }]}>
+                        <Text style={[styles.statusBadgeText, { color: config.color }]}>
+                          {config.label}
+                        </Text>
                       </View>
-                      {excuse ? (
-                        <View style={styles.excusedBadgeContainer}>
-                          <View style={styles.excusedBadge}>
-                            <Feather
-                              name={excuse.status === "APPROVED" ? "check" : "clock"}
-                              size={12}
-                              color="#9b59b6"
-                            />
-                            <Text style={styles.excusedBadgeText}>
-                              {excuse.status === "APPROVED" ? "Excused" : "Pending"}
+                    </View>
+
+                    <View style={styles.logCard}>
+                      <View style={styles.logCardHeader}>
+                        <View
+                          style={[styles.logEventDot, { backgroundColor: eventColor }]}
+                        />
+                        <Text style={styles.logEventName}>
+                          {log.event?.title || "Unknown Event"}
+                        </Text>
+                      </View>
+
+                      <View style={styles.logDetails}>
+                        {log.event?.startTime && (
+                          <View style={styles.logDetailRow}>
+                            <Text style={styles.logDetailLabel}>Scheduled</Text>
+                            <Text style={styles.logDetailValue}>
+                              {log.event.startTime}
+                              {log.event.endTime ? ` - ${log.event.endTime}` : ""}
                             </Text>
                           </View>
-                          {excuse.status === "PENDING" && (
-                            <Pressable
-                              style={styles.cancelExcuseButton}
-                              onPress={() => handleCancelExcuse(excuse.id)}
-                            >
-                              <Text style={styles.cancelExcuseText}>Cancel</Text>
-                            </Pressable>
-                          )}
-                        </View>
-                      ) : (
-                        <Pressable
-                          style={({ pressed }) => [
-                            styles.excuseRequestButton,
-                            pressed && { opacity: 0.7 },
-                          ]}
-                          onPress={() => handleExcusePress(event)}
-                        >
-                          <Feather name="alert-circle" size={14} color="#a855f7" />
-                          <Text style={styles.excuseRequestText}>Request Absence</Text>
-                        </Pressable>
-                      )}
+                        )}
+
+                        {log.checkInTime && (
+                          <View style={styles.logDetailRow}>
+                            <Text style={styles.logDetailLabel}>Check-in</Text>
+                            <Text style={styles.logDetailValue}>
+                              {new Date(log.checkInTime).toLocaleTimeString("en-US", {
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
+                            </Text>
+                          </View>
+                        )}
+
+                        {log.checkOutTime && (
+                          <View style={styles.logDetailRow}>
+                            <Text style={styles.logDetailLabel}>Check-out</Text>
+                            <Text style={styles.logDetailValue}>
+                              {new Date(log.checkOutTime).toLocaleTimeString("en-US", {
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
+                            </Text>
+                          </View>
+                        )}
+
+                        {log.hoursLogged != null && log.hoursLogged > 0 && (
+                          <View style={styles.logDetailRow}>
+                            <Text style={styles.logDetailLabel}>Hours Logged</Text>
+                            <Text style={[styles.logDetailValue, styles.logHours]}>
+                              {log.hoursLogged.toFixed(2)}h
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
-
-        {/* Check-In History */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Check-In History</Text>
-            <Pressable onPress={() => router.push("/checkin-history")}>
-              <Text style={styles.seeAll}>See All</Text>
-            </Pressable>
+                </View>
+              );
+            })}
           </View>
-
-          {checkinLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color="#a855f7" />
-            </View>
-          ) : checkInHistory.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Feather name="clipboard" size={20} color="rgba(255,255,255,0.3)" />
-              <Text style={styles.emptyText}>No check-in history yet</Text>
-            </View>
-          ) : (
-            <View style={styles.timelineContainer}>
-              {checkInHistory.map((log: any, index: number) => {
-                const config = STATUS_CONFIG[log.status as AttendanceStatus] || STATUS_CONFIG.ON_TIME;
-                const isLast = index === checkInHistory.length - 1;
-                const eventColor = EVENT_TYPE_COLORS[log.event?.type] || "#6c5ce7";
-
-                return (
-                  <View key={log.id} style={styles.timelineItem}>
-                    {/* Timeline connector */}
-                    <View style={styles.timelineLeft}>
-                      <View
-                        style={[styles.timelineDot, { backgroundColor: config.color }]}
-                      >
-                        <Feather name={config.icon as any} size={12} color="white" />
-                      </View>
-                      {!isLast && <View style={styles.timelineLine} />}
-                    </View>
-
-                    {/* Log content */}
-                    <View style={[styles.timelineContent, isLast && { marginBottom: 0 }]}>
-                      <View style={styles.logHeader}>
-                        <Text style={styles.logDate}>
-                          {log.event?.date ? formatDate(log.event.date) : ""}
-                        </Text>
-                        <View style={[styles.statusBadge, { backgroundColor: `${config.color}20` }]}>
-                          <Text style={[styles.statusBadgeText, { color: config.color }]}>
-                            {config.label}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.logCard}>
-                        <View style={styles.logCardHeader}>
-                          <View
-                            style={[styles.logEventDot, { backgroundColor: eventColor }]}
-                          />
-                          <Text style={styles.logEventName}>
-                            {log.event?.title || "Unknown Event"}
-                          </Text>
-                        </View>
-
-                        <View style={styles.logDetails}>
-                          {log.event?.startTime && (
-                            <View style={styles.logDetailRow}>
-                              <Text style={styles.logDetailLabel}>Scheduled</Text>
-                              <Text style={styles.logDetailValue}>
-                                {log.event.startTime}
-                                {log.event.endTime ? ` - ${log.event.endTime}` : ""}
-                              </Text>
-                            </View>
-                          )}
-
-                          {log.checkInTime && (
-                            <View style={styles.logDetailRow}>
-                              <Text style={styles.logDetailLabel}>Check-in</Text>
-                              <Text style={styles.logDetailValue}>
-                                {new Date(log.checkInTime).toLocaleTimeString("en-US", {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
-                              </Text>
-                            </View>
-                          )}
-
-                          {log.checkOutTime && (
-                            <View style={styles.logDetailRow}>
-                              <Text style={styles.logDetailLabel}>Check-out</Text>
-                              <Text style={styles.logDetailValue}>
-                                {new Date(log.checkOutTime).toLocaleTimeString("en-US", {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
-                              </Text>
-                            </View>
-                          )}
-
-                          {log.hoursLogged != null && log.hoursLogged > 0 && (
-                            <View style={styles.logDetailRow}>
-                              <Text style={styles.logDetailLabel}>Hours Logged</Text>
-                              <Text style={[styles.logDetailValue, styles.logHours]}>
-                                {log.hoursLogged.toFixed(2)}h
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
-      </ScrollView>
-    </LinearGradient>
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
@@ -460,6 +478,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     alignItems: "flex-start",
     gap: 4,
+    flex: 1,
   },
   title: {
     color: "white",

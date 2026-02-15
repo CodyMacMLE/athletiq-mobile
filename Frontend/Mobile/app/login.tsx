@@ -211,10 +211,7 @@ export default function Login() {
         >
           {/* Branding */}
           <View style={styles.branding}>
-            <View style={styles.iconContainer}>
-              <Feather name="activity" size={40} color="#a855f7" />
-            </View>
-            <Text style={styles.appName}>Athletiq</Text>
+            <Image source={require("@/assets/logo/white_icon_transparent_background.png")} style={styles.logoImage} resizeMode="contain" />
           </View>
 
           <Text style={styles.heading}>Welcome Back</Text>

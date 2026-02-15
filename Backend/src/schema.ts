@@ -57,6 +57,13 @@ export const typeDefs = `#graphql
     EXPIRED
   }
 
+  enum FeedbackCategory {
+    BUG
+    FEATURE
+    QUESTION
+    OTHER
+  }
+
   enum NfcCheckInAction {
     CHECKED_IN
     CHECKED_OUT
@@ -399,6 +406,11 @@ export const typeDefs = `#graphql
     checkInId: ID!
   }
 
+  input SubmitFeedbackInput {
+    category: FeedbackCategory!
+    message: String!
+  }
+
   input CreateExcuseRequestInput {
     userId: ID!
     eventId: ID!
@@ -461,7 +473,8 @@ export const typeDefs = `#graphql
     attendanceLog(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
     absentExcusedLog(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
     allAttendanceRecords(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
-    attendanceInsights(organizationId: ID!, timeRange: TimeRange): AttendanceInsights!
+    attendanceInsights(organizationId: ID!, teamId: ID, timeRange: TimeRange): AttendanceInsights!
+    teamAttendanceRecords(teamId: ID!, limit: Int, offset: Int): [CheckIn!]!
 
     # Analytics queries
     userStats(userId: ID!, organizationId: ID!, teamId: ID, timeRange: TimeRange): UserStats!
@@ -534,6 +547,9 @@ export const typeDefs = `#graphql
 
     # Upload mutations
     generateUploadUrl(fileType: String!): UploadUrl!
+
+    # Feedback mutations
+    submitFeedback(input: SubmitFeedbackInput!): Boolean!
 
     # Excuse mutations
     createExcuseRequest(input: CreateExcuseRequestInput!): ExcuseRequest!

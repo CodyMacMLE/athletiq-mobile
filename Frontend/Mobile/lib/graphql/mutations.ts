@@ -143,3 +143,13 @@ export const DENY_AD_HOC_CHECK_IN = gql`
     denyAdHocCheckIn(checkInId: $checkInId)
   }
 `;
+
+// ============================================
+// Feedback Mutations
+// ============================================
+
+export const SUBMIT_FEEDBACK = gql`
+  mutation SubmitFeedback($input: SubmitFeedbackInput!) {
+    submitFeedback(input: $input)
+  }
+`;
