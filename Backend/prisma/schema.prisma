@@ -119,6 +119,7 @@ enum TeamRole {
 
 enum OrgRole {
   OWNER
+  ADMIN
   MANAGER
   COACH
   ATHLETE

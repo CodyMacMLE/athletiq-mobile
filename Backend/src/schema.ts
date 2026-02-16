@@ -26,6 +26,7 @@ export const typeDefs = `#graphql
 
   enum OrgRole {
     OWNER
+    ADMIN
     MANAGER
     COACH
     ATHLETE

@@ -76,8 +76,8 @@ const EVENT_TYPE_COLORS = {
 export default function TeamDetail() {
   const params = useParams();
   const teamId = params.id as string;
-  const { canEdit, isOwner, isManager } = useAuth();
-  const canManageRoles = isOwner || isManager;
+  const { canEdit, isOwner, isAdmin, isManager } = useAuth();
+  const canManageRoles = isOwner || isAdmin || isManager;
   const [activeTab, setActiveTab] = useState<"events" | "members" | "coaches">("events");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<string>("all");

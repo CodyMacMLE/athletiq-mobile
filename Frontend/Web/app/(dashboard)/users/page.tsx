@@ -49,7 +49,7 @@ type Invite = {
 };
 
 export default function UsersPage() {
-  const { selectedOrganizationId, canEdit, isOwner, user: currentUser } = useAuth();
+  const { selectedOrganizationId, canEdit, isOwner, isAdmin, user: currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
@@ -67,7 +67,8 @@ export default function UsersPage() {
 
   const canRemoveMember = (member: OrgMember) => {
     if (member.role === "OWNER") return false;
-    if (member.role === "MANAGER" && !isOwner) return false;
+    if (member.role === "ADMIN" && !isOwner) return false;
+    if (member.role === "MANAGER" && !isOwner && !isAdmin) return false;
     if (member.user.id === currentUser?.id && !isOwner) return false;
     return true;
   };
@@ -116,8 +117,9 @@ export default function UsersPage() {
   const roleBadge = (role: string) => {
     const styles: Record<string, string> = {
       OWNER: "bg-yellow-600/20 text-yellow-400",
-      MANAGER: "bg-purple-600/20 text-purple-400",
-      COACH: "bg-blue-600/20 text-blue-400",
+      ADMIN: "bg-purple-600/20 text-purple-400",
+      MANAGER: "bg-blue-600/20 text-blue-400",
+      COACH: "bg-green-600/20 text-green-400",
       ATHLETE: "bg-green-600/20 text-green-400",
       GUARDIAN: "bg-gray-600/20 text-gray-400",
     };
@@ -338,6 +340,7 @@ export default function UsersPage() {
       {isInviteModalOpen && selectedOrganizationId && (
         <InviteUserModal
           organizationId={selectedOrganizationId}
+          isOwner={isOwner}
           onClose={() => setIsInviteModalOpen(false)}
           onSuccess={() => refetch()}
         />
@@ -348,10 +351,12 @@ export default function UsersPage() {
 
 function InviteUserModal({
   organizationId,
+  isOwner,
   onClose,
   onSuccess,
 }: {
   organizationId: string;
+  isOwner: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -475,7 +480,8 @@ function InviteUserModal({
             >
               <option value="ATHLETE">Athlete</option>
               <option value="COACH">Coach</option>
-              <option value="MANAGER">Admin</option>
+              <option value="MANAGER">Manager</option>
+              {isOwner && <option value="ADMIN">Admin</option>}
             </select>
           </div>
 

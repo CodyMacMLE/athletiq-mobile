@@ -368,11 +368,11 @@ export const resolvers = {
       const orgMembership = await prisma.organizationMember.findUnique({
         where: { userId_organizationId: { userId: context.userId, organizationId } },
       });
-      if (!orgMembership || !["OWNER", "MANAGER", "COACH"].includes(orgMembership.role)) {
-        throw new Error("Only owners, managers, or coaches can view pending check-ins");
+      if (!orgMembership || !["OWNER", "ADMIN", "MANAGER", "COACH"].includes(orgMembership.role)) {
+        throw new Error("Only owners, admins, managers, or coaches can view pending check-ins");
       }
 
-      // OWNER/MANAGER see all pending; COACH only sees teams they coach
+      // OWNER/ADMIN/MANAGER see all pending; COACH only sees teams they coach
       if (orgMembership.role === "COACH") {
         const coachedTeams = await prisma.teamMember.findMany({
           where: { userId: context.userId, role: { in: ["COACH", "ADMIN"] }, team: { organizationId } },
@@ -1100,14 +1100,17 @@ export const resolvers = {
         throw new Error("The organization owner cannot be removed");
       }
 
-      // Non-owner callers cannot remove other admins (MANAGER) or themselves
+      // Non-owner callers cannot remove ADMINs; non-owner/non-admin callers cannot remove MANAGERs
       if (context.userId) {
         const callerMember = await prisma.organizationMember.findUnique({
           where: { userId_organizationId: { userId: context.userId, organizationId } },
         });
         if (callerMember && callerMember.role !== "OWNER") {
-          if (targetMember.role === "MANAGER") {
-            throw new Error("Only the owner can remove managers");
+          if (targetMember.role === "ADMIN") {
+            throw new Error("Only the owner can remove admins");
+          }
+          if (targetMember.role === "MANAGER" && callerMember.role !== "ADMIN") {
+            throw new Error("Only the owner or an admin can remove managers");
           }
           if (userId === context.userId) {
             throw new Error("You cannot remove yourself from the organization");
@@ -1181,7 +1184,7 @@ export const resolvers = {
         }),
         prisma.organizationMember.update({
           where: { userId_organizationId: { userId: context.userId, organizationId } },
-          data: { role: "MANAGER" },
+          data: { role: "ADMIN" },
         }),
       ]);
       return true;
@@ -1798,7 +1801,7 @@ export const resolvers = {
           // Add to teams with role derived from invite org role
           const teamRole: TeamRole =
             invite.role === "COACH" ? "COACH" :
-            invite.role === "MANAGER" ? "ADMIN" :
+            ["ADMIN", "MANAGER"].includes(invite.role) ? "ADMIN" :
             "MEMBER";
           for (const teamId of invite.teamIds) {
             await tx.teamMember.upsert({
@@ -1933,7 +1936,7 @@ export const resolvers = {
         const orgMembership = await prisma.organizationMember.findUnique({
           where: { userId_organizationId: { userId: context.userId, organizationId: link.organizationId } },
         });
-        if (!orgMembership || !["OWNER", "MANAGER"].includes(orgMembership.role)) {
+        if (!orgMembership || !["OWNER", "ADMIN", "MANAGER"].includes(orgMembership.role)) {
           throw new Error("Only the athlete or an org admin can remove a guardian");
         }
       }
@@ -1954,8 +1957,8 @@ export const resolvers = {
       const membership = await prisma.organizationMember.findUnique({
         where: { userId_organizationId: { userId: context.userId, organizationId: input.organizationId } },
       });
-      if (!membership || (membership.role !== "OWNER" && membership.role !== "MANAGER")) {
-        throw new Error("Only owners and managers can register NFC tags");
+      if (!membership || !["OWNER", "ADMIN", "MANAGER"].includes(membership.role)) {
+        throw new Error("Only owners, admins, and managers can register NFC tags");
       }
 
       // Check for duplicate token
@@ -1986,8 +1989,8 @@ export const resolvers = {
       const membership = await prisma.organizationMember.findUnique({
         where: { userId_organizationId: { userId: context.userId, organizationId: tag.organizationId } },
       });
-      if (!membership || (membership.role !== "OWNER" && membership.role !== "MANAGER")) {
-        throw new Error("Only owners and managers can deactivate NFC tags");
+      if (!membership || !["OWNER", "ADMIN", "MANAGER"].includes(membership.role)) {
+        throw new Error("Only owners, admins, and managers can deactivate NFC tags");
       }
 
       return prisma.nfcTag.update({ where: { id }, data: { isActive: false } });
@@ -2232,8 +2235,8 @@ export const resolvers = {
       const orgMembership = await prisma.organizationMember.findUnique({
         where: { userId_organizationId: { userId: context.userId, organizationId: checkIn.event.organizationId } },
       });
-      if (!orgMembership || !["OWNER", "MANAGER", "COACH"].includes(orgMembership.role)) {
-        throw new Error("Only owners, managers, or coaches can approve ad-hoc check-ins");
+      if (!orgMembership || !["OWNER", "ADMIN", "MANAGER", "COACH"].includes(orgMembership.role)) {
+        throw new Error("Only owners, admins, managers, or coaches can approve ad-hoc check-ins");
       }
 
       // COACH must be a coach on the specific team
@@ -2269,8 +2272,8 @@ export const resolvers = {
       const orgMembership = await prisma.organizationMember.findUnique({
         where: { userId_organizationId: { userId: context.userId, organizationId: checkIn.event.organizationId } },
       });
-      if (!orgMembership || !["OWNER", "MANAGER", "COACH"].includes(orgMembership.role)) {
-        throw new Error("Only owners, managers, or coaches can deny ad-hoc check-ins");
+      if (!orgMembership || !["OWNER", "ADMIN", "MANAGER", "COACH"].includes(orgMembership.role)) {
+        throw new Error("Only owners, admins, managers, or coaches can deny ad-hoc check-ins");
       }
 
       // COACH must be a coach on the specific team

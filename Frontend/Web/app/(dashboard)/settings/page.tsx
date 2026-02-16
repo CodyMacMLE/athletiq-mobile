@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { GET_ORG_SEASONS, CREATE_ORG_SEASON, UPDATE_ORG_SEASON, DELETE_ORG_SEASON } from "@/lib/graphql";
-import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check } from "lucide-react";
+import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield } from "lucide-react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -25,7 +25,7 @@ type OrgSeason = {
 };
 
 export default function SettingsPage() {
-  const { selectedOrganizationId, canEdit } = useAuth();
+  const { selectedOrganizationId, canEdit, canManageOrg } = useAuth();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingSeason, setEditingSeason] = useState<OrgSeason | null>(null);
   const [formName, setFormName] = useState("");
@@ -176,7 +176,7 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-bold text-white mb-8">Settings</h1>
 
       {/* Seasons */}
-      {canEdit && (
+      {canManageOrg && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -247,6 +247,65 @@ export default function SettingsPage() {
             )}
 
             {showAddForm && <SeasonForm isEditing={false} />}
+          </div>
+        </section>
+      )}
+
+      {/* Roles */}
+      {canEdit && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Shield className="w-5 h-5 text-purple-400" />
+            <h2 className="text-lg font-semibold text-white">Roles</h2>
+          </div>
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+            <p className="text-sm text-gray-400 mb-4">
+              Each organization role has different permissions. Here&apos;s what each role can do:
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-gray-700/50 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-0.5 text-xs font-medium rounded bg-yellow-600/20 text-yellow-400">OWNER</span>
+                </div>
+                <ul className="text-xs text-gray-400 space-y-1">
+                  <li>Full organization control</li>
+                  <li>Manage settings &amp; seasons</li>
+                  <li>Manage teams &amp; users</li>
+                  <li>Transfer ownership</li>
+                </ul>
+              </div>
+              <div className="bg-gray-700/50 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-0.5 text-xs font-medium rounded bg-purple-600/20 text-purple-400">ADMIN</span>
+                </div>
+                <ul className="text-xs text-gray-400 space-y-1">
+                  <li>Manage settings &amp; seasons</li>
+                  <li>Manage teams &amp; users</li>
+                  <li>Attendance operations</li>
+                  <li>Cannot transfer ownership</li>
+                </ul>
+              </div>
+              <div className="bg-gray-700/50 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-600/20 text-blue-400">MANAGER</span>
+                </div>
+                <ul className="text-xs text-gray-400 space-y-1">
+                  <li>Manage teams &amp; users</li>
+                  <li>Attendance operations</li>
+                  <li>No access to org settings</li>
+                </ul>
+              </div>
+              <div className="bg-gray-700/50 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="px-2 py-0.5 text-xs font-medium rounded bg-green-600/20 text-green-400">COACH</span>
+                </div>
+                <ul className="text-xs text-gray-400 space-y-1">
+                  <li>Attendance operations (own teams)</li>
+                  <li>View team members</li>
+                  <li>No team/user management</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </section>
       )}

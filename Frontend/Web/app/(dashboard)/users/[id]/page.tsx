@@ -73,7 +73,7 @@ type CheckInRecord = {
   };
 };
 
-const ORG_ROLES = ["ATHLETE", "COACH", "MANAGER", "GUARDIAN"] as const;
+const ORG_ROLES = ["ATHLETE", "COACH", "MANAGER", "ADMIN", "GUARDIAN"] as const;
 const TEAM_ROLES = ["MEMBER", "CAPTAIN", "COACH"] as const;
 
 const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle; color: string; bg: string; label: string }> = {
@@ -87,7 +87,7 @@ export default function UserDetailPage() {
   const params = useParams();
   const router = useRouter();
   const userId = params.id as string;
-  const { selectedOrganizationId, canEdit, isOwner, user: currentUser } = useAuth();
+  const { selectedOrganizationId, canEdit, isOwner, isAdmin, user: currentUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState<"roles" | "attendance">("attendance");
   const [showAddTeamModal, setShowAddTeamModal] = useState(false);
@@ -118,7 +118,8 @@ export default function UserDetailPage() {
 
   const canRemoveMember = (member: OrgMember) => {
     if (member.role === "OWNER") return false;
-    if (member.role === "MANAGER" && !isOwner) return false;
+    if (member.role === "ADMIN" && !isOwner) return false;
+    if (member.role === "MANAGER" && !isOwner && !isAdmin) return false;
     if (member.user.id === currentUser?.id && !isOwner) return false;
     return true;
   };
@@ -131,7 +132,8 @@ export default function UserDetailPage() {
 
   const getAvailableOrgRoles = () => {
     if (isOwner) return ORG_ROLES;
-    return ORG_ROLES.filter((r) => r !== "MANAGER");
+    if (isAdmin) return ORG_ROLES.filter((r) => r !== "ADMIN");
+    return ORG_ROLES.filter((r) => r !== "ADMIN" && r !== "MANAGER");
   };
 
   const handleOrgRoleChange = async (newRole: string) => {
@@ -181,13 +183,13 @@ export default function UserDetailPage() {
   const roleBadge = (role: string) => {
     const styles: Record<string, string> = {
       OWNER: "bg-yellow-600/20 text-yellow-400",
-      MANAGER: "bg-purple-600/20 text-purple-400",
-      COACH: "bg-blue-600/20 text-blue-400",
+      ADMIN: "bg-purple-600/20 text-purple-400",
+      MANAGER: "bg-blue-600/20 text-blue-400",
+      COACH: "bg-green-600/20 text-green-400",
       ATHLETE: "bg-green-600/20 text-green-400",
       GUARDIAN: "bg-gray-600/20 text-gray-400",
       MEMBER: "bg-green-600/20 text-green-400",
       CAPTAIN: "bg-blue-600/20 text-blue-400",
-      ADMIN: "bg-purple-600/20 text-purple-400",
     };
     return styles[role] || "bg-gray-600/20 text-gray-400";
   };

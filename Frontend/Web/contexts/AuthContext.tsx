@@ -15,7 +15,7 @@ import {
 } from "@/lib/cognito";
 
 export type TeamRole = "MEMBER" | "CAPTAIN" | "COACH" | "ADMIN";
-export type OrgRole = "OWNER" | "MANAGER" | "COACH" | "ATHLETE" | "GUARDIAN";
+export type OrgRole = "OWNER" | "ADMIN" | "MANAGER" | "COACH" | "ATHLETE" | "GUARDIAN";
 
 type Membership = {
   id: string;
@@ -67,6 +67,7 @@ type AuthContextType = {
   isAdmin: boolean;
   isCoach: boolean;
   canEdit: boolean;
+  canManageOrg: boolean;
   login: (username: string, password: string) => Promise<SignInResult>;
   confirmNewPassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -127,9 +128,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Org-level role checks
   const isOwner = currentOrgRole === "OWNER";
   const isManager = currentOrgRole === "MANAGER";
-  const isAdmin = currentRole === "ADMIN";
+  const isAdmin = currentOrgRole === "ADMIN";
   const isCoach = currentOrgRole === "COACH";
-  const canEdit = isOwner || isManager || isAdmin || isCoach;
+  const canManageOrg = isOwner || isAdmin;
+  const canEdit = isOwner || isAdmin || isManager || isCoach;
 
   const login = async (username: string, password: string) => {
     const result = await cognitoSignIn(username, password);
@@ -168,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin,
     isCoach,
     canEdit,
+    canManageOrg,
     login,
     confirmNewPassword,
     logout,
@@ -188,7 +191,7 @@ export function useAuth() {
 // HOC for protecting routes
 export function RequireAuth({
   children,
-  allowedRoles = ["OWNER", "MANAGER", "COACH"]
+  allowedRoles = ["OWNER", "ADMIN", "MANAGER", "COACH"]
 }: {
   children: ReactNode;
   allowedRoles?: OrgRole[];
