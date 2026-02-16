@@ -399,6 +399,7 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     paddingVertical: 16,
+    letterSpacing: 0,
   },
   signInButton: {
     marginTop: 8,

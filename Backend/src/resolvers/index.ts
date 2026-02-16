@@ -836,7 +836,10 @@ export const resolvers = {
     createUser: async (_: unknown, { input }: { input: { email: string; firstName: string; lastName: string; phone?: string; address?: string; city?: string; country?: string; image?: string } }) => {
       return prisma.user.upsert({
         where: { email: input.email },
-        update: {},
+        update: {
+          firstName: input.firstName,
+          lastName: input.lastName,
+        },
         create: input,
       });
     },
