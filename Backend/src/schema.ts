@@ -101,17 +101,30 @@ export const typeDefs = `#graphql
     members: [OrganizationMember!]!
     invites: [Invite!]!
     nfcTags: [NfcTag!]!
+    seasons: [OrgSeason!]!
     memberCount: Int!
+  }
+
+  type OrgSeason {
+    id: ID!
+    name: String!
+    startMonth: Int!
+    endMonth: Int!
+    organizationId: ID!
+    createdAt: String!
+    updatedAt: String!
   }
 
   type Team {
     id: ID!
     name: String!
-    season: String!
+    season: String
     sport: String
     color: String
     description: String
     organization: Organization!
+    orgSeason: OrgSeason
+    seasonYear: Int
     members: [TeamMember!]!
     events: [Event!]!
     memberCount: Int!
@@ -325,13 +338,22 @@ export const typeDefs = `#graphql
     image: String
   }
 
+  input CreateOrgSeasonInput {
+    name: String!
+    startMonth: Int!
+    endMonth: Int!
+    organizationId: ID!
+  }
+
   input CreateTeamInput {
     name: String!
-    season: String!
+    season: String
     sport: String
     color: String
     description: String
     organizationId: ID!
+    orgSeasonId: ID
+    seasonYear: Int
   }
 
   input AddTeamMemberInput {
@@ -450,6 +472,9 @@ export const typeDefs = `#graphql
     team(id: ID!): Team
     teams(organizationId: ID!, includeArchived: Boolean): [Team!]!
 
+    # Season queries
+    orgSeasons(organizationId: ID!): [OrgSeason!]!
+
     # Event queries
     event(id: ID!): Event
     events(organizationId: ID!, startDate: String, endDate: String): [Event!]!
@@ -520,9 +545,14 @@ export const typeDefs = `#graphql
     leaveOrganization(organizationId: ID!): Boolean!
     transferOwnership(organizationId: ID!, newOwnerId: ID!): Boolean!
 
+    # Season mutations
+    createOrgSeason(input: CreateOrgSeasonInput!): OrgSeason!
+    updateOrgSeason(id: ID!, name: String, startMonth: Int, endMonth: Int): OrgSeason!
+    deleteOrgSeason(id: ID!): Boolean!
+
     # Team mutations
     createTeam(input: CreateTeamInput!): Team!
-    updateTeam(id: ID!, name: String, season: String, sport: String, color: String, description: String): Team!
+    updateTeam(id: ID!, name: String, season: String, sport: String, color: String, description: String, orgSeasonId: ID, seasonYear: Int): Team!
     deleteTeam(id: ID!, hardDelete: Boolean): Boolean!
     restoreTeam(id: ID!): Team!
     addTeamMember(input: AddTeamMemberInput!): TeamMember!

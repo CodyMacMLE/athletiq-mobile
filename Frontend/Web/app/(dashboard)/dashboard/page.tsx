@@ -136,7 +136,7 @@ export default function Dashboard() {
         <div className="bg-gray-800 rounded-xl border border-gray-700">
           <div className="px-6 py-4 border-b border-gray-700">
             <h2 className="text-lg font-semibold text-white">Team Rankings</h2>
-            <p className="text-gray-400 text-sm">This month's attendance</p>
+            <p className="text-gray-400 text-sm">Current season attendance</p>
           </div>
           <div className="p-6">
             {teamRankings.length === 0 ? (

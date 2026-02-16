@@ -30,6 +30,13 @@ export const TEAM_FRAGMENT = gql`
     memberCount
     attendancePercent(timeRange: MONTH)
     archivedAt
+    orgSeason {
+      id
+      name
+      startMonth
+      endMonth
+    }
+    seasonYear
   }
 `;
 
@@ -510,6 +517,24 @@ export const GET_CHECK_IN_HISTORY = gql`
         startTime
         endTime
       }
+    }
+  }
+`;
+
+// ============================================
+// Season Queries
+// ============================================
+
+export const GET_ORG_SEASONS = gql`
+  query GetOrgSeasons($organizationId: ID!) {
+    orgSeasons(organizationId: $organizationId) {
+      id
+      name
+      startMonth
+      endMonth
+      organizationId
+      createdAt
+      updatedAt
     }
   }
 `;

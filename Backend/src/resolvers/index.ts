@@ -136,6 +136,36 @@ function isAthleteCheckIn(
 // Helper to safely serialize Date objects to ISO strings for GraphQL String fields
 const toISO = (val: any) => val instanceof Date ? val.toISOString() : val;
 
+// Compute actual start/end Date objects for a season given its month range and year.
+function getSeasonDateRange(startMonth: number, endMonth: number, seasonYear: number): { start: Date; end: Date } {
+  if (startMonth <= endMonth) {
+    // Same-year season: e.g. Mar-Aug 2025
+    const start = new Date(Date.UTC(seasonYear, startMonth - 1, 1));
+    const end = new Date(Date.UTC(seasonYear, endMonth, 0, 23, 59, 59)); // last day of endMonth
+    return { start, end };
+  } else {
+    // Cross-year season: e.g. Sep-Jun 2025 → Sep 1 2025 to Jun 30 2026
+    const start = new Date(Date.UTC(seasonYear, startMonth - 1, 1));
+    const end = new Date(Date.UTC(seasonYear + 1, endMonth, 0, 23, 59, 59));
+    return { start, end };
+  }
+}
+
+// Returns true if today falls within the team's computed season period.
+// Legacy teams (no orgSeason) always return true.
+function isTeamInCurrentSeason(team: { orgSeasonId?: string | null; seasonYear?: number | null; orgSeason?: { startMonth: number; endMonth: number } | null }): boolean {
+  if (!team.orgSeason || !team.seasonYear) return true;
+  const now = new Date();
+  const { start, end } = getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear);
+  return now >= start && now <= end;
+}
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function generateSeasonDisplayString(seasonName: string, seasonYear: number): string {
+  return `${seasonName} ${seasonYear}`;
+}
+
 // Parse a date-only string (YYYY-MM-DD) to noon UTC to avoid timezone off-by-one.
 // new Date("2026-02-11") parses as UTC midnight, which is Feb 10th in US timezones.
 // Noon UTC is the same calendar date in every inhabited timezone.
@@ -178,6 +208,14 @@ export const resolvers = {
         include: { organization: true },
       });
       return memberships.map((m) => m.organization);
+    },
+
+    // Season queries
+    orgSeasons: async (_: unknown, { organizationId }: { organizationId: string }) => {
+      return prisma.orgSeason.findMany({
+        where: { organizationId },
+        orderBy: { name: "asc" },
+      });
     },
 
     // Team queries
@@ -748,12 +786,15 @@ export const resolvers = {
         where: { team: { organizationId }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
         include: {
           user: true,
-          team: true,
+          team: { include: { orgSeason: true } },
         },
       });
 
+      // Filter to only members of current-season teams
+      const currentSeasonMembers = members.filter(m => isTeamInCurrentSeason(m.team));
+
       // Deduplicate users (they might be in multiple teams)
-      const uniqueUsers = [...new Map(members.map((m) => [m.userId, m])).values()];
+      const uniqueUsers = [...new Map(currentSeasonMembers.map((m) => [m.userId, m])).values()];
 
       const leaderboard = await Promise.all(
         uniqueUsers.map(async (member) => {
@@ -791,10 +832,11 @@ export const resolvers = {
       _: unknown,
       { organizationId, timeRange }: { organizationId: string; timeRange?: string }
     ) => {
-      const teams = await prisma.team.findMany({
+      const allTeams = await prisma.team.findMany({
         where: { organizationId, archivedAt: null },
-        include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } } } },
+        include: { members: { where: { role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } } }, orgSeason: true },
       });
+      const teams = allTeams.filter(isTeamInCurrentSeason);
 
       const { startDate, endDate } = getDateRange(timeRange);
 
@@ -1146,19 +1188,83 @@ export const resolvers = {
     },
 
     // Team mutations
-    createTeam: async (_: unknown, { input }: { input: { name: string; season: string; sport?: string; color?: string; description?: string; organizationId: string } }) => {
-      return prisma.team.create({ data: input });
+    // Season mutations
+    createOrgSeason: async (_: unknown, { input }: { input: { name: string; startMonth: number; endMonth: number; organizationId: string } }) => {
+      if (input.startMonth < 1 || input.startMonth > 12 || input.endMonth < 1 || input.endMonth > 12) {
+        throw new Error("Months must be between 1 and 12");
+      }
+      return prisma.orgSeason.create({ data: input });
     },
 
-    updateTeam: async (_: unknown, { id, name, season, sport, color, description }: { id: string; name?: string; season?: string; sport?: string; color?: string; description?: string }) => {
+    updateOrgSeason: async (_: unknown, { id, name, startMonth, endMonth }: { id: string; name?: string; startMonth?: number; endMonth?: number }) => {
+      if ((startMonth !== undefined && (startMonth < 1 || startMonth > 12)) ||
+          (endMonth !== undefined && (endMonth < 1 || endMonth > 12))) {
+        throw new Error("Months must be between 1 and 12");
+      }
+      return prisma.orgSeason.update({
+        where: { id },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(startMonth !== undefined && { startMonth }),
+          ...(endMonth !== undefined && { endMonth }),
+        },
+      });
+    },
+
+    deleteOrgSeason: async (_: unknown, { id }: { id: string }) => {
+      const teamsUsingThis = await prisma.team.count({ where: { orgSeasonId: id } });
+      if (teamsUsingThis > 0) {
+        throw new Error(`Cannot delete season: ${teamsUsingThis} team(s) are still assigned to it`);
+      }
+      await prisma.orgSeason.delete({ where: { id } });
+      return true;
+    },
+
+    createTeam: async (_: unknown, { input }: { input: { name: string; season?: string; sport?: string; color?: string; description?: string; organizationId: string; orgSeasonId?: string; seasonYear?: number } }) => {
+      let season = input.season;
+      if (input.orgSeasonId && input.seasonYear) {
+        const orgSeason = await prisma.orgSeason.findUnique({ where: { id: input.orgSeasonId } });
+        if (orgSeason) {
+          season = generateSeasonDisplayString(orgSeason.name, input.seasonYear);
+        }
+      }
+      return prisma.team.create({
+        data: {
+          name: input.name,
+          season,
+          sport: input.sport,
+          color: input.color,
+          description: input.description,
+          organizationId: input.organizationId,
+          orgSeasonId: input.orgSeasonId,
+          seasonYear: input.seasonYear,
+        },
+      });
+    },
+
+    updateTeam: async (_: unknown, { id, name, season, sport, color, description, orgSeasonId, seasonYear }: { id: string; name?: string; season?: string; sport?: string; color?: string; description?: string; orgSeasonId?: string; seasonYear?: number }) => {
+      let computedSeason = season;
+      if (orgSeasonId !== undefined && seasonYear !== undefined) {
+        if (orgSeasonId) {
+          const orgSeason = await prisma.orgSeason.findUnique({ where: { id: orgSeasonId } });
+          if (orgSeason) {
+            computedSeason = generateSeasonDisplayString(orgSeason.name, seasonYear);
+          }
+        } else {
+          // Clearing the season assignment
+          computedSeason = season || null as any;
+        }
+      }
       return prisma.team.update({
         where: { id },
         data: {
           ...(name !== undefined && { name }),
-          ...(season !== undefined && { season }),
+          ...(computedSeason !== undefined && { season: computedSeason }),
           ...(sport !== undefined && { sport }),
           ...(color !== undefined && { color }),
           ...(description !== undefined && { description }),
+          ...(orgSeasonId !== undefined && { orgSeasonId: orgSeasonId || null }),
+          ...(seasonYear !== undefined && { seasonYear: seasonYear || null }),
         },
       });
     },
@@ -2269,6 +2375,8 @@ export const resolvers = {
       prisma.invite.findMany({ where: { organizationId: parent.id, status: "PENDING" } }),
     nfcTags: (parent: { id: string }) =>
       prisma.nfcTag.findMany({ where: { organizationId: parent.id, isActive: true } }),
+    seasons: (parent: { id: string }) =>
+      prisma.orgSeason.findMany({ where: { organizationId: parent.id }, orderBy: { name: "asc" } }),
     memberCount: async (parent: { id: string }) => {
       return prisma.teamMember.count({
         where: { team: { organizationId: parent.id, archivedAt: null }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
@@ -2278,9 +2386,16 @@ export const resolvers = {
     updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
+  OrgSeason: {
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
+  },
+
   Team: {
     organization: (parent: { organizationId: string }) =>
       prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    orgSeason: (parent: { orgSeasonId?: string | null }) =>
+      parent.orgSeasonId ? prisma.orgSeason.findUnique({ where: { id: parent.orgSeasonId } }) : null,
     members: (parent: { id: string }) => prisma.teamMember.findMany({ where: { teamId: parent.id } }),
     events: (parent: { id: string }) =>
       prisma.event.findMany({

@@ -52,17 +52,36 @@ model Organization {
   invites         Invite[]
   nfcTags         NfcTag[]
   guardianLinks   GuardianLink[]
+  seasons         OrgSeason[]
+}
+
+model OrgSeason {
+  id             String       @id @default(cuid())
+  name           String       // e.g., "Hockey Season", "Summer Training"
+  startMonth     Int          // 1-12
+  endMonth       Int          // 1-12
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  teams          Team[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
 }
 
 model Team {
   id             String    @id @default(cuid())
   name           String
-  season         String
+  season         String?
   sport          String?
   color          String?
   description    String?
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id])
+  orgSeasonId    String?
+  orgSeason      OrgSeason?   @relation(fields: [orgSeasonId], references: [id])
+  seasonYear     Int?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   archivedAt     DateTime?

@@ -71,8 +71,8 @@ export const CREATE_TEAM = gql`
 `;
 
 export const UPDATE_TEAM = gql`
-  mutation UpdateTeam($id: ID!, $name: String, $season: String, $sport: String, $color: String, $description: String) {
-    updateTeam(id: $id, name: $name, season: $season, sport: $sport, color: $color, description: $description) {
+  mutation UpdateTeam($id: ID!, $name: String, $season: String, $sport: String, $color: String, $description: String, $orgSeasonId: ID, $seasonYear: Int) {
+    updateTeam(id: $id, name: $name, season: $season, sport: $sport, color: $color, description: $description, orgSeasonId: $orgSeasonId, seasonYear: $seasonYear) {
       ...TeamFields
     }
   }
@@ -129,6 +129,39 @@ export const UPDATE_TEAM_MEMBER_ROLE = gql`
         lastName
       }
     }
+  }
+`;
+
+// ============================================
+// Season Mutations
+// ============================================
+
+export const CREATE_ORG_SEASON = gql`
+  mutation CreateOrgSeason($input: CreateOrgSeasonInput!) {
+    createOrgSeason(input: $input) {
+      id
+      name
+      startMonth
+      endMonth
+      organizationId
+    }
+  }
+`;
+
+export const UPDATE_ORG_SEASON = gql`
+  mutation UpdateOrgSeason($id: ID!, $name: String, $startMonth: Int, $endMonth: Int) {
+    updateOrgSeason(id: $id, name: $name, startMonth: $startMonth, endMonth: $endMonth) {
+      id
+      name
+      startMonth
+      endMonth
+    }
+  }
+`;
+
+export const DELETE_ORG_SEASON = gql`
+  mutation DeleteOrgSeason($id: ID!) {
+    deleteOrgSeason(id: $id)
   }
 `;
 
