@@ -4,7 +4,7 @@ import { sendInviteEmail, sendFeedbackEmail } from "../email.js";
 import { generateProfilePictureUploadUrl } from "../s3.js";
 import { parseTimeString } from "../utils/time.js";
 import { markAbsentForEndedEvents } from "../services/markAbsent.js";
-import { CognitoIdentityProviderClient, AdminDeleteUserCommand } from "@aws-sdk/client-cognito-identity-provider";
+import { CognitoIdentityProviderClient, AdminDeleteUserCommand, ListUsersCommand } from "@aws-sdk/client-cognito-identity-provider";
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION || "us-east-2",
@@ -851,12 +851,20 @@ export const resolvers = {
         await tx.user.delete({ where: { id } });
       });
 
-      // Delete from Cognito
+      // Delete from Cognito by looking up username via email
       try {
-        await cognitoClient.send(new AdminDeleteUserCommand({
+        const listResult = await cognitoClient.send(new ListUsersCommand({
           UserPoolId: COGNITO_USER_POOL_ID,
-          Username: user.email,
+          Filter: `email = "${user.email}"`,
+          Limit: 1,
         }));
+        const cognitoUsername = listResult.Users?.[0]?.Username;
+        if (cognitoUsername) {
+          await cognitoClient.send(new AdminDeleteUserCommand({
+            UserPoolId: COGNITO_USER_POOL_ID,
+            Username: cognitoUsername,
+          }));
+        }
       } catch (err) {
         console.error("Failed to delete Cognito user:", err);
       }
@@ -867,9 +875,9 @@ export const resolvers = {
     deleteMyAccount: async (
       _: unknown,
       __: unknown,
-      context: { userId?: string }
+      context: { userId?: string; cognitoUsername?: string }
     ) => {
-      if (!context.userId) throw new Error("Authentication required");
+      if (!context.userId || !context.cognitoUsername) throw new Error("Authentication required");
 
       const user = await prisma.user.findUnique({ where: { id: context.userId } });
       if (!user) throw new Error("User not found");
@@ -882,6 +890,13 @@ export const resolvers = {
         throw new Error("You must transfer ownership of your organizations before deleting your account.");
       }
 
+      // Delete from Cognito first so the user can't sign back in
+      await cognitoClient.send(new AdminDeleteUserCommand({
+        UserPoolId: COGNITO_USER_POOL_ID,
+        Username: context.cognitoUsername,
+      }));
+
+      // Then cascade delete from database
       await prisma.$transaction(async (tx) => {
         await tx.checkIn.deleteMany({ where: { userId: context.userId! } });
         await tx.excuseRequest.deleteMany({ where: { userId: context.userId! } });
@@ -890,15 +905,6 @@ export const resolvers = {
         await tx.organizationMember.deleteMany({ where: { userId: context.userId! } });
         await tx.user.delete({ where: { id: context.userId! } });
       });
-
-      try {
-        await cognitoClient.send(new AdminDeleteUserCommand({
-          UserPoolId: COGNITO_USER_POOL_ID,
-          Username: user.email,
-        }));
-      } catch (err) {
-        console.error("Failed to delete Cognito user:", err);
-      }
 
       return true;
     },

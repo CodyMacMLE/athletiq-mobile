@@ -66,7 +66,7 @@ async function main() {
           });
         }
 
-        return { userId: user.id };
+        return { userId: user.id, cognitoUsername: payload.sub as string };
       },
     })
   );
