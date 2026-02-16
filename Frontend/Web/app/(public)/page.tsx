@@ -3,88 +3,61 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
-  ClipboardList,
-  BarChart3,
-  Calendar,
-  Shield,
-  Crown,
-  UserCog,
-  Eye,
   ArrowRight,
+  CheckCircle,
+  Smartphone,
+  Monitor,
+  Trophy,
+  Target,
+  Tv,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
-const features = [
+const mobileFeatures = [
+  "Quick check-in to practices and events",
+  "View attendance history and hours",
+  "Browse team schedule and upcoming events",
+  "Stay connected with your team",
+];
+
+const dashboardFeatures = [
+  "Track and manage attendance across all teams",
+  "View analytics, leaderboards, and trends",
+  "Create and manage teams, events, and schedules",
+  "Role-based access for Owners, Managers, and Coaches",
+];
+
+const roadmapItems = [
   {
-    icon: ClipboardList,
-    title: "Attendance Tracking",
+    icon: Trophy,
+    title: "Competition Event Manager",
     description:
-      "Automated check-ins, absence tracking, and excuse management for every practice and event.",
+      "Plan and run competitions with brackets, heats, and multi-day event support.",
     color: "purple",
   },
   {
-    icon: BarChart3,
-    title: "Team Analytics",
+    icon: Target,
+    title: "Scoring Systems",
     description:
-      "Real-time dashboards with attendance rates, leaderboards, and performance trends.",
+      "Flexible scoring configurations for any sport — points, times, distances, and custom criteria.",
     color: "blue",
   },
   {
-    icon: Calendar,
-    title: "Event Management",
+    icon: Tv,
+    title: "Scoring View App",
     description:
-      "Schedule practices, games, and events. Track attendance per event with ease.",
+      "A dedicated display app powered by Athletiq for live scoreboards at events and venues.",
     color: "green",
-  },
-  {
-    icon: Shield,
-    title: "Role-Based Access",
-    description:
-      "Owners, Managers, and Coaches each get the right level of control for their role.",
-    color: "yellow",
   },
 ];
 
-const colorMap: Record<string, { bg: string; text: string }> = {
-  purple: { bg: "bg-purple-600/20", text: "text-purple-500" },
-  blue: { bg: "bg-blue-600/20", text: "text-blue-500" },
-  green: { bg: "bg-green-600/20", text: "text-green-500" },
-  yellow: { bg: "bg-yellow-600/20", text: "text-yellow-500" },
+const colorMap: Record<string, { bg: string; text: string; border: string }> = {
+  purple: { bg: "bg-purple-600/20", text: "text-purple-400", border: "border-purple-500/30" },
+  blue: { bg: "bg-blue-600/20", text: "text-blue-400", border: "border-blue-500/30" },
+  green: { bg: "bg-green-600/20", text: "text-green-400", border: "border-green-500/30" },
 };
-
-const roles = [
-  {
-    icon: Crown,
-    title: "Owner",
-    description:
-      "Full organizational control including billing, settings, and member management.",
-    color: "purple",
-    borderColor: "border-purple-500/30",
-    bgColor: "bg-purple-600/10",
-    textColor: "text-purple-400",
-  },
-  {
-    icon: UserCog,
-    title: "Manager",
-    description:
-      "Edit athletes, teams, events, and attendance. Everything except org-level settings.",
-    color: "blue",
-    borderColor: "border-blue-500/30",
-    bgColor: "bg-blue-600/10",
-    textColor: "text-blue-400",
-  },
-  {
-    icon: Eye,
-    title: "Coach",
-    description:
-      "View dashboards, rosters, schedules, and analytics. Read-only access to stay informed.",
-    color: "green",
-    borderColor: "border-green-500/30",
-    bgColor: "bg-green-600/10",
-    textColor: "text-green-400",
-  },
-];
 
 export default function LandingPage() {
   const router = useRouter();
@@ -101,10 +74,18 @@ export default function LandingPage() {
       {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-gray-900/80 backdrop-blur-md border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <span className="text-xl font-bold">Athletiq</span>
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/logo/white_icon_transparent_background.png"
+              alt="Athletiq"
+              width={32}
+              height={32}
+            />
+            <span className="text-xl font-bold">Athletiq</span>
+          </Link>
           <div className="flex items-center gap-4">
             <Link
-              href="/dashboard"
+              href="/signin"
               className="text-sm text-gray-300 hover:text-white transition-colors"
             >
               Sign In
@@ -122,15 +103,16 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="max-w-7xl mx-auto px-6 pt-24 pb-20 text-center">
         <h1 className="text-5xl font-bold tracking-tight sm:text-6xl">
-          Manage Your Athletes,
+          The All-in-One Platform
           <br />
-          <span className="text-purple-500">Elevate Your Organization</span>
+          <span className="text-purple-500">for Athletic Management</span>
         </h1>
         <p className="mt-6 text-lg text-gray-400 max-w-2xl mx-auto">
-          The all-in-one platform for tracking attendance, managing teams, and
-          gaining insights across your entire athletic organization.
+          From check-ins on the field to analytics in the front office — Athletiq
+          connects athletes, guardians, coaches, and administrators on one
+          platform.
         </p>
-        <div className="mt-10 flex items-center justify-center gap-4">
+        <div className="mt-10 flex items-center justify-center gap-4 flex-wrap">
           <Link
             href="/register"
             className="px-6 py-3 text-sm font-medium bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors inline-flex items-center gap-2"
@@ -139,7 +121,7 @@ export default function LandingPage() {
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
-            href="/dashboard"
+            href="/signin"
             className="px-6 py-3 text-sm font-medium bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
           >
             Sign In
@@ -147,74 +129,159 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Grid */}
+      {/* Athletes & Guardians Section */}
+      <section className="max-w-7xl mx-auto px-6 py-20">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-600/20 text-blue-400 text-sm font-medium rounded-full mb-6">
+              <Smartphone className="w-4 h-4" />
+              Mobile App
+            </div>
+            <h2 className="text-3xl font-bold mb-4">
+              For Athletes & Guardians
+            </h2>
+            <p className="text-gray-400 mb-8">
+              The Athletiq mobile app puts everything athletes and guardians need
+              right in their pocket. Check in to events, track your hours, and
+              never miss a practice.
+            </p>
+            <ul className="space-y-3 mb-8">
+              {mobileFeatures.map((feature) => (
+                <li key={feature} className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" />
+                  <span className="text-gray-300">{feature}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                disabled
+                className="px-5 py-2.5 bg-gray-800 text-gray-500 font-medium rounded-lg cursor-not-allowed text-sm border border-gray-700"
+              >
+                App Store — Coming Soon
+              </button>
+              <button
+                disabled
+                className="px-5 py-2.5 bg-gray-800 text-gray-500 font-medium rounded-lg cursor-not-allowed text-sm border border-gray-700"
+              >
+                Google Play — Coming Soon
+              </button>
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <div className="w-64 h-[500px] bg-gray-800 rounded-[2.5rem] border-2 border-gray-700 flex items-center justify-center p-8">
+              <div className="text-center">
+                <Smartphone className="w-16 h-16 text-blue-400 mx-auto mb-4" />
+                <p className="text-gray-400 text-sm">
+                  Mobile app coming soon to iOS and Android
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Organizations & Coaches Section */}
+      <section className="bg-gray-800/50 border-y border-gray-800">
+        <div className="max-w-7xl mx-auto px-6 py-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <div className="order-2 lg:order-1 flex justify-center">
+              <div className="w-full max-w-md bg-gray-800 rounded-xl border border-gray-700 p-6">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-8 h-8 bg-purple-600/20 rounded-lg flex items-center justify-center">
+                    <Monitor className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-300">
+                    Dashboard Preview
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  <div className="h-3 bg-gray-700 rounded-full w-3/4"></div>
+                  <div className="h-3 bg-gray-700 rounded-full w-1/2"></div>
+                  <div className="grid grid-cols-3 gap-3 mt-4">
+                    <div className="h-20 bg-purple-600/10 border border-purple-500/20 rounded-lg"></div>
+                    <div className="h-20 bg-blue-600/10 border border-blue-500/20 rounded-lg"></div>
+                    <div className="h-20 bg-green-600/10 border border-green-500/20 rounded-lg"></div>
+                  </div>
+                  <div className="h-32 bg-gray-700/50 rounded-lg mt-4"></div>
+                </div>
+              </div>
+            </div>
+            <div className="order-1 lg:order-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-600/20 text-purple-400 text-sm font-medium rounded-full mb-6">
+                <Monitor className="w-4 h-4" />
+                Web Dashboard
+              </div>
+              <h2 className="text-3xl font-bold mb-4">
+                For Organizations & Coaches
+              </h2>
+              <p className="text-gray-400 mb-8">
+                The Athletiq web dashboard gives coaches, managers, and
+                organization owners the tools they need to run their programs
+                effectively.
+              </p>
+              <ul className="space-y-3 mb-8">
+                {dashboardFeatures.map((feature) => (
+                  <li key={feature} className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-purple-400 mt-0.5 shrink-0" />
+                    <span className="text-gray-300">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link
+                  href="/register"
+                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors text-sm inline-flex items-center justify-center gap-2"
+                >
+                  Register Your Organization
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+                <Link
+                  href="/signin"
+                  className="px-5 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors text-sm text-center"
+                >
+                  Sign In
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Roadmap Section */}
       <section className="max-w-7xl mx-auto px-6 py-20">
         <h2 className="text-3xl font-bold text-center mb-4">
-          Everything You Need
+          What&apos;s Coming Next
         </h2>
         <p className="text-gray-400 text-center mb-12 max-w-xl mx-auto">
-          Powerful tools to streamline your organization from top to bottom.
+          We&apos;re building the future of athletic management. Here&apos;s
+          what&apos;s on our roadmap.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {features.map((feature) => {
-            const colors = colorMap[feature.color];
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {roadmapItems.map((item) => {
+            const colors = colorMap[item.color];
             return (
               <div
-                key={feature.title}
-                className="bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-gray-600 transition-colors"
+                key={item.title}
+                className={`bg-gray-800 rounded-xl p-6 border ${colors.border} hover:border-opacity-60 transition-colors`}
               >
                 <div
                   className={`w-12 h-12 ${colors.bg} rounded-lg flex items-center justify-center mb-4`}
                 >
-                  <feature.icon className={`w-6 h-6 ${colors.text}`} />
+                  <item.icon className={`w-6 h-6 ${colors.text}`} />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                <p className="text-gray-400 text-sm">{feature.description}</p>
+                <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
+                <p className="text-gray-400 text-sm">{item.description}</p>
               </div>
             );
           })}
         </div>
       </section>
 
-      {/* Roles Section */}
-      <section className="max-w-7xl mx-auto px-6 py-20">
-        <h2 className="text-3xl font-bold text-center mb-4">
-          Built for Every Role
-        </h2>
-        <p className="text-gray-400 text-center mb-12 max-w-xl mx-auto">
-          From organization owners to coaches on the field, everyone gets the
-          access they need.
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {roles.map((role) => (
-            <div
-              key={role.title}
-              className={`bg-gray-800 rounded-xl p-6 border ${role.borderColor} ${role.bgColor} hover:border-opacity-60 transition-colors`}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorMap[role.color].bg}`}
-                >
-                  <role.icon
-                    className={`w-5 h-5 ${colorMap[role.color].text}`}
-                  />
-                </div>
-                <h3 className={`text-lg font-semibold ${role.textColor}`}>
-                  {role.title}
-                </h3>
-              </div>
-              <p className="text-gray-400 text-sm">{role.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* CTA Banner */}
       <section className="max-w-7xl mx-auto px-6 py-20">
         <div className="bg-gradient-to-r from-purple-600 to-purple-800 rounded-2xl p-12 text-center">
-          <h2 className="text-3xl font-bold mb-4">
-            Ready to Get Started?
-          </h2>
+          <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
           <p className="text-purple-100 mb-8 max-w-lg mx-auto">
             Create your organization in minutes and start managing your athletes
             today.
@@ -230,9 +297,78 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-800 py-8">
-        <div className="max-w-7xl mx-auto px-6 text-center text-gray-500 text-sm">
-          &copy; {new Date().getFullYear()} Athletiq. All rights reserved.
+      <footer className="border-t border-gray-800 py-12">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
+            {/* Brand */}
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-4">
+                <Image
+                  src="/logo/white_icon_transparent_background.png"
+                  alt="Athletiq"
+                  width={24}
+                  height={24}
+                />
+                <span className="font-bold">Athletiq</span>
+              </div>
+              <p className="text-gray-500 text-sm">
+                The all-in-one platform for athletic management.
+              </p>
+            </div>
+
+            {/* Product */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">
+                Product
+              </h4>
+              <ul className="space-y-2 text-sm text-gray-500">
+                <li>
+                  <Link href="/register" className="hover:text-gray-300 transition-colors">
+                    Get Started
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/signin" className="hover:text-gray-300 transition-colors">
+                    Sign In
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Company */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">
+                Company
+              </h4>
+              <ul className="space-y-2 text-sm text-gray-500">
+                <li>
+                  <span className="cursor-default">About</span>
+                </li>
+                <li>
+                  <span className="cursor-default">Contact</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h4 className="text-sm font-semibold text-gray-300 mb-3">
+                Legal
+              </h4>
+              <ul className="space-y-2 text-sm text-gray-500">
+                <li>
+                  <span className="cursor-default">Privacy Policy</span>
+                </li>
+                <li>
+                  <span className="cursor-default">Terms of Service</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-800 pt-8 text-center text-gray-500 text-sm">
+            &copy; {new Date().getFullYear()} Athletiq. All rights reserved.
+          </div>
         </div>
       </footer>
     </div>

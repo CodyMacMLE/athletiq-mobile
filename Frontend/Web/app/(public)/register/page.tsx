@@ -404,7 +404,7 @@ export default function RegisterPage() {
           <p className="mt-6 text-center text-sm text-gray-400">
             Already have an account?{" "}
             <Link
-              href="/dashboard"
+              href="/signin"
               className="text-purple-400 hover:text-purple-300 transition-colors"
             >
               Sign in
