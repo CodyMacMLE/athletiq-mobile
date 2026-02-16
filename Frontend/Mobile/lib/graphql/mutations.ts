@@ -164,6 +164,19 @@ export const REMOVE_GUARDIAN = gql`
   }
 `;
 
+export const ACCEPT_INVITE = gql`
+  mutation AcceptInvite($token: String!) {
+    acceptInvite(token: $token) {
+      id
+      role
+      organization {
+        id
+        name
+      }
+    }
+  }
+`;
+
 // ============================================
 // Feedback Mutations
 // ============================================

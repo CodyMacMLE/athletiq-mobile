@@ -72,6 +72,13 @@ function RootNavigator() {
           animation: "slide_from_right",
         }}
       />
+      <Stack.Screen
+        name="accept-invite"
+        options={{
+          animation: "slide_from_bottom",
+          presentation: "fullScreenModal",
+        }}
+      />
     </Stack>
   );
 }

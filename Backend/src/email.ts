@@ -9,7 +9,8 @@ const ses = new SESClient({
 });
 
 const FROM_EMAIL = process.env.SES_FROM_EMAIL || "noreply@athletiq.app";
-const APP_URL = process.env.APP_URL || "http://localhost:3000";
+const APP_URL = process.env.APP_URL || "https://athletiq.fitness";
+const APP_SCHEME = process.env.APP_SCHEME || "athletiq";
 
 export async function sendInviteEmail({
   to,
