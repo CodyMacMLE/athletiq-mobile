@@ -201,12 +201,26 @@ export const resolvers = {
 
     events: async (
       _: unknown,
-      { organizationId, startDate, endDate }: { organizationId: string; startDate?: string; endDate?: string }
+      { organizationId, startDate, endDate }: { organizationId: string; startDate?: string; endDate?: string },
+      context: { userId?: string }
     ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const teamMemberships = await prisma.teamMember.findMany({
+        where: { userId: context.userId, team: { organizationId } },
+        select: { teamId: true },
+      });
+      const teamIds = teamMemberships.map((m) => m.teamId);
+
       return prisma.event.findMany({
         where: {
           organizationId,
           isAdHoc: false,
+          OR: [
+            { teamId: { in: teamIds } },
+            { participatingTeams: { some: { id: { in: teamIds } } } },
+            { teamId: null },
+          ],
           ...(startDate && endDate && {
             date: {
               gte: new Date(startDate),
@@ -218,12 +232,29 @@ export const resolvers = {
       });
     },
 
-    upcomingEvents: async (_: unknown, { organizationId, limit }: { organizationId: string; limit?: number }) => {
+    upcomingEvents: async (
+      _: unknown,
+      { organizationId, limit }: { organizationId: string; limit?: number },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const teamMemberships = await prisma.teamMember.findMany({
+        where: { userId: context.userId, team: { organizationId } },
+        select: { teamId: true },
+      });
+      const teamIds = teamMemberships.map((m) => m.teamId);
+
       return prisma.event.findMany({
         where: {
           organizationId,
           isAdHoc: false,
           date: { gte: new Date() },
+          OR: [
+            { teamId: { in: teamIds } },
+            { participatingTeams: { some: { id: { in: teamIds } } } },
+            { teamId: null },
+          ],
         },
         orderBy: { date: "asc" },
         take: limit || 10,
@@ -799,9 +830,31 @@ export const resolvers = {
       }));
     },
 
-    recentActivity: async (_: unknown, { organizationId, limit }: { organizationId: string; limit?: number }) => {
+    recentActivity: async (
+      _: unknown,
+      { organizationId, limit }: { organizationId: string; limit?: number },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const teamMemberships = await prisma.teamMember.findMany({
+        where: { userId: context.userId, team: { organizationId } },
+        select: { teamId: true },
+      });
+      const teamIds = teamMemberships.map((m) => m.teamId);
+
       const checkIns = await prisma.checkIn.findMany({
-        where: { event: { organizationId }, approved: true },
+        where: {
+          event: {
+            organizationId,
+            OR: [
+              { teamId: { in: teamIds } },
+              { participatingTeams: { some: { id: { in: teamIds } } } },
+              { teamId: null },
+            ],
+          },
+          approved: true,
+        },
         orderBy: { createdAt: "desc" },
         take: limit || 20,
         include: { user: true, event: true },
