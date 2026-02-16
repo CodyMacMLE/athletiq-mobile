@@ -344,6 +344,16 @@ export const DENY_AD_HOC_CHECK_IN = gql`
 `;
 
 // ============================================
+// Account Mutations
+// ============================================
+
+export const DELETE_MY_ACCOUNT = gql`
+  mutation DeleteMyAccount {
+    deleteMyAccount
+  }
+`;
+
+// ============================================
 // Excuse Mutations
 // ============================================
 
