@@ -186,3 +186,13 @@ export const SUBMIT_FEEDBACK = gql`
     submitFeedback(input: $input)
   }
 `;
+
+// ============================================
+// Account Mutations
+// ============================================
+
+export const DELETE_MY_ACCOUNT = gql`
+  mutation DeleteMyAccount {
+    deleteMyAccount
+  }
+`;

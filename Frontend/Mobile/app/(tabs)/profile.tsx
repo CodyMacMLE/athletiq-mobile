@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { UPDATE_USER, GENERATE_UPLOAD_URL, REMOVE_GUARDIAN } from "@/lib/graphql/mutations";
+import { UPDATE_USER, GENERATE_UPLOAD_URL, REMOVE_GUARDIAN, DELETE_MY_ACCOUNT } from "@/lib/graphql/mutations";
 import { GET_MY_GUARDIANS } from "@/lib/graphql/queries";
 import { useMutation, useQuery } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
@@ -53,6 +53,7 @@ export default function Profile() {
   const [updateUser, { loading: saving }] = useMutation(UPDATE_USER);
   const [generateUploadUrl] = useMutation(GENERATE_UPLOAD_URL);
   const [removeGuardian] = useMutation(REMOVE_GUARDIAN);
+  const [deleteMyAccount] = useMutation(DELETE_MY_ACCOUNT);
 
   const { data: guardiansData, refetch: refetchGuardians } = useQuery(GET_MY_GUARDIANS, {
     variables: { organizationId: selectedOrganization?.id },
@@ -194,6 +195,41 @@ export default function Profile() {
       [
         { text: "Cancel", style: "cancel" },
         { text: "Log Out", style: "destructive", onPress: () => logout() },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account, remove you from all teams and organizations, and erase all your data. This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Are you absolutely sure?",
+              "Type DELETE to confirm account deletion.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Delete My Account",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      await deleteMyAccount();
+                      await logout();
+                    } catch (err: any) {
+                      Alert.alert("Error", err.message || "Failed to delete account");
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
       ]
     );
   };
@@ -615,6 +651,17 @@ export default function Profile() {
             <Feather name="log-out" size={18} color="#e74c3c" />
             <Text style={styles.logoutText}>Log Out</Text>
           </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.deleteAccountButton,
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={handleDeleteAccount}
+          >
+            <Feather name="trash-2" size={18} color="#e74c3c" />
+            <Text style={styles.logoutText}>Delete Account</Text>
+          </Pressable>
         </View>
 
         <Text style={styles.versionText}>Version 1.0.0</Text>
@@ -839,6 +886,17 @@ const styles = StyleSheet.create({
     color: "#e74c3c",
     fontSize: 16,
     fontWeight: "600",
+  },
+  deleteAccountButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "rgba(231,76,60,0.3)",
   },
 
   versionText: {

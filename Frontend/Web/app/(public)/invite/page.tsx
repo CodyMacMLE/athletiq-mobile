@@ -157,7 +157,7 @@ function AcceptInvitePage() {
         return;
       }
 
-      // After sign-in, create user record if needed, then accept
+      // Ensure user record exists in DB (no-op if already exists)
       setStep("Setting up account...");
       try {
         await createUser({
@@ -165,7 +165,7 @@ function AcceptInvitePage() {
             input: {
               email: signInEmail,
               firstName: signInEmail.split("@")[0],
-              lastName: "",
+              lastName: signInEmail.split("@")[0],
             },
           },
         });

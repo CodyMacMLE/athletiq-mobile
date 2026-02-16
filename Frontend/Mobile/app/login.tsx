@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -289,6 +290,17 @@ export default function Login() {
               )}
             </LinearGradient>
           </Pressable>
+
+          {/* Register link */}
+          <Pressable
+            style={styles.registerRow}
+            onPress={() => Linking.openURL("https://athletiq.fitness/register")}
+          >
+            <Text style={styles.registerText}>
+              Don't have an account?{" "}
+              <Text style={styles.registerLink}>Register</Text>
+            </Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
@@ -390,5 +402,17 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 17,
     fontWeight: "bold",
+  },
+  registerRow: {
+    marginTop: 20,
+    alignItems: "center",
+  },
+  registerText: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 15,
+  },
+  registerLink: {
+    color: "#a855f7",
+    fontWeight: "600",
   },
 });

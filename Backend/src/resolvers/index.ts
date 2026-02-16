@@ -4,6 +4,16 @@ import { sendInviteEmail, sendFeedbackEmail } from "../email.js";
 import { generateProfilePictureUploadUrl } from "../s3.js";
 import { parseTimeString } from "../utils/time.js";
 import { markAbsentForEndedEvents } from "../services/markAbsent.js";
+import { CognitoIdentityProviderClient, AdminDeleteUserCommand } from "@aws-sdk/client-cognito-identity-provider";
+
+const cognitoClient = new CognitoIdentityProviderClient({
+  region: process.env.AWS_REGION || "us-east-2",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+  },
+});
+const COGNITO_USER_POOL_ID = process.env.COGNITO_USER_POOL_ID || "us-east-2_jHLnfwOqy";
 
 // Helper to calculate date range
 function getDateRange(timeRange: string | undefined) {
@@ -811,10 +821,9 @@ export const resolvers = {
   Mutation: {
     // User mutations
     createUser: async (_: unknown, { input }: { input: { email: string; firstName: string; lastName: string; phone?: string; address?: string; city?: string; country?: string; image?: string } }) => {
-      const { email, ...profileFields } = input;
       return prisma.user.upsert({
-        where: { email },
-        update: profileFields,
+        where: { email: input.email },
+        update: {},
         create: input,
       });
     },
@@ -824,7 +833,73 @@ export const resolvers = {
     },
 
     deleteUser: async (_: unknown, { id }: { id: string }) => {
-      await prisma.user.delete({ where: { id } });
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) throw new Error("User not found");
+
+      await prisma.$transaction(async (tx) => {
+        // Delete check-ins
+        await tx.checkIn.deleteMany({ where: { userId: id } });
+        // Delete excuse requests
+        await tx.excuseRequest.deleteMany({ where: { userId: id } });
+        // Delete guardian links (as guardian or athlete)
+        await tx.guardianLink.deleteMany({ where: { OR: [{ guardianId: id }, { athleteId: id }] } });
+        // Delete team memberships
+        await tx.teamMember.deleteMany({ where: { userId: id } });
+        // Delete org memberships
+        await tx.organizationMember.deleteMany({ where: { userId: id } });
+        // Delete user
+        await tx.user.delete({ where: { id } });
+      });
+
+      // Delete from Cognito
+      try {
+        await cognitoClient.send(new AdminDeleteUserCommand({
+          UserPoolId: COGNITO_USER_POOL_ID,
+          Username: user.email,
+        }));
+      } catch (err) {
+        console.error("Failed to delete Cognito user:", err);
+      }
+
+      return true;
+    },
+
+    deleteMyAccount: async (
+      _: unknown,
+      __: unknown,
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const user = await prisma.user.findUnique({ where: { id: context.userId } });
+      if (!user) throw new Error("User not found");
+
+      // Prevent org owners from deleting without transferring ownership
+      const ownedOrgs = await prisma.organizationMember.findMany({
+        where: { userId: context.userId, role: "OWNER" },
+      });
+      if (ownedOrgs.length > 0) {
+        throw new Error("You must transfer ownership of your organizations before deleting your account.");
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.checkIn.deleteMany({ where: { userId: context.userId! } });
+        await tx.excuseRequest.deleteMany({ where: { userId: context.userId! } });
+        await tx.guardianLink.deleteMany({ where: { OR: [{ guardianId: context.userId! }, { athleteId: context.userId! }] } });
+        await tx.teamMember.deleteMany({ where: { userId: context.userId! } });
+        await tx.organizationMember.deleteMany({ where: { userId: context.userId! } });
+        await tx.user.delete({ where: { id: context.userId! } });
+      });
+
+      try {
+        await cognitoClient.send(new AdminDeleteUserCommand({
+          UserPoolId: COGNITO_USER_POOL_ID,
+          Username: user.email,
+        }));
+      } catch (err) {
+        console.error("Failed to delete Cognito user:", err);
+      }
+
       return true;
     },
 

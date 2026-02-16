@@ -572,5 +572,8 @@ export const typeDefs = `#graphql
     createExcuseRequest(input: CreateExcuseRequestInput!): ExcuseRequest!
     updateExcuseRequest(input: UpdateExcuseRequestInput!): ExcuseRequest!
     cancelExcuseRequest(id: ID!): Boolean!
+
+    # Account mutations
+    deleteMyAccount: Boolean!
   }
 `;
