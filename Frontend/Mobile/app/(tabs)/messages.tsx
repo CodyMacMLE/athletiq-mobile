@@ -108,9 +108,7 @@ export default function ActivityTab() {
               ? `${selectedAthlete?.firstName}'s Activity`
               : isTeamCoach ? "Team Management" : "Activity"}
           </Text>
-          {!isViewingAsGuardian && (
-            <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
-          )}
+          <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
         </View>
 
         {user.image ? (

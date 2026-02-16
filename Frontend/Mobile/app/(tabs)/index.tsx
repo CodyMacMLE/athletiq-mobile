@@ -167,9 +167,7 @@ export default function Index() {
           <Text style={styles.title}>
             {isViewingAsGuardian ? `${selectedAthlete?.firstName}'s Dashboard` : "Dashboard"}
           </Text>
-          {!isViewingAsGuardian && (
-            <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
-          )}
+          <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
         </View>
 
         {user.image ? (

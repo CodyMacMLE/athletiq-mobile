@@ -223,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [linkedAthletesData]);
 
   const hasGuardianLinks = linkedAthletes.length > 0;
-  const isPureGuardian = orgRole === "GUARDIAN";
+  const isPureGuardian = orgRole === "GUARDIAN" && teamsForCurrentOrg.length === 0;
   const isViewingAsGuardian = selectedAthlete !== null;
   const targetUserId = isViewingAsGuardian ? selectedAthlete?.id : user?.id;
 

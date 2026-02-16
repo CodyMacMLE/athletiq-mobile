@@ -33,9 +33,7 @@ export default function Analytics() {
           <Text style={styles.title}>
             {isViewingAsGuardian ? `${selectedAthlete?.firstName}'s Analytics` : "Analytics"}
           </Text>
-          {!isViewingAsGuardian && (
-            <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
-          )}
+          <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
         </View>
 
         {user.image ? (
