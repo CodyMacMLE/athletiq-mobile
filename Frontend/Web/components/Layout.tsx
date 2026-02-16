@@ -32,7 +32,7 @@ const adminOnlyNavigation = [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, currentRole, isAdmin, selectedOrganizationId, logout } = useAuth();
+  const { user, currentRole, isAdmin, canEdit, selectedOrganizationId, logout } = useAuth();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
 
   const organizations = user?.memberships?.map((m) => m.team.organization) || [];
@@ -99,7 +99,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
 
-          {isAdmin && (
+          {canEdit && (
             <>
               <div className="pt-4 pb-2">
                 <p className="px-3 text-xs font-semibold text-gray-500 uppercase">Admin</p>
