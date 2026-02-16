@@ -11,6 +11,7 @@ import {
   CREATE_INVITE,
   CREATE_ORGANIZATION,
   GET_ORGANIZATION_USERS,
+  DELETE_MY_ACCOUNT,
 } from "@/lib/graphql";
 import {
   User as UserIcon,
@@ -21,9 +22,12 @@ import {
   X,
   Plus,
   AlertTriangle,
+  Settings,
+  Bell,
+  Trash2,
 } from "lucide-react";
 
-type Section = "profile" | "organizations" | "app-download";
+type Section = "profile" | "organizations" | "app-download" | "account-settings";
 
 type OrgMembership = {
   id: string;
@@ -81,6 +85,9 @@ export default function ProfilePage() {
   const [transferOwnership, { loading: transferring }] = useMutation<any>(TRANSFER_OWNERSHIP);
   const [createInvite, { loading: inviting }] = useMutation<any>(CREATE_INVITE);
   const [createOrganization, { loading: creatingOrg }] = useMutation<any>(CREATE_ORGANIZATION);
+  const [deleteMyAccount] = useMutation(DELETE_MY_ACCOUNT);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Lazy query for transfer modal members
   const [fetchOrgUsers, { data: orgUsersData, loading: orgUsersLoading }] = useLazyQuery<any>(GET_ORGANIZATION_USERS);
@@ -239,6 +246,17 @@ export default function ProfilePage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      await deleteMyAccount();
+      await logout();
+    } catch (err) {
+      console.error("Failed to delete account:", err);
+      setDeleting(false);
+    }
+  };
+
   const handleGoToDashboard = (orgId: string) => {
     setSelectedOrganizationId(orgId);
     window.location.href = "/dashboard";
@@ -298,6 +316,17 @@ export default function ProfilePage() {
           >
             <Building2 className="w-5 h-5" />
             Organizations
+          </button>
+          <button
+            onClick={() => setSection("account-settings")}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              section === "account-settings"
+                ? "bg-purple-600/20 text-purple-400"
+                : "text-gray-400 hover:bg-gray-700 hover:text-white"
+            }`}
+          >
+            <Settings className="w-5 h-5" />
+            Account Settings
           </button>
           {hasAthleteOrGuardian && (
             <button
@@ -565,7 +594,92 @@ export default function ProfilePage() {
             </div>
           </div>
         )}
+        {/* Account Settings Section */}
+        {section === "account-settings" && (
+          <div className="max-w-2xl">
+            <h1 className="text-2xl font-bold text-white mb-6">Account Settings</h1>
+
+            {/* Notifications */}
+            <section className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <Bell className="w-5 h-5 text-purple-400" />
+                <h2 className="text-lg font-semibold text-white">Notifications</h2>
+              </div>
+              <div className="bg-gray-800 rounded-xl border border-gray-700 divide-y divide-gray-700">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-gray-300">Push Notifications</span>
+                  <div className="w-10 h-6 bg-gray-600 rounded-full relative cursor-not-allowed opacity-50">
+                    <div className="absolute left-1 top-1 w-4 h-4 bg-gray-400 rounded-full" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm text-gray-300">Email Notifications</span>
+                  <div className="w-10 h-6 bg-gray-600 rounded-full relative cursor-not-allowed opacity-50">
+                    <div className="absolute left-1 top-1 w-4 h-4 bg-gray-400 rounded-full" />
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Notification preferences coming soon.</p>
+            </section>
+
+            {/* Danger Zone */}
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Trash2 className="w-5 h-5 text-red-400" />
+                <h2 className="text-lg font-semibold text-white">Danger Zone</h2>
+              </div>
+              <div className="bg-gray-800 rounded-xl border border-red-900/50 p-4">
+                <p className="text-sm text-gray-300 mb-4">
+                  Permanently delete your account and all associated data. This action cannot be undone.
+                </p>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  Delete Account
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
       </main>
+
+      {/* Delete Account Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Delete Account</h3>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-300 mb-6">
+              Are you sure you want to delete your account? This will permanently remove all your
+              data and cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
+                className="px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Delete My Account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Leave Organization Modal */}
       {leaveModalOrg && (

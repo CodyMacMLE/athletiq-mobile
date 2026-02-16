@@ -24,12 +24,15 @@ const navigation = [
   { name: "Events", href: "/events", icon: Calendar },
   { name: "Attendance", href: "/attendance", icon: ClipboardList },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
+];
+
+const adminOnlyNavigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, currentRole, selectedOrganizationId, logout } = useAuth();
+  const { user, currentRole, isAdmin, selectedOrganizationId, logout } = useAuth();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
 
   const organizations = user?.memberships?.map((m) => m.team.organization) || [];
@@ -96,6 +99,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
 
+          {isAdmin && (
+            <>
+              <div className="pt-4 pb-2">
+                <p className="px-3 text-xs font-semibold text-gray-500 uppercase">Admin</p>
+              </div>
+              {adminOnlyNavigation.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                      isActive
+                        ? "bg-purple-600 text-white"
+                        : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5 mr-3" />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         {/* User */}
