@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { cognitoSignUp, cognitoConfirmSignUp, cognitoResendSignUpCode, cognitoSignIn } from "@/lib/cognito";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -17,98 +18,69 @@ import {
   View,
 } from "react-native";
 import { useMutation, useLazyQuery } from "@apollo/client";
-import { ACCEPT_INVITE } from "@/lib/graphql/mutations";
+import { CREATE_USER, ACCEPT_INVITE } from "@/lib/graphql/mutations";
 import { MY_PENDING_INVITES } from "@/lib/graphql/queries";
 
-export default function Login() {
-  const { login, confirmNewPassword } = useAuth();
+export default function Register() {
+  const { refetchUser } = useAuth();
 
-  const [acceptInvite] = useMutation(ACCEPT_INVITE);
-  const [fetchPendingInvites] = useLazyQuery(MY_PENDING_INVITES, { fetchPolicy: "network-only" });
-
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState("");
 
-  // New password flow
-  const [needsNewPassword, setNeedsNewPassword] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
+  // Confirmation flow
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
+  const [confirmationCode, setConfirmationCode] = useState("");
+  const [resending, setResending] = useState(false);
 
+  const lastNameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const confirmPasswordRef = useRef<TextInput>(null);
 
-  const handleSignIn = async () => {
-    if (!email.trim() || !password.trim()) {
-      setError("Please enter your email and password.");
+  const [createUser] = useMutation(CREATE_USER);
+  const [acceptInvite] = useMutation(ACCEPT_INVITE);
+  const [fetchPendingInvites] = useLazyQuery(MY_PENDING_INVITES, { fetchPolicy: "network-only" });
+
+  const handleRegister = async () => {
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password.trim()) {
+      setError("Please fill in all fields.");
       return;
     }
-
-    setError("");
-    setLoading(true);
-
-    try {
-      const result = await login(email.trim(), password);
-
-      if (result.requiresNewPassword) {
-        setNeedsNewPassword(true);
-        setLoading(false);
-        return;
-      }
-
-      if (!result.success && result.error) {
-        setError(result.error);
-        return;
-      }
-
-      if (result.success) {
-        // Auto-accept any pending invites
-        try {
-          const { data } = await fetchPendingInvites();
-          const invites = data?.myPendingInvites || [];
-          for (const invite of invites) {
-            try {
-              await acceptInvite({ variables: { token: invite.token } });
-            } catch {
-              // Skip failed invites
-            }
-          }
-        } catch {
-          // No invites or query failed — continue
-        }
-      }
-    } catch {
-      setError("An unexpected error occurred.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSetNewPassword = async () => {
-    if (!newPassword.trim()) {
-      setError("Please enter a new password.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
+    if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
-    if (newPassword.length < 8) {
+    if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
     }
 
     setError("");
     setLoading(true);
+    setStep("Creating account...");
 
     try {
-      const result = await confirmNewPassword(newPassword);
-      if (!result.success && result.error) {
-        setError(result.error);
+      const signUpResult = await cognitoSignUp(email.trim(), password);
+      if (!signUpResult.success) {
+        const err = signUpResult.error || "";
+        if (err.includes("already exists") || err.includes("UsernameExistsException")) {
+          setError("An account with this email already exists. Please sign in instead.");
+          setLoading(false);
+          return;
+        }
+        setError(err || "Failed to create account.");
+        setLoading(false);
+        return;
       }
+
+      setNeedsConfirmation(true);
     } catch {
       setError("An unexpected error occurred.");
     } finally {
@@ -116,7 +88,86 @@ export default function Login() {
     }
   };
 
-  if (needsNewPassword) {
+  const handleConfirm = async () => {
+    if (!confirmationCode.trim()) {
+      setError("Please enter the confirmation code.");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+
+    try {
+      setStep("Verifying email...");
+      const confirmResult = await cognitoConfirmSignUp(email.trim(), confirmationCode.trim());
+      if (!confirmResult.success) {
+        const alreadyConfirmed = confirmResult.error?.includes("Current status is CONFIRMED");
+        if (!alreadyConfirmed) {
+          setError(confirmResult.error || "Invalid confirmation code.");
+          setLoading(false);
+          return;
+        }
+      }
+
+      setStep("Signing in...");
+      const signInResult = await cognitoSignIn(email.trim(), password);
+      if (!signInResult.success) {
+        setError(signInResult.error || "Failed to sign in.");
+        setLoading(false);
+        return;
+      }
+
+      setStep("Setting up your profile...");
+      try {
+        await createUser({
+          variables: {
+            input: {
+              email: email.trim(),
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+            },
+          },
+        });
+      } catch {
+        // User may already exist
+      }
+
+      // Check for pending invites and auto-accept
+      setStep("Checking for invitations...");
+      try {
+        const { data } = await fetchPendingInvites();
+        const invites = data?.myPendingInvites || [];
+        for (const invite of invites) {
+          try {
+            await acceptInvite({ variables: { token: invite.token } });
+          } catch {
+            // Skip failed invites
+          }
+        }
+      } catch {
+        // No invites or query failed — continue
+      }
+
+      refetchUser();
+      router.replace("/(tabs)");
+    } catch {
+      setError("An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setError("");
+    setResending(true);
+    const result = await cognitoResendSignUpCode(email.trim());
+    if (!result.success) {
+      setError(result.error || "Failed to resend code.");
+    }
+    setResending(false);
+  };
+
+  if (needsConfirmation) {
     return (
       <LinearGradient
         colors={["#302b6f", "#4d2a69", "#302b6f"]}
@@ -137,9 +188,9 @@ export default function Login() {
               <Image source={require("@/assets/logo/white_icon_transparent_background.png")} style={styles.logoImage} resizeMode="contain" />
             </View>
 
-            <Text style={styles.heading}>Set New Password</Text>
+            <Text style={styles.heading}>Verify Your Email</Text>
             <Text style={styles.subheading}>
-              You need to set a new password before continuing.
+              We sent a confirmation code to {email}
             </Text>
 
             {/* Error */}
@@ -150,54 +201,34 @@ export default function Login() {
               </View>
             ) : null}
 
-            {/* New Password */}
+            {/* Confirmation Code */}
             <View style={styles.inputContainer}>
-              <Feather name="lock" size={18} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
+              <Feather name="hash" size={18} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
-                placeholder="New Password"
+                style={[styles.input, { textAlign: "center", letterSpacing: 8, fontSize: 20 }]}
+                placeholder="123456"
                 placeholderTextColor="rgba(255,255,255,0.3)"
-                secureTextEntry={!showNewPassword}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                autoCapitalize="none"
-                returnKeyType="next"
-                onSubmitEditing={() => confirmPasswordRef.current?.focus()}
-              />
-              <Pressable onPress={() => setShowNewPassword(!showNewPassword)} hitSlop={8}>
-                <Feather
-                  name={showNewPassword ? "eye-off" : "eye"}
-                  size={18}
-                  color="rgba(255,255,255,0.4)"
-                />
-              </Pressable>
-            </View>
-
-            {/* Confirm Password */}
-            <View style={styles.inputContainer}>
-              <Feather name="lock" size={18} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
-              <TextInput
-                ref={confirmPasswordRef}
-                style={styles.input}
-                placeholder="Confirm Password"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                secureTextEntry={!showNewPassword}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                autoCapitalize="none"
+                keyboardType="number-pad"
+                value={confirmationCode}
+                onChangeText={(text) => {
+                  setConfirmationCode(text);
+                  setError("");
+                }}
+                maxLength={6}
+                autoFocus
                 returnKeyType="go"
-                onSubmitEditing={handleSetNewPassword}
+                onSubmitEditing={handleConfirm}
               />
             </View>
 
-            {/* Submit */}
+            {/* Verify Button */}
             <Pressable
               style={({ pressed }) => [
                 styles.signInButton,
                 pressed && styles.signInButtonPressed,
                 loading && styles.signInButtonDisabled,
               ]}
-              onPress={handleSetNewPassword}
+              onPress={handleConfirm}
               disabled={loading}
             >
               <LinearGradient
@@ -207,11 +238,28 @@ export default function Login() {
                 style={styles.signInGradient}
               >
                 {loading ? (
-                  <ActivityIndicator color="white" />
+                  <View style={styles.loadingRow}>
+                    <ActivityIndicator color="white" />
+                    <Text style={styles.signInText}>{step}</Text>
+                  </View>
                 ) : (
-                  <Text style={styles.signInText}>Set Password</Text>
+                  <Text style={styles.signInText}>Verify & Continue</Text>
                 )}
               </LinearGradient>
+            </Pressable>
+
+            {/* Resend code */}
+            <Pressable
+              style={styles.registerRow}
+              onPress={handleResendCode}
+              disabled={resending}
+            >
+              <Text style={styles.registerText}>
+                Didn't receive the code?{" "}
+                <Text style={styles.registerLink}>
+                  {resending ? "Sending..." : "Resend code"}
+                </Text>
+              </Text>
             </Pressable>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -239,8 +287,8 @@ export default function Login() {
             <Image source={require("@/assets/logo/white_icon_transparent_background.png")} style={styles.logoImage} resizeMode="contain" />
           </View>
 
-          <Text style={styles.heading}>Welcome Back</Text>
-          <Text style={styles.subheading}>Sign in to your account</Text>
+          <Text style={styles.heading}>Create Account</Text>
+          <Text style={styles.subheading}>Sign up for Athletiq</Text>
 
           {/* Error */}
           {error ? (
@@ -250,10 +298,41 @@ export default function Login() {
             </View>
           ) : null}
 
+          {/* Name Row */}
+          <View style={styles.nameRow}>
+            <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
+              <Feather name="user" size={18} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="First Name"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                autoCapitalize="words"
+                value={firstName}
+                onChangeText={setFirstName}
+                returnKeyType="next"
+                onSubmitEditing={() => lastNameRef.current?.focus()}
+              />
+            </View>
+            <View style={[styles.inputContainer, { flex: 1 }]}>
+              <TextInput
+                ref={lastNameRef}
+                style={styles.input}
+                placeholder="Last Name"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                autoCapitalize="words"
+                value={lastName}
+                onChangeText={setLastName}
+                returnKeyType="next"
+                onSubmitEditing={() => emailRef.current?.focus()}
+              />
+            </View>
+          </View>
+
           {/* Email */}
           <View style={styles.inputContainer}>
             <Feather name="mail" size={18} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
             <TextInput
+              ref={emailRef}
               style={styles.input}
               placeholder="Email"
               placeholderTextColor="rgba(255,255,255,0.3)"
@@ -279,8 +358,8 @@ export default function Login() {
               value={password}
               onChangeText={setPassword}
               autoCapitalize="none"
-              returnKeyType="go"
-              onSubmitEditing={handleSignIn}
+              returnKeyType="next"
+              onSubmitEditing={() => confirmPasswordRef.current?.focus()}
             />
             <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
               <Feather
@@ -291,14 +370,31 @@ export default function Login() {
             </Pressable>
           </View>
 
-          {/* Sign In Button */}
+          {/* Confirm Password */}
+          <View style={styles.inputContainer}>
+            <Feather name="lock" size={18} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
+            <TextInput
+              ref={confirmPasswordRef}
+              style={styles.input}
+              placeholder="Confirm Password"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              secureTextEntry={!showPassword}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              autoCapitalize="none"
+              returnKeyType="go"
+              onSubmitEditing={handleRegister}
+            />
+          </View>
+
+          {/* Register Button */}
           <Pressable
             style={({ pressed }) => [
               styles.signInButton,
               pressed && styles.signInButtonPressed,
               loading && styles.signInButtonDisabled,
             ]}
-            onPress={handleSignIn}
+            onPress={handleRegister}
             disabled={loading}
           >
             <LinearGradient
@@ -308,21 +404,24 @@ export default function Login() {
               style={styles.signInGradient}
             >
               {loading ? (
-                <ActivityIndicator color="white" />
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator color="white" />
+                  <Text style={styles.signInText}>{step}</Text>
+                </View>
               ) : (
-                <Text style={styles.signInText}>Sign In</Text>
+                <Text style={styles.signInText}>Create Account</Text>
               )}
             </LinearGradient>
           </Pressable>
 
-          {/* Register link */}
+          {/* Sign In link */}
           <Pressable
             style={styles.registerRow}
-            onPress={() => router.push("/register")}
+            onPress={() => router.back()}
           >
             <Text style={styles.registerText}>
-              Don't have an account?{" "}
-              <Text style={styles.registerLink}>Register</Text>
+              Already have an account?{" "}
+              <Text style={styles.registerLink}>Sign In</Text>
             </Text>
           </Pressable>
         </ScrollView>
@@ -349,8 +448,8 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logoImage: {
-    width: 160,
-    height: 160,
+    width: 120,
+    height: 120,
   },
   heading: {
     color: "white",
@@ -380,6 +479,10 @@ const styles = StyleSheet.create({
     color: "#e74c3c",
     fontSize: 14,
     flex: 1,
+  },
+  nameRow: {
+    flexDirection: "row",
+    marginBottom: 0,
   },
   inputContainer: {
     flexDirection: "row",
@@ -426,6 +529,11 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 17,
     fontWeight: "bold",
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   registerRow: {
     marginTop: 20,

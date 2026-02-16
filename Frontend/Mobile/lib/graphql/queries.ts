@@ -481,6 +481,25 @@ export const GET_MY_LINKED_ATHLETES = gql`
   }
 `;
 
+// ============================================
+// Invite Queries
+// ============================================
+
+export const MY_PENDING_INVITES = gql`
+  query MyPendingInvites {
+    myPendingInvites {
+      id
+      token
+      role
+      organization {
+        id
+        name
+      }
+      expiresAt
+    }
+  }
+`;
+
 export const GET_ORGANIZATION_NFC_TAGS = gql`
   query GetOrganizationNfcTags($organizationId: ID!) {
     organizationNfcTags(organizationId: $organizationId) {

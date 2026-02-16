@@ -4,10 +4,13 @@ import "@aws-amplify/react-native";
 import { Amplify } from "aws-amplify";
 import {
   signIn,
+  signUp,
   signOut,
   getCurrentUser,
   fetchAuthSession,
   confirmSignIn,
+  confirmSignUp,
+  resendSignUpCode,
   type SignInInput,
 } from "aws-amplify/auth";
 
@@ -90,6 +93,47 @@ export async function cognitoConfirmNewPassword(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Password change failed";
+    return { success: false, error: message };
+  }
+}
+
+export async function cognitoSignUp(
+  email: string,
+  password: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await signUp({
+      username: email,
+      password,
+    });
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Sign up failed";
+    return { success: false, error: message };
+  }
+}
+
+export async function cognitoConfirmSignUp(
+  email: string,
+  confirmationCode: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await confirmSignUp({ username: email, confirmationCode });
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Confirmation failed";
+    return { success: false, error: message };
+  }
+}
+
+export async function cognitoResendSignUpCode(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await resendSignUpCode({ username: email });
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to resend code";
     return { success: false, error: message };
   }
 }

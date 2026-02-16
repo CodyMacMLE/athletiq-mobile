@@ -5,6 +5,15 @@ import { USER_FRAGMENT, EVENT_FRAGMENT, CHECKIN_FRAGMENT } from "./queries";
 // User Mutations
 // ============================================
 
+export const CREATE_USER = gql`
+  mutation CreateUser($input: CreateUserInput!) {
+    createUser(input: $input) {
+      ...UserFields
+    }
+  }
+  ${USER_FRAGMENT}
+`;
+
 export const UPDATE_USER = gql`
   mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
     updateUser(id: $id, input: $input) {

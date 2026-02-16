@@ -477,6 +477,7 @@ export const typeDefs = `#graphql
 
     # Invite queries
     invite(token: String!): Invite
+    myPendingInvites: [Invite!]!
 
     # Guardian queries
     myGuardians(organizationId: ID!): [GuardianLink!]!

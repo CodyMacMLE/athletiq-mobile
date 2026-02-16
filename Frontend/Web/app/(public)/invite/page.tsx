@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation } from "@apollo/client/react";
 import Link from "next/link";
-import { Loader2, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, AlertTriangle, Smartphone } from "lucide-react";
 import {
   cognitoSignUp,
   cognitoSignIn,
@@ -374,6 +374,37 @@ function AcceptInvitePage() {
           >
             Go Home
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Mobile-only roles (athlete/guardian) — show app download message
+  const isMobileRole = invite && (invite.role === "ATHLETE" || invite.role === "GUARDIAN");
+  if (isMobileRole) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md">
+          <div className="bg-gray-800 rounded-xl border border-gray-700 p-8 text-center">
+            <Smartphone className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-white mb-2">Download the App</h1>
+            <p className="text-gray-400 mb-2">
+              This invitation is for the <span className="text-white font-medium">Athletiq mobile app</span>.
+            </p>
+            <p className="text-gray-400 mb-6">
+              Download the app and create an account using{" "}
+              <span className="text-white font-medium">{invite.email}</span> — your
+              invitation will be accepted automatically when you sign in.
+            </p>
+            <div className="space-y-3">
+              <div className="w-full py-3 px-4 bg-gray-700 text-gray-400 font-medium rounded-lg text-sm">
+                App Store — Coming Soon
+              </div>
+              <div className="w-full py-3 px-4 bg-gray-700 text-gray-400 font-medium rounded-lg text-sm">
+                Google Play — Coming Soon
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

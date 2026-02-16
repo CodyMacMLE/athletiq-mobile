@@ -247,6 +247,19 @@ export const resolvers = {
       return prisma.invite.findUnique({ where: { token } });
     },
 
+    myPendingInvites: async (_: unknown, __: unknown, context: { userId?: string }) => {
+      if (!context.userId) throw new Error("Authentication required");
+      const user = await prisma.user.findUnique({ where: { id: context.userId }, select: { email: true } });
+      if (!user) throw new Error("User not found");
+      return prisma.invite.findMany({
+        where: {
+          email: { equals: user.email, mode: "insensitive" },
+          status: "PENDING",
+          expiresAt: { gt: new Date() },
+        },
+      });
+    },
+
     // Guardian queries
     myGuardians: async (
       _: unknown,

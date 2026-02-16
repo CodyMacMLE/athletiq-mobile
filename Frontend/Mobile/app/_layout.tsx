@@ -73,6 +73,12 @@ function RootNavigator() {
         }}
       />
       <Stack.Screen
+        name="register"
+        options={{
+          animation: "slide_from_right",
+        }}
+      />
+      <Stack.Screen
         name="accept-invite"
         options={{
           animation: "slide_from_bottom",
