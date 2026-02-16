@@ -137,6 +137,8 @@ function isAthleteCheckIn(
 const toISO = (val: any) => val instanceof Date ? val.toISOString() : val;
 
 // Compute actual start/end Date objects for a season given its month range and year.
+// The seasonYear represents the END year of the season (e.g. a Sep-Jun season
+// spanning 2025-2026 has seasonYear=2026).
 function getSeasonDateRange(startMonth: number, endMonth: number, seasonYear: number): { start: Date; end: Date } {
   if (startMonth <= endMonth) {
     // Same-year season: e.g. Mar-Aug 2025
@@ -144,9 +146,9 @@ function getSeasonDateRange(startMonth: number, endMonth: number, seasonYear: nu
     const end = new Date(Date.UTC(seasonYear, endMonth, 0, 23, 59, 59)); // last day of endMonth
     return { start, end };
   } else {
-    // Cross-year season: e.g. Sep-Jun 2025 → Sep 1 2025 to Jun 30 2026
-    const start = new Date(Date.UTC(seasonYear, startMonth - 1, 1));
-    const end = new Date(Date.UTC(seasonYear + 1, endMonth, 0, 23, 59, 59));
+    // Cross-year season: e.g. Sep-Jun with seasonYear 2026 → Sep 1 2025 to Jun 30 2026
+    const start = new Date(Date.UTC(seasonYear - 1, startMonth - 1, 1));
+    const end = new Date(Date.UTC(seasonYear, endMonth, 0, 23, 59, 59));
     return { start, end };
   }
 }

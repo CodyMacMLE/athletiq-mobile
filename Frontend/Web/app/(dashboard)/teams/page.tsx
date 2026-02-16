@@ -51,14 +51,15 @@ type TeamFormData = {
   seasonYear: number;
 };
 
+// seasonYear represents the END year of the season (e.g. Sep-Jun 2025-2026 has seasonYear=2026)
 function getSeasonDateRange(startMonth: number, endMonth: number, seasonYear: number): { start: Date; end: Date } {
   if (startMonth <= endMonth) {
     const start = new Date(Date.UTC(seasonYear, startMonth - 1, 1));
     const end = new Date(Date.UTC(seasonYear, endMonth, 0, 23, 59, 59));
     return { start, end };
   } else {
-    const start = new Date(Date.UTC(seasonYear, startMonth - 1, 1));
-    const end = new Date(Date.UTC(seasonYear + 1, endMonth, 0, 23, 59, 59));
+    const start = new Date(Date.UTC(seasonYear - 1, startMonth - 1, 1));
+    const end = new Date(Date.UTC(seasonYear, endMonth, 0, 23, 59, 59));
     return { start, end };
   }
 }
