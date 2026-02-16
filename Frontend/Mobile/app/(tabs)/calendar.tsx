@@ -131,7 +131,7 @@ const monthsList = generateMonthsList();
 const initialIndex = 24;
 
 export default function Calendar() {
-  const { user, selectedOrganization } = useAuth();
+  const { user, selectedOrganization, targetUserId, isViewingAsGuardian } = useAuth();
   const [currentMonthIndex, setCurrentMonthIndex] = useState(initialIndex);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -164,13 +164,13 @@ export default function Calendar() {
 
   // Fetch user's check-in history and excuse requests
   const { data: checkinData } = useQuery(GET_CHECKIN_HISTORY, {
-    variables: { userId: user?.id, limit: 100 },
-    skip: !user?.id,
+    variables: { userId: targetUserId, limit: 100 },
+    skip: !targetUserId,
   });
 
   const { data: excuseData } = useQuery(GET_MY_EXCUSE_REQUESTS, {
-    variables: { userId: user?.id },
-    skip: !user?.id,
+    variables: { userId: targetUserId },
+    skip: !targetUserId,
   });
 
   const [cancelExcuse] = useMutation(CANCEL_EXCUSE_REQUEST, {
@@ -575,7 +575,7 @@ export default function Calendar() {
                   )}
 
                   {/* Upcoming Event: Excuse Request */}
-                  {!isEventPast && (
+                  {!isEventPast && !isViewingAsGuardian && (
                     <View style={styles.attendanceSection}>
                       {selectedExcuse ? (
                         <View style={styles.attendanceCard}>

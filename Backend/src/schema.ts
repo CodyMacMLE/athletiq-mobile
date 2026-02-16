@@ -209,10 +209,19 @@ export const typeDefs = `#graphql
     organization: Organization!
     role: OrgRole!
     teamIds: [String!]!
+    athleteId: String
     token: String!
     status: InviteStatus!
     createdAt: String!
     expiresAt: String!
+  }
+
+  type GuardianLink {
+    id: ID!
+    guardian: User!
+    athlete: User!
+    organization: Organization!
+    createdAt: String!
   }
 
   type NfcTag {
@@ -464,10 +473,14 @@ export const typeDefs = `#graphql
     # NFC queries
     organizationNfcTags(organizationId: ID!): [NfcTag!]!
     pendingAdHocCheckIns(organizationId: ID!): [CheckIn!]!
-    activeCheckIn: CheckIn
+    activeCheckIn(userId: ID): CheckIn
 
     # Invite queries
     invite(token: String!): Invite
+
+    # Guardian queries
+    myGuardians(organizationId: ID!): [GuardianLink!]!
+    myLinkedAthletes(organizationId: ID!): [GuardianLink!]!
 
     # Attendance log queries
     attendanceLog(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
@@ -537,10 +550,14 @@ export const typeDefs = `#graphql
     cancelInvite(id: ID!): Boolean!
     resendInvite(id: ID!): Invite!
 
+    # Guardian mutations
+    inviteGuardian(email: String!, organizationId: ID!): Invite!
+    removeGuardian(guardianLinkId: ID!): Boolean!
+
     # NFC mutations
     registerNfcTag(input: RegisterNfcTagInput!): NfcTag!
     deactivateNfcTag(id: ID!): NfcTag!
-    nfcCheckIn(token: String!): NfcCheckInResult!
+    nfcCheckIn(token: String!, forUserId: ID): NfcCheckInResult!
     adHocNfcCheckIn(input: AdHocNfcCheckInInput!): NfcCheckInResult!
     approveAdHocCheckIn(checkInId: ID!): CheckIn!
     denyAdHocCheckIn(checkInId: ID!): Boolean!

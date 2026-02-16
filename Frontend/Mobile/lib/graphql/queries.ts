@@ -343,8 +343,8 @@ export const GET_PENDING_AD_HOC_CHECK_INS = gql`
 // ============================================
 
 export const GET_ACTIVE_CHECKIN = gql`
-  query GetActiveCheckIn {
-    activeCheckIn {
+  query GetActiveCheckIn($userId: ID) {
+    activeCheckIn(userId: $userId) {
       id
       checkInTime
       event {
@@ -446,6 +446,40 @@ export const GET_TEAM_ATTENDANCE_RECORDS = gql`
 // ============================================
 // NFC Queries
 // ============================================
+
+// ============================================
+// Guardian Queries
+// ============================================
+
+export const GET_MY_GUARDIANS = gql`
+  query GetMyGuardians($organizationId: ID!) {
+    myGuardians(organizationId: $organizationId) {
+      id
+      createdAt
+      guardian {
+        id
+        firstName
+        lastName
+        email
+        image
+      }
+    }
+  }
+`;
+
+export const GET_MY_LINKED_ATHLETES = gql`
+  query GetMyLinkedAthletes($organizationId: ID!) {
+    myLinkedAthletes(organizationId: $organizationId) {
+      id
+      athlete {
+        id
+        firstName
+        lastName
+        image
+      }
+    }
+  }
+`;
 
 export const GET_ORGANIZATION_NFC_TAGS = gql`
   query GetOrganizationNfcTags($organizationId: ID!) {

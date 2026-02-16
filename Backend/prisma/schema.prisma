@@ -29,6 +29,8 @@ model User {
   organizationMemberships  OrganizationMember[]
   checkIns                 CheckIn[]
   excuseRequests           ExcuseRequest[]
+  guardianOf               GuardianLink[] @relation("GuardianOf")
+  guardedBy                GuardianLink[] @relation("GuardedBy")
 }
 
 // ============================================
@@ -49,6 +51,7 @@ model Organization {
   recurringEvents RecurringEvent[]
   invites         Invite[]
   nfcTags         NfcTag[]
+  guardianLinks   GuardianLink[]
 }
 
 model Team {
@@ -229,6 +232,7 @@ model Invite {
   organization   Organization @relation(fields: [organizationId], references: [id])
   role           OrgRole      @default(ATHLETE)
   teamIds        String[]
+  athleteId      String?
   token          String       @unique @default(cuid())
   status         InviteStatus @default(PENDING)
   createdAt      DateTime     @default(now())
@@ -290,4 +294,23 @@ model RecurringEvent {
   updatedAt      DateTime            @updatedAt
 
   @@index([organizationId])
+}
+
+// ============================================
+// Guardian Links
+// ============================================
+
+model GuardianLink {
+  id             String       @id @default(cuid())
+  guardianId     String
+  guardian       User         @relation("GuardianOf", fields: [guardianId], references: [id])
+  athleteId      String
+  athlete        User         @relation("GuardedBy", fields: [athleteId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@unique([guardianId, athleteId, organizationId])
+  @@index([guardianId])
+  @@index([athleteId])
 }

@@ -237,6 +237,31 @@ export const resolvers = {
       return prisma.invite.findUnique({ where: { token } });
     },
 
+    // Guardian queries
+    myGuardians: async (
+      _: unknown,
+      { organizationId }: { organizationId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      return prisma.guardianLink.findMany({
+        where: { athleteId: context.userId, organizationId },
+        include: { guardian: true, athlete: true, organization: true },
+      });
+    },
+
+    myLinkedAthletes: async (
+      _: unknown,
+      { organizationId }: { organizationId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      return prisma.guardianLink.findMany({
+        where: { guardianId: context.userId, organizationId },
+        include: { guardian: true, athlete: true, organization: true },
+      });
+    },
+
     // NFC queries
     organizationNfcTags: async (_: unknown, { organizationId }: { organizationId: string }) => {
       return prisma.nfcTag.findMany({ where: { organizationId, isActive: true } });
@@ -275,8 +300,22 @@ export const resolvers = {
     },
 
     // Active check-in query (for dashboard check-out button)
-    activeCheckIn: async (_: unknown, __: unknown, context: { userId?: string }) => {
+    activeCheckIn: async (
+      _: unknown,
+      { userId }: { userId?: string },
+      context: { userId?: string }
+    ) => {
       if (!context.userId) return null;
+
+      let targetUserId = context.userId;
+      if (userId && userId !== context.userId) {
+        // Verify caller is a guardian of the target user
+        const guardianLink = await prisma.guardianLink.findFirst({
+          where: { guardianId: context.userId, athleteId: userId },
+        });
+        if (!guardianLink) throw new Error("Not authorized to view this user's check-ins");
+        targetUserId = userId;
+      }
 
       const now = new Date();
       const todayStart = new Date(now);
@@ -286,7 +325,7 @@ export const resolvers = {
 
       return prisma.checkIn.findFirst({
         where: {
-          userId: context.userId,
+          userId: targetUserId,
           checkInTime: { not: null },
           checkOutTime: null,
           approved: true,
@@ -1245,7 +1284,23 @@ export const resolvers = {
       return markAbsentForEndedEvents({ organizationId, lookbackMinutes: 10080 });
     },
 
-    checkIn: async (_: unknown, { input }: { input: { userId: string; eventId: string } }) => {
+    checkIn: async (
+      _: unknown,
+      { input }: { input: { userId: string; eventId: string } },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // If checking in for someone else, verify guardian relationship
+      if (input.userId !== context.userId) {
+        const event = await prisma.event.findUnique({ where: { id: input.eventId } });
+        if (!event) throw new Error("Event not found");
+        const guardianLink = await prisma.guardianLink.findFirst({
+          where: { guardianId: context.userId, athleteId: input.userId, organizationId: event.organizationId },
+        });
+        if (!guardianLink) throw new Error("Not authorized to check in this user");
+      }
+
       const event = await prisma.event.findUnique({ where: { id: input.eventId } });
       if (!event) throw new Error("Event not found");
 
@@ -1267,13 +1322,27 @@ export const resolvers = {
       });
     },
 
-    checkOut: async (_: unknown, { input }: { input: { checkInId: string } }) => {
+    checkOut: async (
+      _: unknown,
+      { input }: { input: { checkInId: string } },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
       const checkIn = await prisma.checkIn.findUnique({
         where: { id: input.checkInId },
         include: { event: true },
       });
       if (!checkIn) throw new Error("Check-in not found");
       if (!checkIn.checkInTime) throw new Error("No check-in time recorded");
+
+      // If checking out for someone else, verify guardian relationship
+      if (checkIn.userId !== context.userId) {
+        const guardianLink = await prisma.guardianLink.findFirst({
+          where: { guardianId: context.userId, athleteId: checkIn.userId, organizationId: checkIn.event.organizationId },
+        });
+        if (!guardianLink) throw new Error("Not authorized to check out this user");
+      }
 
       const now = new Date();
 
@@ -1452,21 +1521,40 @@ export const resolvers = {
           },
         });
 
-        // Add to teams with role derived from invite org role
-        const teamRole: TeamRole =
-          invite.role === "COACH" ? "COACH" :
-          invite.role === "MANAGER" ? "ADMIN" :
-          "MEMBER";
-        for (const teamId of invite.teamIds) {
-          await tx.teamMember.upsert({
-            where: { userId_teamId: { userId: context.userId!, teamId } },
+        // For guardian invites, create a GuardianLink instead of team memberships
+        if (invite.role === "GUARDIAN" && invite.athleteId) {
+          await tx.guardianLink.upsert({
+            where: {
+              guardianId_athleteId_organizationId: {
+                guardianId: context.userId!,
+                athleteId: invite.athleteId,
+                organizationId: invite.organizationId,
+              },
+            },
             update: {},
             create: {
-              userId: context.userId!,
-              teamId,
-              role: teamRole,
+              guardianId: context.userId!,
+              athleteId: invite.athleteId,
+              organizationId: invite.organizationId,
             },
           });
+        } else {
+          // Add to teams with role derived from invite org role
+          const teamRole: TeamRole =
+            invite.role === "COACH" ? "COACH" :
+            invite.role === "MANAGER" ? "ADMIN" :
+            "MEMBER";
+          for (const teamId of invite.teamIds) {
+            await tx.teamMember.upsert({
+              where: { userId_teamId: { userId: context.userId!, teamId } },
+              update: {},
+              create: {
+                userId: context.userId!,
+                teamId,
+                role: teamRole,
+              },
+            });
+          }
         }
 
         // Mark invite as accepted
@@ -1513,6 +1601,89 @@ export const resolvers = {
       }
 
       return invite;
+    },
+
+    // Guardian mutations
+    inviteGuardian: async (
+      _: unknown,
+      { email, organizationId }: { email: string; organizationId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Prevent inviting yourself
+      const self = await prisma.user.findUnique({ where: { id: context.userId } });
+      if (self && self.email.toLowerCase() === email.toLowerCase()) {
+        throw new Error("You cannot invite yourself as a guardian");
+      }
+
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const invite = await prisma.invite.upsert({
+        where: {
+          email_organizationId: {
+            email,
+            organizationId,
+          },
+        },
+        update: {
+          role: "GUARDIAN",
+          teamIds: [],
+          athleteId: context.userId,
+          status: "PENDING",
+          expiresAt,
+        },
+        create: {
+          email,
+          organizationId,
+          role: "GUARDIAN",
+          teamIds: [],
+          athleteId: context.userId,
+          expiresAt,
+        },
+      });
+
+      try {
+        const org = await prisma.organization.findUnique({ where: { id: organizationId } });
+        if (org) {
+          await sendInviteEmail({
+            to: email,
+            organizationName: org.name,
+            role: invite.role,
+            token: invite.token,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to send guardian invite email:", err);
+      }
+
+      return invite;
+    },
+
+    removeGuardian: async (
+      _: unknown,
+      { guardianLinkId }: { guardianLinkId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const link = await prisma.guardianLink.findUnique({ where: { id: guardianLinkId } });
+      if (!link) throw new Error("Guardian link not found");
+
+      // Only the athlete or an org admin can remove
+      const isAthlete = link.athleteId === context.userId;
+      if (!isAthlete) {
+        const orgMembership = await prisma.organizationMember.findUnique({
+          where: { userId_organizationId: { userId: context.userId, organizationId: link.organizationId } },
+        });
+        if (!orgMembership || !["OWNER", "MANAGER"].includes(orgMembership.role)) {
+          throw new Error("Only the athlete or an org admin can remove a guardian");
+        }
+      }
+
+      await prisma.guardianLink.delete({ where: { id: guardianLinkId } });
+      return true;
     },
 
     // NFC mutations
@@ -1568,7 +1739,7 @@ export const resolvers = {
 
     nfcCheckIn: async (
       _: unknown,
-      { token }: { token: string },
+      { token, forUserId }: { token: string; forUserId?: string },
       context: { userId?: string }
     ) => {
       if (!context.userId) throw new Error("Authentication required");
@@ -1578,15 +1749,25 @@ export const resolvers = {
       if (!tag) throw new Error("Unrecognized tag");
       if (!tag.isActive) throw new Error("Tag deactivated");
 
-      // 2. Verify user is org member
+      // Determine target user — if forUserId is provided, verify guardian relationship
+      let targetUserId = context.userId;
+      if (forUserId && forUserId !== context.userId) {
+        const guardianLink = await prisma.guardianLink.findFirst({
+          where: { guardianId: context.userId, athleteId: forUserId, organizationId: tag.organizationId },
+        });
+        if (!guardianLink) throw new Error("Not authorized to check in this user");
+        targetUserId = forUserId;
+      }
+
+      // 2. Verify target user is org member
       const orgMembership = await prisma.organizationMember.findUnique({
-        where: { userId_organizationId: { userId: context.userId, organizationId: tag.organizationId } },
+        where: { userId_organizationId: { userId: targetUserId, organizationId: tag.organizationId } },
       });
       if (!orgMembership) throw new Error("You are not a member of this organization");
 
-      // 3. Get user's teamIds in this org
+      // 3. Get target user's teamIds in this org
       const teamMemberships = await prisma.teamMember.findMany({
-        where: { userId: context.userId, team: { organizationId: tag.organizationId } },
+        where: { userId: targetUserId, team: { organizationId: tag.organizationId } },
         select: { teamId: true },
       });
       const teamIds = teamMemberships.map((m) => m.teamId);
@@ -1616,7 +1797,7 @@ export const resolvers = {
       // Pre-fetch user's check-ins for today's events to skip already-checked-out ones
       const todayCheckIns = await prisma.checkIn.findMany({
         where: {
-          userId: context.userId,
+          userId: targetUserId,
           eventId: { in: todaysEvents.map((e) => e.id) },
         },
       });
@@ -1666,7 +1847,7 @@ export const resolvers = {
 
       // 5. Toggle logic
       const existingCheckIn = await prisma.checkIn.findUnique({
-        where: { userId_eventId: { userId: context.userId, eventId: selectedEvent.id } },
+        where: { userId_eventId: { userId: targetUserId, eventId: selectedEvent.id } },
       });
 
       if (existingCheckIn) {
@@ -1705,7 +1886,7 @@ export const resolvers = {
 
       const newCheckIn = await prisma.checkIn.create({
         data: {
-          userId: context.userId,
+          userId: targetUserId,
           eventId: selectedEvent.id,
           status,
           checkInTime: now,
@@ -2081,6 +2262,16 @@ export const resolvers = {
   },
 
   NfcTag: {
+    organization: (parent: { organizationId: string }) =>
+      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    createdAt: (parent: any) => toISO(parent.createdAt),
+  },
+
+  GuardianLink: {
+    guardian: (parent: { guardianId: string }) =>
+      prisma.user.findUnique({ where: { id: parent.guardianId } }),
+    athlete: (parent: { athleteId: string }) =>
+      prisma.user.findUnique({ where: { id: parent.athleteId } }),
     organization: (parent: { organizationId: string }) =>
       prisma.organization.findUnique({ where: { id: parent.organizationId } }),
     createdAt: (parent: any) => toISO(parent.createdAt),

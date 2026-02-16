@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { UPDATE_USER, GENERATE_UPLOAD_URL } from "@/lib/graphql/mutations";
-import { useMutation } from "@apollo/client";
+import { UPDATE_USER, GENERATE_UPLOAD_URL, REMOVE_GUARDIAN } from "@/lib/graphql/mutations";
+import { GET_MY_GUARDIANS } from "@/lib/graphql/queries";
+import { useMutation, useQuery } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,37 +23,43 @@ import {
 } from "react-native";
 
 const AVATAR_SIZE = 90;
+const GUARDIAN_AVATAR_SIZE = 40;
 
-type EditableKey = "firstName" | "lastName" | "email" | "phone" | "address" | "city" | "country";
-
-type EditField = {
-  key: EditableKey;
-  label: string;
-  placeholder: string;
-  keyboardType?: "default" | "email-address" | "phone-pad";
-};
-
-const EDITABLE_FIELDS: EditField[] = [
-  { key: "firstName", label: "First Name", placeholder: "Enter first name" },
-  { key: "lastName", label: "Last Name", placeholder: "Enter last name" },
-  { key: "email", label: "Email", placeholder: "Enter email", keyboardType: "email-address" },
-  { key: "phone", label: "Phone", placeholder: "Enter phone number", keyboardType: "phone-pad" },
-  { key: "address", label: "Address", placeholder: "Enter address" },
-  { key: "city", label: "City", placeholder: "Enter city" },
-  { key: "country", label: "Country", placeholder: "Enter country" },
-];
+type ModalMode =
+  | { type: "single"; key: string; label: string; placeholder: string; keyboardType?: "default" | "email-address" | "phone-pad" }
+  | { type: "name" }
+  | { type: "location" };
 
 export default function Profile() {
   const router = useRouter();
-  const { user, logout, isOrgAdmin, refetchUser } = useAuth();
+  const { user, logout, isOrgAdmin, refetchUser, selectedOrganization } = useAuth();
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingField, setEditingField] = useState<EditField | null>(null);
+  const [modalMode, setModalMode] = useState<ModalMode | null>(null);
+
+  // Single-field edit state
   const [editValue, setEditValue] = useState("");
+
+  // Multi-field edit state (name)
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+
+  // Multi-field edit state (location)
+  const [editAddress, setEditAddress] = useState("");
+  const [editCity, setEditCity] = useState("");
+  const [editCountry, setEditCountry] = useState("");
 
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const [updateUser, { loading: saving }] = useMutation(UPDATE_USER);
   const [generateUploadUrl] = useMutation(GENERATE_UPLOAD_URL);
+  const [removeGuardian] = useMutation(REMOVE_GUARDIAN);
+
+  const { data: guardiansData, refetch: refetchGuardians } = useQuery(GET_MY_GUARDIANS, {
+    variables: { organizationId: selectedOrganization?.id },
+    skip: !selectedOrganization?.id,
+  });
+
+  const guardians = guardiansData?.myGuardians || [];
 
   if (!user) return null;
 
@@ -115,28 +122,69 @@ export default function Profile() {
     }
   };
 
-  const handleEditPress = (field: EditField) => {
-    setEditingField(field);
-    setEditValue((user as Record<string, any>)[field.key] || "");
+  const openNameModal = () => {
+    setModalMode({ type: "name" });
+    setEditFirstName(user.firstName || "");
+    setEditLastName(user.lastName || "");
+    setEditModalVisible(true);
+  };
+
+  const openLocationModal = () => {
+    setModalMode({ type: "location" });
+    setEditAddress(user.address || "");
+    setEditCity(user.city || "");
+    setEditCountry(user.country || "");
+    setEditModalVisible(true);
+  };
+
+  const openSingleModal = (key: string, label: string, placeholder: string, keyboardType?: "default" | "email-address" | "phone-pad") => {
+    setModalMode({ type: "single", key, label, placeholder, keyboardType });
+    setEditValue((user as Record<string, any>)[key] || "");
     setEditModalVisible(true);
   };
 
   const handleSave = async () => {
-    if (!editingField || !user) return;
+    if (!modalMode || !user) return;
     try {
+      let input: Record<string, string> = {};
+      if (modalMode.type === "single") {
+        input = { [modalMode.key]: editValue };
+      } else if (modalMode.type === "name") {
+        input = { firstName: editFirstName, lastName: editLastName };
+      } else if (modalMode.type === "location") {
+        input = { address: editAddress, city: editCity, country: editCountry };
+      }
       await updateUser({
-        variables: {
-          id: user.id,
-          input: { [editingField.key]: editValue },
-        },
+        variables: { id: user.id, input },
       });
       refetchUser();
       setEditModalVisible(false);
-      setEditingField(null);
-      setEditValue("");
+      setModalMode(null);
     } catch (err: any) {
       Alert.alert("Error", err.message || "Failed to save changes");
     }
+  };
+
+  const handleRemoveGuardian = (linkId: string, name: string) => {
+    Alert.alert(
+      "Remove Guardian",
+      `Remove ${name} as your guardian?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await removeGuardian({ variables: { guardianLinkId: linkId } });
+              refetchGuardians();
+            } catch (err: any) {
+              Alert.alert("Error", err.message || "Failed to remove guardian");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleLogout = () => {
@@ -148,6 +196,90 @@ export default function Profile() {
         { text: "Log Out", style: "destructive", onPress: () => logout() },
       ]
     );
+  };
+
+  const locationDisplay = [user.address, user.city, user.country].filter(Boolean).join(", ") || null;
+
+  const renderModalContent = () => {
+    if (!modalMode) return null;
+
+    if (modalMode.type === "single") {
+      return (
+        <>
+          <Text style={styles.editModalTitle}>Edit {modalMode.label}</Text>
+          <TextInput
+            style={styles.editInput}
+            value={editValue}
+            onChangeText={setEditValue}
+            placeholder={modalMode.placeholder}
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            keyboardType={modalMode.keyboardType || "default"}
+            autoFocus
+            autoCapitalize={modalMode.key === "email" ? "none" : "words"}
+          />
+        </>
+      );
+    }
+
+    if (modalMode.type === "name") {
+      return (
+        <>
+          <Text style={styles.editModalTitle}>Edit Name</Text>
+          <TextInput
+            style={styles.editInput}
+            value={editFirstName}
+            onChangeText={setEditFirstName}
+            placeholder="First name"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            autoFocus
+            autoCapitalize="words"
+          />
+          <TextInput
+            style={[styles.editInput, { marginTop: 12 }]}
+            value={editLastName}
+            onChangeText={setEditLastName}
+            placeholder="Last name"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            autoCapitalize="words"
+          />
+        </>
+      );
+    }
+
+    if (modalMode.type === "location") {
+      return (
+        <>
+          <Text style={styles.editModalTitle}>Edit Location</Text>
+          <TextInput
+            style={styles.editInput}
+            value={editAddress}
+            onChangeText={setEditAddress}
+            placeholder="Address"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            autoFocus
+            autoCapitalize="words"
+          />
+          <TextInput
+            style={[styles.editInput, { marginTop: 12 }]}
+            value={editCity}
+            onChangeText={setEditCity}
+            placeholder="City"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            autoCapitalize="words"
+          />
+          <TextInput
+            style={[styles.editInput, { marginTop: 12 }]}
+            value={editCountry}
+            onChangeText={setEditCountry}
+            placeholder="Country"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            autoCapitalize="words"
+          />
+        </>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -174,19 +306,7 @@ export default function Profile() {
             onPress={() => setEditModalVisible(false)}
           />
           <View style={styles.editModalContainer}>
-            <Text style={styles.editModalTitle}>
-              Edit {editingField?.label}
-            </Text>
-            <TextInput
-              style={styles.editInput}
-              value={editValue}
-              onChangeText={setEditValue}
-              placeholder={editingField?.placeholder}
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              keyboardType={editingField?.keyboardType || "default"}
-              autoFocus
-              autoCapitalize={editingField?.key === "email" ? "none" : "words"}
-            />
+            {renderModalContent()}
             <View style={styles.editModalButtons}>
               <Pressable
                 style={[styles.editButton, styles.editButtonCancel]}
@@ -252,34 +372,146 @@ export default function Profile() {
           <Text style={styles.profileEmail}>{user.email}</Text>
         </View>
 
-        {/* Personal Information */}
+        {/* Personal Information — condensed */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
           <View style={styles.fieldList}>
-            {EDITABLE_FIELDS.map((field, index) => (
-              <Pressable
-                key={field.key}
-                style={({ pressed }) => [
-                  styles.fieldItem,
-                  index < EDITABLE_FIELDS.length - 1 && styles.fieldItemBorder,
-                  pressed && styles.fieldItemPressed,
+            {/* Name row */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.fieldItem,
+                styles.fieldItemBorder,
+                pressed && styles.fieldItemPressed,
+              ]}
+              onPress={openNameModal}
+            >
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>Name</Text>
+                <Text style={styles.fieldValue}>
+                  {user.firstName} {user.lastName}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
+            </Pressable>
+
+            {/* Email row */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.fieldItem,
+                styles.fieldItemBorder,
+                pressed && styles.fieldItemPressed,
+              ]}
+              onPress={() => openSingleModal("email", "Email", "Enter email", "email-address")}
+            >
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>Email</Text>
+                <Text style={styles.fieldValue}>{user.email}</Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
+            </Pressable>
+
+            {/* Phone row */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.fieldItem,
+                styles.fieldItemBorder,
+                pressed && styles.fieldItemPressed,
+              ]}
+              onPress={() => openSingleModal("phone", "Phone", "Enter phone number", "phone-pad")}
+            >
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>Phone</Text>
+                <Text
+                  style={[styles.fieldValue, !user.phone && styles.fieldValueEmpty]}
+                >
+                  {user.phone || "Not set"}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
+            </Pressable>
+
+            {/* Location row */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.fieldItem,
+                pressed && styles.fieldItemPressed,
+              ]}
+              onPress={openLocationModal}
+            >
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>Location</Text>
+                <Text
+                  style={[styles.fieldValue, !locationDisplay && styles.fieldValueEmpty]}
+                >
+                  {locationDisplay || "Not set"}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Family */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Family</Text>
+          <View style={styles.fieldList}>
+            {guardians.map((link: any, index: number) => (
+              <View
+                key={link.id}
+                style={[
+                  styles.guardianItem,
+                  (index < guardians.length - 1 || true) && styles.fieldItemBorder,
                 ]}
-                onPress={() => handleEditPress(field)}
               >
-                <View style={styles.fieldContent}>
-                  <Text style={styles.fieldLabel}>{field.label}</Text>
-                  <Text
-                    style={[
-                      styles.fieldValue,
-                      !(user as Record<string, any>)[field.key] && styles.fieldValueEmpty,
-                    ]}
-                  >
-                    {(user as Record<string, any>)[field.key] || "Not set"}
-                  </Text>
+                <View style={styles.guardianAvatar}>
+                  {link.guardian.image ? (
+                    <Image
+                      source={{ uri: link.guardian.image }}
+                      style={styles.guardianAvatarImage}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <Text style={styles.guardianAvatarText}>
+                      {link.guardian.firstName.charAt(0)}
+                      {link.guardian.lastName.charAt(0)}
+                    </Text>
+                  )}
                 </View>
-                <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
-              </Pressable>
+                <View style={styles.fieldContent}>
+                  <Text style={styles.fieldLabel}>
+                    {link.guardian.firstName} {link.guardian.lastName}
+                  </Text>
+                  <Text style={styles.fieldValue}>{link.guardian.email}</Text>
+                </View>
+                <Pressable
+                  onPress={() =>
+                    handleRemoveGuardian(
+                      link.id,
+                      `${link.guardian.firstName} ${link.guardian.lastName}`
+                    )
+                  }
+                  hitSlop={8}
+                >
+                  <Feather name="x" size={18} color="rgba(255,255,255,0.4)" />
+                </Pressable>
+              </View>
             ))}
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.fieldItem,
+                pressed && styles.fieldItemPressed,
+              ]}
+              onPress={() => router.push("/invite-guardian")}
+            >
+              <View style={styles.fieldIconContainer}>
+                <Feather name="user-plus" size={18} color="#a855f7" />
+              </View>
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>Invite Guardian</Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
+            </Pressable>
           </View>
         </View>
 
@@ -515,6 +747,33 @@ const styles = StyleSheet.create({
   },
   fieldValueEmpty: {
     fontStyle: "italic",
+  },
+
+  // Guardian items
+  guardianItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  guardianAvatar: {
+    width: GUARDIAN_AVATAR_SIZE,
+    height: GUARDIAN_AVATAR_SIZE,
+    borderRadius: GUARDIAN_AVATAR_SIZE / 2,
+    backgroundColor: "#241e4a",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+    overflow: "hidden",
+  },
+  guardianAvatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  guardianAvatarText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
   },
 
   // Logout

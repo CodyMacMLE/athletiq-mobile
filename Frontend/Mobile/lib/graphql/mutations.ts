@@ -78,8 +78,8 @@ export const CANCEL_EXCUSE_REQUEST = gql`
 // ============================================
 
 export const NFC_CHECK_IN = gql`
-  mutation NfcCheckIn($token: String!) {
-    nfcCheckIn(token: $token) {
+  mutation NfcCheckIn($token: String!, $forUserId: ID) {
+    nfcCheckIn(token: $token, forUserId: $forUserId) {
       checkIn {
         ...CheckInFields
       }
@@ -141,6 +141,26 @@ export const APPROVE_AD_HOC_CHECK_IN = gql`
 export const DENY_AD_HOC_CHECK_IN = gql`
   mutation DenyAdHocCheckIn($checkInId: ID!) {
     denyAdHocCheckIn(checkInId: $checkInId)
+  }
+`;
+
+// ============================================
+// Guardian Mutations
+// ============================================
+
+export const INVITE_GUARDIAN = gql`
+  mutation InviteGuardian($email: String!, $organizationId: ID!) {
+    inviteGuardian(email: $email, organizationId: $organizationId) {
+      id
+      email
+      status
+    }
+  }
+`;
+
+export const REMOVE_GUARDIAN = gql`
+  mutation RemoveGuardian($guardianLinkId: ID!) {
+    removeGuardian(guardianLinkId: $guardianLinkId)
   }
 `;
 

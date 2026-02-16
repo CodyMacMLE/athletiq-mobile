@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { OrgTeamPicker } from "@/components/OrgTeamPicker";
 import { OrgTeamSubtitle } from "@/components/OrgTeamSubtitle";
+import { AthletePicker } from "@/components/AthletePicker";
 import {
   GET_ACTIVE_CHECKIN,
   GET_CHECKIN_HISTORY,
@@ -32,16 +33,19 @@ const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function Index() {
   const router = useRouter();
-  const { user, selectedOrganization, selectedTeamId, orgRole } = useAuth();
+  const {
+    user, selectedOrganization, selectedTeamId, orgRole,
+    isViewingAsGuardian, hasGuardianLinks, selectedAthlete, targetUserId,
+  } = useAuth();
   const [pickerVisible, setPickerVisible] = useState(false);
 
   const { data: statsData, loading: statsLoading } = useQuery(GET_USER_STATS, {
     variables: {
-      userId: user?.id,
+      userId: targetUserId,
       organizationId: selectedOrganization?.id,
-      teamId: selectedTeamId,
+      teamId: isViewingAsGuardian ? null : selectedTeamId,
     },
-    skip: !user?.id || !selectedOrganization?.id,
+    skip: !targetUserId || !selectedOrganization?.id,
   });
 
   const { data: activityData, loading: activityLoading } = useQuery(GET_RECENT_ACTIVITY, {
@@ -52,7 +56,9 @@ export default function Index() {
     skip: !selectedOrganization?.id,
   });
 
-  const { data: activeCheckInData, refetch: refetchActiveCheckIn } = useQuery(GET_ACTIVE_CHECKIN);
+  const { data: activeCheckInData, refetch: refetchActiveCheckIn } = useQuery(GET_ACTIVE_CHECKIN, {
+    variables: { userId: isViewingAsGuardian ? targetUserId : undefined },
+  });
 
   const activeCheckIn = activeCheckInData?.activeCheckIn;
 
@@ -84,13 +90,13 @@ export default function Index() {
 
   const { data: checkinData } = useQuery(GET_CHECKIN_HISTORY, {
     variables: {
-      userId: user?.id,
+      userId: targetUserId,
       limit: 7,
     },
-    skip: !user?.id,
+    skip: !targetUserId,
   });
 
-  const isCoachOrAdmin = orgRole === "OWNER" || orgRole === "MANAGER" || orgRole === "COACH";
+  const isCoachOrAdmin = !isViewingAsGuardian && (orgRole === "OWNER" || orgRole === "MANAGER" || orgRole === "COACH");
 
   const { data: pendingAdHocData } = useQuery(GET_PENDING_AD_HOC_CHECK_INS, {
     variables: { organizationId: selectedOrganization?.id },
@@ -158,8 +164,12 @@ export default function Index() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>Dashboard</Text>
-          <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
+          <Text style={styles.title}>
+            {isViewingAsGuardian ? `${selectedAthlete?.firstName}'s Dashboard` : "Dashboard"}
+          </Text>
+          {!isViewingAsGuardian && (
+            <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
+          )}
         </View>
 
         {user.image ? (
@@ -176,6 +186,8 @@ export default function Index() {
           </View>
         )}
       </View>
+
+      <AthletePicker />
 
       <ScrollView
         style={styles.scrollView}

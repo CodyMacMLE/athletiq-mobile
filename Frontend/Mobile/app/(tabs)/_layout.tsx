@@ -18,7 +18,7 @@ const TAB_ICONS: Record<string, IconName> = {
 
 function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const { bottom } = useSafeAreaInsets();
-  const { isTeamCoach } = useAuth();
+  const { isTeamCoach, isViewingAsGuardian } = useAuth();
 
   return (
     <View style={[styles.tabBarWrapper, { height: 56 + bottom }]}>
@@ -49,7 +49,7 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
               }}
             >
               <Feather
-                name={route.name === "messages" && isTeamCoach ? "users" : (TAB_ICONS[route.name] ?? "circle")}
+                name={route.name === "messages" && isTeamCoach && !isViewingAsGuardian ? "users" : (TAB_ICONS[route.name] ?? "circle")}
                 size={24}
                 color={focused ? "#E6F4FE" : "rgba(255,255,255,0.35)"}
               />

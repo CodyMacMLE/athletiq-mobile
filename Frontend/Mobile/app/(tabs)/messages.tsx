@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { OrgTeamPicker } from "@/components/OrgTeamPicker";
 import { OrgTeamSubtitle } from "@/components/OrgTeamSubtitle";
+import { AthletePicker } from "@/components/AthletePicker";
 import { CoachView } from "@/components/team/CoachView";
 import {
   GET_UPCOMING_EVENTS,
@@ -81,7 +82,10 @@ function formatFutureDate(isoDate: string): string {
 }
 
 export default function ActivityTab() {
-  const { user, selectedOrganization, isTeamCoach, selectedTeam } = useAuth();
+  const {
+    user, selectedOrganization, isTeamCoach, selectedTeam,
+    isViewingAsGuardian, hasGuardianLinks, selectedAthlete,
+  } = useAuth();
   const [pickerVisible, setPickerVisible] = useState(false);
 
   if (!user || !selectedOrganization) return null;
@@ -100,9 +104,13 @@ export default function ActivityTab() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.title}>
-            {isTeamCoach ? "Team Management" : "Activity"}
+            {isViewingAsGuardian
+              ? `${selectedAthlete?.firstName}'s Activity`
+              : isTeamCoach ? "Team Management" : "Activity"}
           </Text>
-          <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
+          {!isViewingAsGuardian && (
+            <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
+          )}
         </View>
 
         {user.image ? (
@@ -120,8 +128,12 @@ export default function ActivityTab() {
         )}
       </View>
 
+      <AthletePicker />
+
       {/* Content based on role */}
-      {isTeamCoach && selectedTeam ? (
+      {isViewingAsGuardian ? (
+        <AthleteActivityView />
+      ) : isTeamCoach && selectedTeam ? (
         <CoachView />
       ) : (
         <AthleteActivityView />
@@ -132,7 +144,7 @@ export default function ActivityTab() {
 
 function AthleteActivityView() {
   const router = useRouter();
-  const { user, selectedOrganization } = useAuth();
+  const { user, selectedOrganization, targetUserId, isViewingAsGuardian } = useAuth();
 
   const { data: upcomingData, loading: upcomingLoading } = useQuery(GET_UPCOMING_EVENTS, {
     variables: { organizationId: selectedOrganization?.id, limit: 3 },
@@ -140,13 +152,13 @@ function AthleteActivityView() {
   });
 
   const { data: checkinData, loading: checkinLoading } = useQuery(GET_CHECKIN_HISTORY, {
-    variables: { userId: user?.id, limit: 50 },
-    skip: !user?.id,
+    variables: { userId: targetUserId, limit: 50 },
+    skip: !targetUserId,
   });
 
   const { data: excuseData } = useQuery(GET_MY_EXCUSE_REQUESTS, {
-    variables: { userId: user?.id },
-    skip: !user?.id,
+    variables: { userId: targetUserId },
+    skip: !targetUserId,
   });
 
   const [cancelExcuse] = useMutation(CANCEL_EXCUSE_REQUEST, {
@@ -296,7 +308,7 @@ function AthleteActivityView() {
                         )}
                       </View>
                     </View>
-                    {excuse ? (
+                    {!isViewingAsGuardian && (excuse ? (
                       <View style={styles.excusedBadgeContainer}>
                         <View style={styles.excusedBadge}>
                           <Feather
@@ -328,7 +340,7 @@ function AthleteActivityView() {
                         <Feather name="alert-circle" size={14} color="#a855f7" />
                         <Text style={styles.excuseRequestText}>Request Absence</Text>
                       </Pressable>
-                    )}
+                    ))}
                   </View>
                 </View>
               );

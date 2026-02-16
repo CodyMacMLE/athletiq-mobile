@@ -66,6 +66,12 @@ function RootNavigator() {
           animation: "slide_from_right",
         }}
       />
+      <Stack.Screen
+        name="invite-guardian"
+        options={{
+          animation: "slide_from_right",
+        }}
+      />
     </Stack>
   );
 }

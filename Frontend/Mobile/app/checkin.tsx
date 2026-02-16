@@ -53,7 +53,7 @@ function extractNdefText(tag: any): string | null {
 
 export default function CheckIn() {
   const router = useRouter();
-  const { user, selectedOrganization } = useAuth();
+  const { user, selectedOrganization, isViewingAsGuardian, selectedAthlete, targetUserId } = useAuth();
   const [scanState, setScanState] = useState<ScanState>("scanning");
   const [nfcSupported, setNfcSupported] = useState(true);
   const [resultMessage, setResultMessage] = useState("");
@@ -180,7 +180,12 @@ export default function CheckIn() {
 
       setScannedToken(token);
 
-      const { data } = await nfcCheckIn({ variables: { token } });
+      const { data } = await nfcCheckIn({
+        variables: {
+          token,
+          forUserId: isViewingAsGuardian ? selectedAthlete?.id : undefined,
+        },
+      });
       const result = data.nfcCheckIn;
       const action = result.action;
       const event = result.event;
@@ -317,7 +322,11 @@ export default function CheckIn() {
         {/* Scanning State */}
         {scanState === "scanning" && (
           <>
-            <Text style={styles.title}>Ready to Scan</Text>
+            <Text style={styles.title}>
+              {isViewingAsGuardian
+                ? `Checking in ${selectedAthlete?.firstName}`
+                : "Ready to Scan"}
+            </Text>
             <Text style={styles.subtitle}>
               {nfcSupported
                 ? "Hold your device near the NFC tag"

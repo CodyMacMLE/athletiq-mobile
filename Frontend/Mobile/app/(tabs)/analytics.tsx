@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { OrgTeamPicker } from "@/components/OrgTeamPicker";
 import { OrgTeamSubtitle } from "@/components/OrgTeamSubtitle";
+import { AthletePicker } from "@/components/AthletePicker";
 import { AthleteView } from "@/components/team/AthleteView";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -11,7 +12,7 @@ import { StyleSheet, Text, View } from "react-native";
 const AVATAR_SIZE = 45;
 
 export default function Analytics() {
-  const { user, selectedOrganization } = useAuth();
+  const { user, selectedOrganization, isViewingAsGuardian, selectedAthlete } = useAuth();
   const [pickerVisible, setPickerVisible] = useState(false);
 
   if (!user || !selectedOrganization) return null;
@@ -29,8 +30,12 @@ export default function Analytics() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>Analytics</Text>
-          <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
+          <Text style={styles.title}>
+            {isViewingAsGuardian ? `${selectedAthlete?.firstName}'s Analytics` : "Analytics"}
+          </Text>
+          {!isViewingAsGuardian && (
+            <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
+          )}
         </View>
 
         {user.image ? (
@@ -48,6 +53,7 @@ export default function Analytics() {
         )}
       </View>
 
+      <AthletePicker />
       <AthleteView />
     </LinearGradient>
   );

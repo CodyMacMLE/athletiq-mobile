@@ -6,7 +6,7 @@ import {
   type CognitoUser,
   type SignInResult,
 } from "@/lib/cognito";
-import { GET_ME, GET_MY_ORGANIZATIONS } from "@/lib/graphql";
+import { GET_ME, GET_MY_ORGANIZATIONS, GET_MY_LINKED_ATHLETES } from "@/lib/graphql";
 import { useLazyQuery } from "@apollo/client";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
@@ -58,6 +58,13 @@ export type TeamInfo = {
   role: string;
 };
 
+export type LinkedAthlete = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  image?: string;
+};
+
 type AuthContextType = {
   user: User | null;
   organizations: Organization[];
@@ -72,6 +79,15 @@ type AuthContextType = {
   isAuthenticated: boolean;
   isLoading: boolean;
   cognitoUser: CognitoUser | null;
+  // Guardian state
+  linkedAthletes: LinkedAthlete[];
+  hasGuardianLinks: boolean;
+  isViewingAsGuardian: boolean;
+  isPureGuardian: boolean;
+  selectedAthlete: LinkedAthlete | null;
+  setSelectedAthlete: (athlete: LinkedAthlete | null) => void;
+  exitGuardianMode: () => void;
+  targetUserId: string | undefined;
   login: (email: string, password: string) => Promise<SignInResult>;
   confirmNewPassword: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -83,6 +99,7 @@ type AuthContextType = {
 const STORAGE_KEYS = {
   selectedOrg: "athletiq_selected_org",
   selectedTeam: (orgId: string) => `athletiq_selected_team_${orgId}`,
+  selectedAthlete: (orgId: string) => `athletiq_selected_athlete_${orgId}`,
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -94,8 +111,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [selectedTeam, setSelectedTeamState] = useState<TeamInfo | null>(null);
   const [persistenceChecked, setPersistenceChecked] = useState(false);
 
+  const [selectedAthlete, setSelectedAthleteState] = useState<LinkedAthlete | null>(null);
+
   const [fetchMe, { data: userData, loading: userLoading, called: userCalled }] = useLazyQuery(GET_ME);
   const [fetchOrgs, { data: orgsData, loading: orgsLoading, called: orgsCalled }] = useLazyQuery(GET_MY_ORGANIZATIONS);
+  const [fetchLinkedAthletes, { data: linkedAthletesData }] = useLazyQuery(GET_MY_LINKED_ATHLETES);
 
   // Check for existing Cognito session on mount
   useEffect(() => {
@@ -184,9 +204,81 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isOrgAdmin = orgRole === "OWNER" || orgRole === "MANAGER";
 
+  // Fetch linked athletes when org changes
+  useEffect(() => {
+    if (selectedOrganization && cognitoUser) {
+      fetchLinkedAthletes({ variables: { organizationId: selectedOrganization.id } });
+    }
+  }, [selectedOrganization, cognitoUser, fetchLinkedAthletes]);
+
+  // Guardian derived state
+  const linkedAthletes: LinkedAthlete[] = useMemo(() => {
+    if (!linkedAthletesData?.myLinkedAthletes) return [];
+    return linkedAthletesData.myLinkedAthletes.map((link: any) => ({
+      id: link.athlete.id,
+      firstName: link.athlete.firstName,
+      lastName: link.athlete.lastName,
+      image: link.athlete.image,
+    }));
+  }, [linkedAthletesData]);
+
+  const hasGuardianLinks = linkedAthletes.length > 0;
+  const isPureGuardian = orgRole === "GUARDIAN";
+  const isViewingAsGuardian = selectedAthlete !== null;
+  const targetUserId = isViewingAsGuardian ? selectedAthlete?.id : user?.id;
+
+  // Auto-select first athlete for pure guardians, restore from storage for others
+  useEffect(() => {
+    if (!selectedOrganization || linkedAthletes.length === 0) return;
+
+    if (isPureGuardian && !selectedAthlete) {
+      // Pure guardian — auto-select first athlete
+      const first = linkedAthletes[0];
+      setSelectedAthleteState(first);
+      AsyncStorage.setItem(STORAGE_KEYS.selectedAthlete(selectedOrganization.id), JSON.stringify(first)).catch(() => {});
+      return;
+    }
+
+    // Non-pure guardian — try to restore from storage
+    if (!isPureGuardian && !selectedAthlete && hasGuardianLinks) {
+      AsyncStorage.getItem(STORAGE_KEYS.selectedAthlete(selectedOrganization.id)).then((saved) => {
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved) as LinkedAthlete;
+            // Verify athlete is still in linked athletes
+            if (linkedAthletes.some((a) => a.id === parsed.id)) {
+              setSelectedAthleteState(parsed);
+            }
+          } catch {}
+        }
+      }).catch(() => {});
+    }
+  }, [linkedAthletes, selectedOrganization, isPureGuardian]);
+
+  const setSelectedAthlete = useCallback((athlete: LinkedAthlete | null) => {
+    setSelectedAthleteState(athlete);
+    if (selectedOrganization) {
+      if (athlete) {
+        AsyncStorage.setItem(STORAGE_KEYS.selectedAthlete(selectedOrganization.id), JSON.stringify(athlete)).catch(() => {});
+      } else {
+        AsyncStorage.removeItem(STORAGE_KEYS.selectedAthlete(selectedOrganization.id)).catch(() => {});
+      }
+    }
+  }, [selectedOrganization]);
+
+  const exitGuardianMode = useCallback(() => {
+    if (!isPureGuardian) {
+      setSelectedAthleteState(null);
+      if (selectedOrganization) {
+        AsyncStorage.removeItem(STORAGE_KEYS.selectedAthlete(selectedOrganization.id)).catch(() => {});
+      }
+    }
+  }, [isPureGuardian, selectedOrganization]);
+
   const setSelectedOrganization = useCallback((org: Organization) => {
     setSelectedOrganizationState(org);
     setSelectedTeamState(null); // Reset team — will auto-select via effect
+    setSelectedAthleteState(null); // Reset guardian mode on org switch
     AsyncStorage.setItem(STORAGE_KEYS.selectedOrg, org.id).catch(() => {});
   }, []);
 
@@ -223,6 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCognitoUser(null);
     setSelectedOrganizationState(null);
     setSelectedTeamState(null);
+    setSelectedAthleteState(null);
     setPersistenceChecked(false);
     // Reset Apollo store to clear cached data - use require to avoid circular import
     const { apolloClient } = require("@/lib/apollo");
@@ -253,6 +346,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated,
     isLoading,
     cognitoUser,
+    // Guardian state
+    linkedAthletes,
+    hasGuardianLinks,
+    isViewingAsGuardian,
+    isPureGuardian,
+    selectedAthlete,
+    setSelectedAthlete,
+    exitGuardianMode,
+    targetUserId,
     login,
     confirmNewPassword,
     logout,

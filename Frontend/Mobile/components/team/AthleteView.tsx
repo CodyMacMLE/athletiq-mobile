@@ -28,28 +28,30 @@ const TIME_RANGE_MAP: Record<TimeRange, string> = {
 
 export function AthleteView() {
   const router = useRouter();
-  const { user, selectedOrganization, selectedTeamId } = useAuth();
+  const { user, selectedOrganization, selectedTeamId, targetUserId, isViewingAsGuardian } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>("week");
 
   const apiTimeRange = TIME_RANGE_MAP[timeRange];
 
+  const effectiveTeamId = isViewingAsGuardian ? null : selectedTeamId;
+
   const { data: statsData, loading: statsLoading } = useQuery(GET_USER_STATS, {
     variables: {
-      userId: user?.id,
+      userId: targetUserId,
       organizationId: selectedOrganization?.id,
-      teamId: selectedTeamId,
+      teamId: effectiveTeamId,
       timeRange: apiTimeRange,
     },
-    skip: !user?.id || !selectedOrganization?.id,
+    skip: !targetUserId || !selectedOrganization?.id,
   });
 
   const { data: teamLbData, loading: teamLbLoading } = useQuery(GET_TEAM_LEADERBOARD, {
     variables: {
-      teamId: selectedTeamId,
+      teamId: effectiveTeamId,
       timeRange: apiTimeRange,
       limit: 5,
     },
-    skip: !selectedTeamId,
+    skip: !effectiveTeamId,
   });
 
   const { data: orgLbData, loading: orgLbLoading } = useQuery(GET_ORGANIZATION_LEADERBOARD, {
@@ -74,7 +76,7 @@ export function AthleteView() {
   const orgLeaderboard = orgLbData?.organizationLeaderboard || [];
   const teamRankings = teamRankData?.teamRankings || [];
 
-  const currentTeamRanking = teamRankings.find((t: any) => t.team.id === selectedTeamId);
+  const currentTeamRanking = teamRankings.find((t: any) => t.team.id === effectiveTeamId);
 
   const getPercentColor = (percent: number) => {
     if (percent >= 90) return "#27ae60";
@@ -189,7 +191,7 @@ export function AthleteView() {
         ) : (
           <View style={styles.leaderboardContainer}>
             {teamLeaderboard.map((entry: any, index: number) => {
-              const isCurrentUser = entry.user.id === user.id;
+              const isCurrentUser = entry.user.id === targetUserId;
               return (
                 <View
                   key={entry.user.id}
@@ -350,7 +352,7 @@ export function AthleteView() {
         ) : (
           <View style={styles.leaderboardContainer}>
             {teamRankings.map((team: any, index: number) => {
-              const isCurrentTeam = team.team.id === selectedTeamId;
+              const isCurrentTeam = team.team.id === effectiveTeamId;
               return (
                 <View
                   key={team.team.id}
