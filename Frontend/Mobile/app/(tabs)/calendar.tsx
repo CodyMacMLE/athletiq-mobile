@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { NoOrgScreen } from "@/components/NoOrgScreen";
 import { GET_EVENTS, GET_CHECKIN_HISTORY, GET_MY_EXCUSE_REQUESTS } from "@/lib/graphql/queries";
 import { CANCEL_EXCUSE_REQUEST } from "@/lib/graphql/mutations";
 import { useQuery, useMutation } from "@apollo/client";
@@ -390,7 +391,8 @@ export default function Calendar() {
     ]);
   };
 
-  if (!user || !selectedOrganization) return null;
+  if (!user) return null;
+  if (!selectedOrganization) return <NoOrgScreen title="Calendar" />;
 
   return (
     <LinearGradient

@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { NoOrgScreen } from "@/components/NoOrgScreen";
 import { OrgTeamPicker } from "@/components/OrgTeamPicker";
 import { OrgTeamSubtitle } from "@/components/OrgTeamSubtitle";
 import { AthletePicker } from "@/components/AthletePicker";
@@ -88,7 +89,8 @@ export default function ActivityTab() {
   } = useAuth();
   const [pickerVisible, setPickerVisible] = useState(false);
 
-  if (!user || !selectedOrganization) return null;
+  if (!user) return null;
+  if (!selectedOrganization) return <NoOrgScreen title="Activity" />;
 
   return (
     <LinearGradient

@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { OrgTeamPicker } from "@/components/OrgTeamPicker";
 import { OrgTeamSubtitle } from "@/components/OrgTeamSubtitle";
 import { AthletePicker } from "@/components/AthletePicker";
+import { NoOrgScreen } from "@/components/NoOrgScreen";
 import {
   GET_ACTIVE_CHECKIN,
   GET_CHECKIN_HISTORY,
@@ -149,7 +150,8 @@ export default function Index() {
     return recentActivity.filter((a: any) => a.date === today).length;
   }, [recentActivity]);
 
-  if (!user || !selectedOrganization) return null;
+  if (!user) return null;
+  if (!selectedOrganization) return <NoOrgScreen title="Dashboard" />;
 
   return (
     <LinearGradient

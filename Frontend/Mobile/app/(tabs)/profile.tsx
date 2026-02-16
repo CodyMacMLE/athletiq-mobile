@@ -372,6 +372,19 @@ export default function Profile() {
           <Text style={styles.profileEmail}>{user.email}</Text>
         </View>
 
+        {/* No org banner */}
+        {!selectedOrganization && (
+          <View style={styles.noOrgBanner}>
+            <View style={styles.noOrgIcon}>
+              <Feather name="mail" size={24} color="#a855f7" />
+            </View>
+            <Text style={styles.noOrgTitle}>No Organization Yet</Text>
+            <Text style={styles.noOrgMessage}>
+              Ask your coach or administrator to send you an invite. Once you accept, your dashboard and teams will appear here.
+            </Text>
+          </View>
+        )}
+
         {/* Personal Information — condensed */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
@@ -451,69 +464,71 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* Family */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Family</Text>
-          <View style={styles.fieldList}>
-            {guardians.map((link: any, index: number) => (
-              <View
-                key={link.id}
-                style={[
-                  styles.guardianItem,
-                  (index < guardians.length - 1 || true) && styles.fieldItemBorder,
-                ]}
-              >
-                <View style={styles.guardianAvatar}>
-                  {link.guardian.image ? (
-                    <Image
-                      source={{ uri: link.guardian.image }}
-                      style={styles.guardianAvatarImage}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <Text style={styles.guardianAvatarText}>
-                      {link.guardian.firstName.charAt(0)}
-                      {link.guardian.lastName.charAt(0)}
+        {/* Family — only show when in an org */}
+        {selectedOrganization && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Family</Text>
+            <View style={styles.fieldList}>
+              {guardians.map((link: any, index: number) => (
+                <View
+                  key={link.id}
+                  style={[
+                    styles.guardianItem,
+                    (index < guardians.length - 1 || true) && styles.fieldItemBorder,
+                  ]}
+                >
+                  <View style={styles.guardianAvatar}>
+                    {link.guardian.image ? (
+                      <Image
+                        source={{ uri: link.guardian.image }}
+                        style={styles.guardianAvatarImage}
+                        contentFit="cover"
+                      />
+                    ) : (
+                      <Text style={styles.guardianAvatarText}>
+                        {link.guardian.firstName.charAt(0)}
+                        {link.guardian.lastName.charAt(0)}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.fieldContent}>
+                    <Text style={styles.fieldLabel}>
+                      {link.guardian.firstName} {link.guardian.lastName}
                     </Text>
-                  )}
+                    <Text style={styles.fieldValue}>{link.guardian.email}</Text>
+                  </View>
+                  <Pressable
+                    onPress={() =>
+                      handleRemoveGuardian(
+                        link.id,
+                        `${link.guardian.firstName} ${link.guardian.lastName}`
+                      )
+                    }
+                    hitSlop={8}
+                  >
+                    <Feather name="x" size={18} color="rgba(255,255,255,0.4)" />
+                  </Pressable>
+                </View>
+              ))}
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.fieldItem,
+                  pressed && styles.fieldItemPressed,
+                ]}
+                onPress={() => router.push("/invite-guardian")}
+              >
+                <View style={styles.fieldIconContainer}>
+                  <Feather name="user-plus" size={18} color="#a855f7" />
                 </View>
                 <View style={styles.fieldContent}>
-                  <Text style={styles.fieldLabel}>
-                    {link.guardian.firstName} {link.guardian.lastName}
-                  </Text>
-                  <Text style={styles.fieldValue}>{link.guardian.email}</Text>
+                  <Text style={styles.fieldLabel}>Invite Guardian</Text>
                 </View>
-                <Pressable
-                  onPress={() =>
-                    handleRemoveGuardian(
-                      link.id,
-                      `${link.guardian.firstName} ${link.guardian.lastName}`
-                    )
-                  }
-                  hitSlop={8}
-                >
-                  <Feather name="x" size={18} color="rgba(255,255,255,0.4)" />
-                </Pressable>
-              </View>
-            ))}
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.fieldItem,
-                pressed && styles.fieldItemPressed,
-              ]}
-              onPress={() => router.push("/invite-guardian")}
-            >
-              <View style={styles.fieldIconContainer}>
-                <Feather name="user-plus" size={18} color="#a855f7" />
-              </View>
-              <View style={styles.fieldContent}>
-                <Text style={styles.fieldLabel}>Invite Guardian</Text>
-              </View>
-              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
-            </Pressable>
+                <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
+              </Pressable>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Settings */}
         <View style={styles.section}>
@@ -688,6 +703,38 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.6)",
     fontSize: 15,
     marginTop: 4,
+  },
+
+  // No org banner
+  noOrgBanner: {
+    backgroundColor: "rgba(168,85,247,0.1)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(168,85,247,0.2)",
+    padding: 24,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  noOrgIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(168,85,247,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  noOrgTitle: {
+    color: "white",
+    fontSize: 17,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  noOrgMessage: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
   },
 
   // Sections

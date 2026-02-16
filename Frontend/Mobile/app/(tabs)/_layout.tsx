@@ -62,21 +62,23 @@ function GlassTabBar({ state, navigation }: BottomTabBarProps) {
 }
 
 export default function TabsLayout() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, organizations } = useAuth();
 
   if (!isAuthenticated) {
     return <Redirect href="/login" />;
   }
+
+  const hasOrg = organizations.length > 0;
 
   return (
     <Tabs
       tabBar={(props) => <GlassTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="analytics" />
-      <Tabs.Screen name="calendar" />
-      <Tabs.Screen name="messages" />
+      <Tabs.Screen name="index" options={{ href: hasOrg ? undefined : null }} />
+      <Tabs.Screen name="analytics" options={{ href: hasOrg ? undefined : null }} />
+      <Tabs.Screen name="calendar" options={{ href: hasOrg ? undefined : null }} />
+      <Tabs.Screen name="messages" options={{ href: hasOrg ? undefined : null }} />
       <Tabs.Screen name="profile" />
     </Tabs>
   );

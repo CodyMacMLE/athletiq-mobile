@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { OrgTeamPicker } from "@/components/OrgTeamPicker";
 import { OrgTeamSubtitle } from "@/components/OrgTeamSubtitle";
 import { AthletePicker } from "@/components/AthletePicker";
+import { NoOrgScreen } from "@/components/NoOrgScreen";
 import { AthleteView } from "@/components/team/AthleteView";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -15,7 +16,8 @@ export default function Analytics() {
   const { user, selectedOrganization, isViewingAsGuardian, selectedAthlete } = useAuth();
   const [pickerVisible, setPickerVisible] = useState(false);
 
-  if (!user || !selectedOrganization) return null;
+  if (!user) return null;
+  if (!selectedOrganization) return <NoOrgScreen title="Analytics" />;
 
   return (
     <LinearGradient
