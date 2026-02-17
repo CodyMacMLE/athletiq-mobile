@@ -570,8 +570,34 @@ export const resolvers = {
       _: unknown,
       { organizationId, teamId, timeRange }: { organizationId: string; teamId?: string; timeRange?: string }
     ) => {
-      const { startDate, endDate } = getDateRange(timeRange);
       const coachTeamMap = await getNonAthleteTeamMap(organizationId);
+
+      // Get season date range - if teamId provided, use that team's season, otherwise use first current season team
+      let startDate: Date, endDate: Date;
+      if (teamId) {
+        const team = await prisma.team.findUnique({
+          where: { id: teamId },
+          include: { orgSeason: true },
+        });
+        const range = team?.orgSeason && team?.seasonYear
+          ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
+          : { start: new Date(0), end: new Date() };
+        startDate = range.start;
+        endDate = range.end;
+      } else {
+        // Get first current season team for org-wide insights
+        const teams = await prisma.team.findMany({
+          where: { organizationId, archivedAt: null },
+          include: { orgSeason: true },
+        });
+        const currentSeasonTeams = teams.filter(isTeamInCurrentSeason);
+        const firstTeam = currentSeasonTeams[0];
+        const range = firstTeam?.orgSeason && firstTeam?.seasonYear
+          ? getSeasonDateRange(firstTeam.orgSeason.startMonth, firstTeam.orgSeason.endMonth, firstTeam.seasonYear)
+          : { start: new Date(0), end: new Date() };
+        startDate = range.start;
+        endDate = range.end;
+      }
 
       const eventWhere: any = { organizationId, date: { gte: startDate, lte: endDate } };
       if (teamId) {
@@ -628,8 +654,6 @@ export const resolvers = {
       _: unknown,
       { userId, organizationId, teamId, timeRange }: { userId: string; organizationId: string; teamId?: string; timeRange?: string }
     ) => {
-      const { startDate, endDate } = getDateRange(timeRange);
-
       const emptyStats = {
         hoursLogged: 0,
         hoursRequired: 0,
@@ -649,6 +673,16 @@ export const resolvers = {
         });
 
         if (!membership) return emptyStats;
+
+        // Fetch team with season info to use season date range
+        const team = await prisma.team.findUnique({
+          where: { id: teamId },
+          include: { orgSeason: true },
+        });
+
+        const { start: startDate, end: endDate } = team?.orgSeason && team?.seasonYear
+          ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
+          : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
 
         // Get check-ins for events belonging to this team
         const checkIns = await prisma.checkIn.findMany({
@@ -695,9 +729,17 @@ export const resolvers = {
       // No teamId — aggregate all-around stats across the entire org
       const memberships = await prisma.teamMember.findMany({
         where: { userId, team: { organizationId } },
+        include: { team: { include: { orgSeason: true } } },
       });
 
       if (memberships.length === 0) return emptyStats;
+
+      // For org-wide stats, we need to aggregate across all current season teams
+      // Use the first team's season as reference (they should all be in current season)
+      const firstTeam = memberships[0].team;
+      const { start: startDate, end: endDate } = firstTeam?.orgSeason && firstTeam?.seasonYear
+        ? getSeasonDateRange(firstTeam.orgSeason.startMonth, firstTeam.orgSeason.endMonth, firstTeam.seasonYear)
+        : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
 
       // Get all check-ins across the org
       const checkIns = await prisma.checkIn.findMany({
@@ -735,15 +777,19 @@ export const resolvers = {
       _: unknown,
       { teamId, timeRange, limit }: { teamId: string; timeRange?: string; limit?: number }
     ) => {
-      const { startDate, endDate } = getDateRange(timeRange);
-
       const members = await prisma.teamMember.findMany({
         where: { teamId, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
         include: {
           user: true,
-          team: true,
+          team: { include: { orgSeason: true } },
         },
       });
+
+      // Use season date range instead of timeRange
+      const team = members[0]?.team;
+      const { start: startDate, end: endDate } = team?.orgSeason && team?.seasonYear
+        ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
+        : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
 
       const leaderboard = await Promise.all(
         members.map(async (member) => {
@@ -782,8 +828,6 @@ export const resolvers = {
       _: unknown,
       { organizationId, timeRange, limit }: { organizationId: string; timeRange?: string; limit?: number }
     ) => {
-      const { startDate, endDate } = getDateRange(timeRange);
-
       const members = await prisma.teamMember.findMany({
         where: { team: { organizationId }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
         include: {
@@ -796,7 +840,13 @@ export const resolvers = {
       const currentSeasonMembers = members.filter(m => isTeamInCurrentSeason(m.team));
 
       // Deduplicate users (they might be in multiple teams)
-      const uniqueUsers = [...new Map(currentSeasonMembers.map((m) => [m.userId, m])).values()];
+      const uniqueUsers = Array.from(new Map(currentSeasonMembers.map((m) => [m.userId, m])).values());
+
+      // Use season date range from first team (all should be in current season)
+      const firstTeam = currentSeasonMembers[0]?.team;
+      const { start: startDate, end: endDate } = firstTeam?.orgSeason && firstTeam?.seasonYear
+        ? getSeasonDateRange(firstTeam.orgSeason.startMonth, firstTeam.orgSeason.endMonth, firstTeam.seasonYear)
+        : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
 
       const leaderboard = await Promise.all(
         uniqueUsers.map(async (member) => {
@@ -840,10 +890,13 @@ export const resolvers = {
       });
       const teams = allTeams.filter(isTeamInCurrentSeason);
 
-      const { startDate, endDate } = getDateRange(timeRange);
-
       const rankings = await Promise.all(
         teams.map(async (team) => {
+          // Use season date range instead of timeRange
+          const { start: startDate, end: endDate } = team.orgSeason && team.seasonYear
+            ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
+            : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
+
           const athleteUserIds = team.members.map(m => m.userId);
           const checkIns = await prisma.checkIn.findMany({
             where: {
@@ -2414,8 +2467,17 @@ export const resolvers = {
         orderBy: { date: "asc" },
       }),
     memberCount: (parent: { id: string }) => prisma.teamMember.count({ where: { teamId: parent.id, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } } }),
-    attendancePercent: async (parent: { id: string }, { timeRange }: { timeRange?: string }) => {
-      const { startDate, endDate } = getDateRange(timeRange);
+    attendancePercent: async (parent: { id: string; orgSeasonId?: string | null; seasonYear?: number | null }, { timeRange }: { timeRange?: string }) => {
+      // Fetch team with season info to use season date range
+      const team = await prisma.team.findUnique({
+        where: { id: parent.id },
+        include: { orgSeason: true },
+      });
+
+      const { start: startDate, end: endDate } = team?.orgSeason && team?.seasonYear
+        ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
+        : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
+
       const members = await prisma.teamMember.findMany({ where: { teamId: parent.id, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } } });
       const athleteUserIds = members.map(m => m.userId);
       const checkIns = await prisma.checkIn.findMany({
@@ -2438,7 +2500,16 @@ export const resolvers = {
     user: (parent: { userId: string }) => prisma.user.findUnique({ where: { id: parent.userId } }),
     team: (parent: { teamId: string }) => prisma.team.findUnique({ where: { id: parent.teamId } }),
     hoursLogged: async (parent: { userId: string; teamId: string }, { timeRange }: { timeRange?: string }) => {
-      const { startDate, endDate } = getDateRange(timeRange);
+      // Fetch team with season info to use season date range
+      const team = await prisma.team.findUnique({
+        where: { id: parent.teamId },
+        include: { orgSeason: true },
+      });
+
+      const { start: startDate, end: endDate } = team?.orgSeason && team?.seasonYear
+        ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
+        : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
+
       const checkIns = await prisma.checkIn.findMany({
         where: {
           userId: parent.userId,
@@ -2453,7 +2524,16 @@ export const resolvers = {
       parent: { userId: string; teamId: string; hoursRequired: number },
       { timeRange }: { timeRange?: string }
     ) => {
-      const { startDate, endDate } = getDateRange(timeRange);
+      // Fetch team with season info to use season date range
+      const team = await prisma.team.findUnique({
+        where: { id: parent.teamId },
+        include: { orgSeason: true },
+      });
+
+      const { start: startDate, end: endDate } = team?.orgSeason && team?.seasonYear
+        ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
+        : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
+
       const checkIns = await prisma.checkIn.findMany({
         where: {
           userId: parent.userId,
