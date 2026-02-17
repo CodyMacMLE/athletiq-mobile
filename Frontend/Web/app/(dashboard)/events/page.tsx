@@ -86,30 +86,32 @@ function parseDate(dateStr: string) {
 function getDateRange(filter: TimeFilter): { start: Date; end: Date } | null {
   if (filter === "ALL") return null;
   const now = new Date();
-  const start = new Date(now);
-  const end = new Date(now);
+  // Use local calendar date but construct UTC boundaries to match how event
+  // dates are stored (noon UTC) and displayed (timeZone: "UTC" in EventCard)
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
 
   switch (filter) {
     case "TODAY":
-      start.setHours(0, 0, 0, 0);
-      end.setHours(23, 59, 59, 999);
-      break;
+      return {
+        start: new Date(Date.UTC(y, m, d)),
+        end: new Date(Date.UTC(y, m, d, 23, 59, 59, 999)),
+      };
     case "WEEK": {
       const day = now.getDay();
-      start.setDate(now.getDate() - day);
-      start.setHours(0, 0, 0, 0);
-      end.setDate(start.getDate() + 6);
-      end.setHours(23, 59, 59, 999);
-      break;
+      const weekStart = d - day;
+      return {
+        start: new Date(Date.UTC(y, m, weekStart)),
+        end: new Date(Date.UTC(y, m, weekStart + 6, 23, 59, 59, 999)),
+      };
     }
     case "MONTH":
-      start.setDate(1);
-      start.setHours(0, 0, 0, 0);
-      end.setMonth(end.getMonth() + 1, 0);
-      end.setHours(23, 59, 59, 999);
-      break;
+      return {
+        start: new Date(Date.UTC(y, m, 1)),
+        end: new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999)),
+      };
   }
-  return { start, end };
 }
 
 // ============================================
@@ -194,8 +196,9 @@ export default function Events() {
   const paginatedEvents = filteredEvents.slice(page * pageSize, (page + 1) * pageSize);
 
   // Separate into upcoming and past for display within the current page
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Use UTC boundary for local today to match how event dates are stored/displayed
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
   const upcoming = paginatedEvents
     .filter((e) => parseDate(e.date) >= today)
