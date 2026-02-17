@@ -129,13 +129,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="mt-auto p-4 border-t border-gray-700">
           <div className="flex items-center">
             <Link
-              href="/profile"
+              href="/account"
               className="flex items-center flex-1 min-w-0 group"
             >
-              <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium shrink-0 group-hover:bg-purple-500 transition-colors">
-                {user?.firstName?.[0]}
-                {user?.lastName?.[0]}
-              </div>
+              {user?.image ? (
+                <img
+                  src={user.image}
+                  alt=""
+                  className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-transparent group-hover:ring-purple-500 transition-all"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium shrink-0 group-hover:bg-purple-500 transition-colors">
+                  {user?.firstName?.[0]}
+                  {user?.lastName?.[0]}
+                </div>
+              )}
               <div className="ml-3 min-w-0">
                 <p className="text-sm font-medium text-white truncate group-hover:text-purple-300 transition-colors">
                   {user?.firstName} {user?.lastName}

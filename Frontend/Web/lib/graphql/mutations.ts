@@ -377,6 +377,19 @@ export const DENY_AD_HOC_CHECK_IN = gql`
 `;
 
 // ============================================
+// Upload Mutations
+// ============================================
+
+export const GENERATE_UPLOAD_URL = gql`
+  mutation GenerateUploadUrl($fileType: String!) {
+    generateUploadUrl(fileType: $fileType) {
+      uploadUrl
+      publicUrl
+    }
+  }
+`;
+
+// ============================================
 // Account Mutations
 // ============================================
 
