@@ -5,6 +5,8 @@ import {
   cognitoSignIn,
   cognitoSignOut,
   getCognitoUser,
+  cognitoResetPassword,
+  cognitoConfirmResetPassword,
   type CognitoUser,
 } from "@/lib/cognito";
 
@@ -178,10 +180,17 @@ export function RequireAuth({
 // Login page component
 function LoginPage() {
   const { login } = useAuth();
+  const [view, setView] = useState<"login" | "forgot" | "reset">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Reset password fields
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,28 +205,146 @@ function LoginPage() {
     setLoading(false);
   };
 
+  const handleSendResetCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    const result = await cognitoResetPassword(email);
+    if (result.success) {
+      setView("reset");
+    } else {
+      setError(result.error || "Failed to send reset code");
+    }
+    setLoading(false);
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    setLoading(true);
+    const result = await cognitoConfirmResetPassword(email, resetCode, newPassword);
+    if (result.success) {
+      setSuccessMessage("Password reset successfully. You can now sign in.");
+      setResetCode("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setView("login");
+    } else {
+      setError(result.error || "Failed to reset password");
+    }
+    setLoading(false);
+  };
+
+  const backToLogin = () => {
+    setView("login");
+    setError("");
+    setResetCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setSuccessMessage("");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-white">Athletiq Admin</h1>
-          <p className="mt-2 text-gray-400">Sign in to your account</p>
+          <p className="mt-2 text-gray-400">
+            {view === "login" && "Sign in to your account"}
+            {view === "forgot" && "Reset your password"}
+            {view === "reset" && "Enter your reset code"}
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          {error && (
-            <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
+        {successMessage && (
+          <div className="bg-green-500/10 border border-green-500 text-green-500 px-4 py-3 rounded-lg">
+            {successMessage}
+          </div>
+        )}
 
-          <div className="space-y-4">
+        {error && (
+          <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {view === "login" && (
+          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setSuccessMessage(""); }}
+                  className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-300">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Enter your password"
+                />
+              </div>
+            </div>
+
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={() => { setView("forgot"); setError(""); setSuccessMessage(""); }}
+                className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                Forgot your password?
+              </button>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                "Sign in"
+              )}
+            </button>
+          </form>
+        )}
+
+        {view === "forgot" && (
+          <form onSubmit={handleSendResetCode} className="mt-8 space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="reset-email" className="block text-sm font-medium text-gray-300">
                 Email
               </label>
               <input
-                id="email"
+                id="reset-email"
                 type="email"
                 required
                 value={email}
@@ -227,34 +354,102 @@ function LoginPage() {
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="Enter your password"
-              />
-            </div>
-          </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                "Send Reset Code"
+              )}
+            </button>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-            ) : (
-              "Sign in"
-            )}
-          </button>
-        </form>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={backToLogin}
+                className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                Back to sign in
+              </button>
+            </div>
+          </form>
+        )}
+
+        {view === "reset" && (
+          <form onSubmit={handleResetPassword} className="mt-8 space-y-6">
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="reset-code" className="block text-sm font-medium text-gray-300">
+                  Reset Code
+                </label>
+                <input
+                  id="reset-code"
+                  type="text"
+                  required
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value)}
+                  className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Enter 6-digit code"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="new-password" className="block text-sm font-medium text-gray-300">
+                  New Password
+                </label>
+                <input
+                  id="new-password"
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Enter new password"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-300">
+                  Confirm Password
+                </label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Confirm new password"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                "Reset Password"
+              )}
+            </button>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={backToLogin}
+                className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                Back to sign in
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

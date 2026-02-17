@@ -4,6 +4,8 @@ import {
   signOut,
   getCurrentUser,
   fetchAuthSession,
+  resetPassword,
+  confirmResetPassword,
   type SignInInput,
 } from "aws-amplify/auth";
 
@@ -67,6 +69,32 @@ export async function getCognitoUser(): Promise<CognitoUser | null> {
     };
   } catch {
     return null;
+  }
+}
+
+export async function cognitoResetPassword(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await resetPassword({ username: email });
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to send reset code";
+    return { success: false, error: message };
+  }
+}
+
+export async function cognitoConfirmResetPassword(
+  email: string,
+  code: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await confirmResetPassword({ username: email, confirmationCode: code, newPassword });
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to reset password";
+    return { success: false, error: message };
   }
 }
 

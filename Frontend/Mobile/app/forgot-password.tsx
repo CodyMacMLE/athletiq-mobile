@@ -1,4 +1,4 @@
-import { useAuth } from "@/contexts/AuthContext";
+import { cognitoResetPassword, cognitoConfirmResetPassword } from "@/lib/cognito";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -16,34 +16,24 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useMutation, useLazyQuery } from "@apollo/client";
-import { ACCEPT_INVITE } from "@/lib/graphql/mutations";
-import { MY_PENDING_INVITES } from "@/lib/graphql/queries";
 
-export default function Login() {
-  const { login, confirmNewPassword } = useAuth();
-
-  const [acceptInvite] = useMutation(ACCEPT_INVITE);
-  const [fetchPendingInvites] = useLazyQuery(MY_PENDING_INVITES, { fetchPolicy: "network-only" });
-
+export default function ForgotPassword() {
+  const [step, setStep] = useState<"email" | "reset">("email");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // New password flow
-  const [needsNewPassword, setNeedsNewPassword] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
-
-  const passwordRef = useRef<TextInput>(null);
+  const codeRef = useRef<TextInput>(null);
+  const newPasswordRef = useRef<TextInput>(null);
   const confirmPasswordRef = useRef<TextInput>(null);
 
-  const handleSignIn = async () => {
-    if (!email.trim() || !password.trim()) {
-      setError("Please enter your email and password.");
+  const handleSendCode = async () => {
+    if (!email.trim()) {
+      setError("Please enter your email.");
       return;
     }
 
@@ -51,34 +41,11 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const result = await login(email.trim(), password);
-
-      if (result.requiresNewPassword) {
-        setNeedsNewPassword(true);
-        setLoading(false);
-        return;
-      }
-
-      if (!result.success && result.error) {
-        setError(result.error);
-        return;
-      }
-
+      const result = await cognitoResetPassword(email.trim());
       if (result.success) {
-        // Auto-accept any pending invites
-        try {
-          const { data } = await fetchPendingInvites();
-          const invites = data?.myPendingInvites || [];
-          for (const invite of invites) {
-            try {
-              await acceptInvite({ variables: { token: invite.token } });
-            } catch {
-              // Skip failed invites
-            }
-          }
-        } catch {
-          // No invites or query failed — continue
-        }
+        setStep("reset");
+      } else {
+        setError(result.error || "Failed to send reset code.");
       }
     } catch {
       setError("An unexpected error occurred.");
@@ -87,7 +54,11 @@ export default function Login() {
     }
   };
 
-  const handleSetNewPassword = async () => {
+  const handleResetPassword = async () => {
+    if (!resetCode.trim()) {
+      setError("Please enter the reset code.");
+      return;
+    }
     if (!newPassword.trim()) {
       setError("Please enter a new password.");
       return;
@@ -105,9 +76,11 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const result = await confirmNewPassword(newPassword);
-      if (!result.success && result.error) {
-        setError(result.error);
+      const result = await cognitoConfirmResetPassword(email.trim(), resetCode.trim(), newPassword);
+      if (result.success) {
+        router.replace("/login");
+      } else {
+        setError(result.error || "Failed to reset password.");
       }
     } catch {
       setError("An unexpected error occurred.");
@@ -116,7 +89,7 @@ export default function Login() {
     }
   };
 
-  if (needsNewPassword) {
+  if (step === "reset") {
     return (
       <LinearGradient
         colors={["#302b6f", "#4d2a69", "#302b6f"]}
@@ -132,17 +105,15 @@ export default function Login() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Branding */}
             <View style={styles.branding}>
               <Image source={require("@/assets/logo/white_icon_transparent_background.png")} style={styles.logoImage} resizeMode="contain" />
             </View>
 
-            <Text style={styles.heading}>Set New Password</Text>
+            <Text style={styles.heading}>Reset Password</Text>
             <Text style={styles.subheading}>
-              You need to set a new password before continuing.
+              Enter the code sent to your email and your new password.
             </Text>
 
-            {/* Error */}
             {error ? (
               <View style={styles.errorBox}>
                 <Feather name="alert-circle" size={16} color="#e74c3c" />
@@ -150,23 +121,40 @@ export default function Login() {
               </View>
             ) : null}
 
+            {/* Reset Code */}
+            <View style={styles.inputContainer}>
+              <Feather name="hash" size={18} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
+              <TextInput
+                ref={codeRef}
+                style={styles.input}
+                placeholder="6-digit code"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                keyboardType="number-pad"
+                value={resetCode}
+                onChangeText={setResetCode}
+                returnKeyType="next"
+                onSubmitEditing={() => newPasswordRef.current?.focus()}
+              />
+            </View>
+
             {/* New Password */}
             <View style={styles.inputContainer}>
               <Feather name="lock" size={18} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
               <TextInput
+                ref={newPasswordRef}
                 style={styles.input}
                 placeholder="New Password"
                 placeholderTextColor="rgba(255,255,255,0.3)"
-                secureTextEntry={!showNewPassword}
+                secureTextEntry={!showPassword}
                 value={newPassword}
                 onChangeText={setNewPassword}
                 autoCapitalize="none"
                 returnKeyType="next"
                 onSubmitEditing={() => confirmPasswordRef.current?.focus()}
               />
-              <Pressable onPress={() => setShowNewPassword(!showNewPassword)} hitSlop={8}>
+              <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
                 <Feather
-                  name={showNewPassword ? "eye-off" : "eye"}
+                  name={showPassword ? "eye-off" : "eye"}
                   size={18}
                   color="rgba(255,255,255,0.4)"
                 />
@@ -181,37 +169,44 @@ export default function Login() {
                 style={styles.input}
                 placeholder="Confirm Password"
                 placeholderTextColor="rgba(255,255,255,0.3)"
-                secureTextEntry={!showNewPassword}
+                secureTextEntry={!showPassword}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 autoCapitalize="none"
                 returnKeyType="go"
-                onSubmitEditing={handleSetNewPassword}
+                onSubmitEditing={handleResetPassword}
               />
             </View>
 
             {/* Submit */}
             <Pressable
               style={({ pressed }) => [
-                styles.signInButton,
-                pressed && styles.signInButtonPressed,
-                loading && styles.signInButtonDisabled,
+                styles.submitButton,
+                pressed && styles.submitButtonPressed,
+                loading && styles.submitButtonDisabled,
               ]}
-              onPress={handleSetNewPassword}
+              onPress={handleResetPassword}
               disabled={loading}
             >
               <LinearGradient
                 colors={["#6c5ce7", "#a855f7"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.signInGradient}
+                style={styles.submitGradient}
               >
                 {loading ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text style={styles.signInText}>Set Password</Text>
+                  <Text style={styles.submitText}>Reset Password</Text>
                 )}
               </LinearGradient>
+            </Pressable>
+
+            {/* Back to login */}
+            <Pressable style={styles.backRow} onPress={() => router.back()}>
+              <Text style={styles.backText}>
+                Back to <Text style={styles.backLink}>Sign In</Text>
+              </Text>
             </Pressable>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -234,15 +229,15 @@ export default function Login() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Branding */}
           <View style={styles.branding}>
             <Image source={require("@/assets/logo/white_icon_transparent_background.png")} style={styles.logoImage} resizeMode="contain" />
           </View>
 
-          <Text style={styles.heading}>Welcome Back</Text>
-          <Text style={styles.subheading}>Sign in to your account</Text>
+          <Text style={styles.heading}>Forgot Password</Text>
+          <Text style={styles.subheading}>
+            Enter your email and we'll send you a reset code.
+          </Text>
 
-          {/* Error */}
           {error ? (
             <View style={styles.errorBox}>
               <Feather name="alert-circle" size={16} color="#e74c3c" />
@@ -262,75 +257,39 @@ export default function Login() {
               autoCorrect={false}
               value={email}
               onChangeText={setEmail}
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-            />
-          </View>
-
-          {/* Password */}
-          <View style={styles.inputContainer}>
-            <Feather name="lock" size={18} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
-            <TextInput
-              ref={passwordRef}
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-              autoCapitalize="none"
               returnKeyType="go"
-              onSubmitEditing={handleSignIn}
+              onSubmitEditing={handleSendCode}
             />
-            <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
-              <Feather
-                name={showPassword ? "eye-off" : "eye"}
-                size={18}
-                color="rgba(255,255,255,0.4)"
-              />
-            </Pressable>
           </View>
 
-          {/* Forgot Password */}
-          <Pressable
-            style={styles.forgotPasswordRow}
-            onPress={() => router.push("/forgot-password")}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
-          </Pressable>
-
-          {/* Sign In Button */}
+          {/* Submit */}
           <Pressable
             style={({ pressed }) => [
-              styles.signInButton,
-              pressed && styles.signInButtonPressed,
-              loading && styles.signInButtonDisabled,
+              styles.submitButton,
+              pressed && styles.submitButtonPressed,
+              loading && styles.submitButtonDisabled,
             ]}
-            onPress={handleSignIn}
+            onPress={handleSendCode}
             disabled={loading}
           >
             <LinearGradient
               colors={["#6c5ce7", "#a855f7"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.signInGradient}
+              style={styles.submitGradient}
             >
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={styles.signInText}>Sign In</Text>
+                <Text style={styles.submitText}>Send Reset Code</Text>
               )}
             </LinearGradient>
           </Pressable>
 
-          {/* Register link */}
-          <Pressable
-            style={styles.registerRow}
-            onPress={() => router.push("/register")}
-          >
-            <Text style={styles.registerText}>
-              Don't have an account?{" "}
-              <Text style={styles.registerLink}>Register</Text>
+          {/* Back to login */}
+          <Pressable style={styles.backRow} onPress={() => router.back()}>
+            <Text style={styles.backText}>
+              Back to <Text style={styles.backLink}>Sign In</Text>
             </Text>
           </Pressable>
         </ScrollView>
@@ -409,7 +368,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     letterSpacing: 0,
   },
-  signInButton: {
+  submitButton: {
     marginTop: 8,
     borderRadius: 14,
     overflow: "hidden",
@@ -419,40 +378,32 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  signInButtonPressed: {
+  submitButtonPressed: {
     opacity: 0.9,
     transform: [{ scale: 0.98 }],
   },
-  signInButtonDisabled: {
+  submitButtonDisabled: {
     opacity: 0.7,
   },
-  signInGradient: {
+  submitGradient: {
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
   },
-  signInText: {
+  submitText: {
     color: "white",
     fontSize: 17,
     fontWeight: "bold",
   },
-  forgotPasswordRow: {
-    alignItems: "flex-end",
-    marginBottom: 4,
-  },
-  forgotPasswordText: {
-    color: "#a855f7",
-    fontSize: 14,
-  },
-  registerRow: {
+  backRow: {
     marginTop: 20,
     alignItems: "center",
   },
-  registerText: {
+  backText: {
     color: "rgba(255,255,255,0.5)",
     fontSize: 15,
   },
-  registerLink: {
+  backLink: {
     color: "#a855f7",
     fontWeight: "600",
   },
