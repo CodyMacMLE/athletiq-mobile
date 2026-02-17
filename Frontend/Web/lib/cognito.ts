@@ -10,6 +10,8 @@ import {
   confirmSignIn,
   confirmSignUp,
   resendSignUpCode,
+  resetPassword,
+  confirmResetPassword,
   type SignInInput,
 } from "aws-amplify/auth";
 
@@ -133,6 +135,32 @@ export async function cognitoConfirmNewPassword(
     return { success: false, error: "Password change failed" };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Password change failed";
+    return { success: false, error: message };
+  }
+}
+
+export async function cognitoResetPassword(
+  email: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await resetPassword({ username: email });
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to send reset code";
+    return { success: false, error: message };
+  }
+}
+
+export async function cognitoConfirmResetPassword(
+  email: string,
+  code: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await confirmResetPassword({ username: email, confirmationCode: code, newPassword });
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to reset password";
     return { success: false, error: message };
   }
 }
