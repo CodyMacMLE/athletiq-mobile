@@ -32,9 +32,12 @@ export default function Analytics() {
   const teamRankings = statsData?.teamRankings || [];
   const leaderboard = leaderboardData?.teamLeaderboard || [];
 
-  // Auto-select first team
-  if (teams.length > 0 && !selectedTeamId) {
-    setSelectedTeamId(teams[0].id);
+  // Use current season teams from teamRankings
+  const currentSeasonTeams = teamRankings.map((ranking: any) => ranking.team);
+
+  // Auto-select first current season team
+  if (currentSeasonTeams.length > 0 && !selectedTeamId) {
+    setSelectedTeamId(currentSeasonTeams[0].id);
   }
 
   const isLoading = teamsLoading || statsLoading;
@@ -110,7 +113,7 @@ export default function Analytics() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-400 text-sm">Teams</p>
-              <p className="text-3xl font-bold text-white mt-1">{teams.length}</p>
+              <p className="text-3xl font-bold text-white mt-1">{teamRankings.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
               <Award className="w-6 h-6 text-blue-500" />
@@ -196,7 +199,7 @@ export default function Analytics() {
               onChange={(e) => setSelectedTeamId(e.target.value)}
               className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
-              {teams.map((team: any) => (
+              {currentSeasonTeams.map((team: any) => (
                 <option key={team.id} value={team.id}>
                   {team.name}
                 </option>

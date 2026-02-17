@@ -67,7 +67,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-400 text-sm">Teams</p>
-              <p className="text-3xl font-bold text-white mt-1">{org?.teams?.length || 0}</p>
+              <p className="text-3xl font-bold text-white mt-1">{teamRankings.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
               <Calendar className="w-6 h-6 text-blue-500" />
