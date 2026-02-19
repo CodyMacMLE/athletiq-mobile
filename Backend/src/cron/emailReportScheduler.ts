@@ -1,5 +1,5 @@
 import cron, { type ScheduledTask } from "node-cron";
-import { prisma } from "../index.js";
+import { prisma } from "../db.js";
 import { generateGuardianReport } from "../notifications/emailReports.js";
 
 let task: ScheduledTask | null = null;

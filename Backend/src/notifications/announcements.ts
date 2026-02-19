@@ -1,4 +1,4 @@
-import { prisma } from "../index.js";
+import { prisma } from "../db.js";
 import { sendPushNotification } from "./pushNotifications.js";
 import { sendAnnouncementEmail } from "./emailNotifications.js";
 

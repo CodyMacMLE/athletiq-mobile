@@ -2612,7 +2612,7 @@ export const resolvers = {
             if (!prefs || prefs.emailEnabled) {
               sendExcuseStatusEmail(
                 updated.user.email,
-                input.status,
+                input.status as "APPROVED" | "DENIED",
                 updated.event.title,
                 updated.reason
               ).catch((err) => console.error("Failed to send email notification:", err));
@@ -2640,7 +2640,7 @@ export const resolvers = {
       if (!context.userId) throw new Error("Authentication required");
 
       // Register with SNS
-      const endpoint = await registerPushToken(input.token, input.platform);
+      const endpoint = await registerPushToken(input.token, input.platform as "IOS" | "ANDROID");
 
       // Upsert device token
       const deviceToken = await prisma.deviceToken.upsert({

@@ -1,5 +1,5 @@
 import cron, { type ScheduledTask } from "node-cron";
-import { prisma } from "../index.js";
+import { prisma } from "../db.js";
 import { sendPushNotification } from "../notifications/pushNotifications.js";
 import { sendEventReminderEmail } from "../notifications/emailNotifications.js";
 

@@ -1,5 +1,5 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
-import { prisma } from "../index.js";
+import { prisma } from "../db.js";
 
 const ses = new SESClient({
   region: process.env.AWS_REGION || "us-east-2",
