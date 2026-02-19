@@ -90,10 +90,11 @@ async function main() {
         const playgroundApiKey = process.env.PLAYGROUND_API_KEY;
         if (apiKey && playgroundApiKey && apiKey === playgroundApiKey) {
           const email = process.env.PLAYGROUND_USER_EMAIL;
-          if (email) {
-            const user = await prisma.user.findUnique({ where: { email } });
-            if (user) return { userId: user.id };
-          }
+          if (!email) throw new Error("PLAYGROUND_USER_EMAIL is not set");
+          const user = await prisma.user.findUnique({ where: { email } });
+          if (!user) throw new Error(`No user found for PLAYGROUND_USER_EMAIL: ${email}`);
+          console.log(`[playground] authenticated as ${email} (${user.id})`);
+          return { userId: user.id };
         }
 
         const authHeader = req.headers.authorization;
