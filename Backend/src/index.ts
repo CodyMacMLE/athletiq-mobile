@@ -1,4 +1,5 @@
 import { ApolloServer } from "@apollo/server";
+import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default";
 import { expressMiddleware } from "@as-integrations/express5";
 import express from "express";
 import cors from "cors";
@@ -25,12 +26,53 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
   }
 }
 
+// Basic Auth middleware — only applies to GET requests (playground page load).
+// POST requests (actual GraphQL queries) skip this and use Cognito JWT instead.
+function playgroundAuth(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+): void {
+  if (req.method !== "GET") return next();
+
+  const playgroundPassword = process.env.PLAYGROUND_PASSWORD;
+  if (!playgroundPassword) {
+    res.status(403).send("Playground is disabled (PLAYGROUND_PASSWORD not set)");
+    return;
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Basic ")) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="GraphQL Playground"');
+    res.status(401).send("Authentication required");
+    return;
+  }
+
+  const credentials = Buffer.from(authHeader.slice(6), "base64").toString("utf-8");
+  const colonIndex = credentials.indexOf(":");
+  const username = credentials.slice(0, colonIndex);
+  const password = credentials.slice(colonIndex + 1);
+
+  const validUsername = process.env.PLAYGROUND_USERNAME || "admin";
+  if (username !== validUsername || password !== playgroundPassword) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="GraphQL Playground"');
+    res.status(401).send("Invalid credentials");
+    return;
+  }
+
+  next();
+}
+
 async function main() {
   const app = express();
 
   const server = new ApolloServer<Context>({
     typeDefs,
     resolvers,
+    introspection: true,
+    plugins: [
+      ApolloServerPluginLandingPageLocalDefault({ embed: true }),
+    ],
   });
 
   await server.start();
@@ -39,6 +81,7 @@ async function main() {
     "/graphql",
     cors<cors.CorsRequest>({ origin: true }),
     express.json(),
+    playgroundAuth,
     expressMiddleware(server, {
       context: async ({ req }) => {
         const authHeader = req.headers.authorization;
