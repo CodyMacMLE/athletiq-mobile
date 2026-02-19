@@ -37,7 +37,7 @@ type TargetType = "ALL_TEAMS" | "SPECIFIC_TEAMS" | "EVENT_DAY";
 
 export default function NewAnnouncementPage() {
   const router = useRouter();
-  const { selectedOrg } = useAuth();
+  const { selectedOrganizationId } = useAuth();
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [targetType, setTargetType] = useState<TargetType>("ALL_TEAMS");
@@ -46,8 +46,8 @@ export default function NewAnnouncementPage() {
   const [isSending, setIsSending] = useState(false);
 
   const { data: teamsData } = useQuery(GET_TEAMS, {
-    variables: { organizationId: selectedOrg?.id },
-    skip: !selectedOrg?.id,
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId,
   });
 
   const [createAnnouncement] = useMutation(CREATE_ANNOUNCEMENT);
@@ -55,7 +55,7 @@ export default function NewAnnouncementPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedOrg?.id) return;
+    if (!selectedOrganizationId) return;
 
     setIsSending(true);
     try {
@@ -65,7 +65,7 @@ export default function NewAnnouncementPage() {
           input: {
             title,
             message,
-            organizationId: selectedOrg.id,
+            organizationId: selectedOrganizationId,
             targetType,
             teamIds: targetType === "SPECIFIC_TEAMS" ? selectedTeams : [],
             eventDate: targetType === "EVENT_DAY" ? eventDate : null,
@@ -75,7 +75,7 @@ export default function NewAnnouncementPage() {
 
       // Send announcement
       await sendAnnouncement({
-        variables: { id: data.createAnnouncement.id },
+        variables: { id: (data as any).createAnnouncement.id },
       });
 
       // Redirect to announcements list
@@ -228,7 +228,7 @@ export default function NewAnnouncementPage() {
                 Select Teams <span className="text-red-400">*</span>
               </label>
               <div className="grid grid-cols-2 gap-3">
-                {teamsData?.teams.map((team: any) => (
+                {(teamsData as any)?.teams.map((team: any) => (
                   <button
                     key={team.id}
                     type="button"

@@ -102,7 +102,10 @@ const FREQUENCY_OPTIONS: { value: ReportFrequency; label: string; description: s
 ];
 
 export default function EmailReportsPage() {
-  const { selectedOrg, userRole } = useAuth();
+  const { selectedOrganizationId, currentOrgRole, user } = useAuth();
+  const selectedOrg = user?.organizationMemberships?.find(
+    (m: any) => m.organization.id === selectedOrganizationId
+  )?.organization ?? null;
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFrequency, setEditFrequency] = useState<ReportFrequency>("WEEKLY");
@@ -111,8 +114,8 @@ export default function EmailReportsPage() {
   const { data: configsData, loading, refetch } = useQuery(GET_EMAIL_REPORT_CONFIGS);
 
   const { data: athletesData } = useQuery(GET_LINKED_ATHLETES, {
-    variables: { organizationId: selectedOrg?.id },
-    skip: !selectedOrg?.id,
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId,
   });
 
   const [createConfig] = useMutation(CREATE_EMAIL_REPORT_CONFIG, {
@@ -136,15 +139,15 @@ export default function EmailReportsPage() {
   const [sendTestReport] = useMutation(SEND_TEST_REPORT);
 
   // Check if user is a guardian
-  const isGuardian = userRole === "GUARDIAN";
+  const isGuardian = currentOrgRole === "GUARDIAN";
 
   const handleCreate = async () => {
-    if (!selectedOrg?.id) return;
+    if (!selectedOrganizationId) return;
     try {
       await createConfig({
         variables: {
           input: {
-            organizationId: selectedOrg.id,
+            organizationId: selectedOrganizationId,
             frequency: newFrequency,
           },
         },
@@ -204,8 +207,8 @@ export default function EmailReportsPage() {
     }
   };
 
-  const configs = configsData?.myEmailReportConfigs || [];
-  const linkedAthletes = athletesData?.myLinkedAthletes || [];
+  const configs = (configsData as any)?.myEmailReportConfigs || [];
+  const linkedAthletes = (athletesData as any)?.myLinkedAthletes || [];
 
   if (!isGuardian) {
     return (

@@ -67,15 +67,15 @@ type Announcement = {
 
 export default function AnnouncementsPage() {
   const router = useRouter();
-  const { selectedOrg, userRole } = useAuth();
+  const { selectedOrganizationId, currentOrgRole } = useAuth();
   const [filter, setFilter] = useState<"all" | "sent" | "draft">("all");
 
   const { data, loading, refetch } = useQuery(GET_ANNOUNCEMENTS, {
     variables: {
-      organizationId: selectedOrg?.id,
+      organizationId: selectedOrganizationId,
       limit: 100,
     },
-    skip: !selectedOrg?.id,
+    skip: !selectedOrganizationId,
   });
 
   const [deleteAnnouncement] = useMutation(DELETE_ANNOUNCEMENT, {
@@ -87,7 +87,7 @@ export default function AnnouncementsPage() {
   });
 
   // Check if user can create announcements
-  const canCreate = ["OWNER", "ADMIN", "MANAGER", "COACH"].includes(userRole || "");
+  const canCreate = ["OWNER", "ADMIN", "MANAGER", "COACH"].includes(currentOrgRole || "");
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this announcement?")) return;
@@ -109,7 +109,7 @@ export default function AnnouncementsPage() {
     }
   };
 
-  const announcements = data?.organizationAnnouncements || [];
+  const announcements = (data as any)?.organizationAnnouncements || [];
   const filteredAnnouncements = announcements.filter((a: Announcement) => {
     if (filter === "sent") return a.sentAt;
     if (filter === "draft") return !a.sentAt;
