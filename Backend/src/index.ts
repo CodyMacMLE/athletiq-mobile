@@ -84,6 +84,18 @@ async function main() {
     playgroundAuth,
     expressMiddleware(server, {
       context: async ({ req }) => {
+        // Playground API key bypass — allows testing in Apollo Studio without a Cognito JWT.
+        // Only works when PLAYGROUND_API_KEY is set in the environment.
+        const apiKey = req.headers["x-api-key"];
+        const playgroundApiKey = process.env.PLAYGROUND_API_KEY;
+        if (apiKey && playgroundApiKey && apiKey === playgroundApiKey) {
+          const email = process.env.PLAYGROUND_USER_EMAIL;
+          if (email) {
+            const user = await prisma.user.findUnique({ where: { email } });
+            if (user) return { userId: user.id };
+          }
+        }
+
         const authHeader = req.headers.authorization;
         if (!authHeader?.startsWith("Bearer ")) {
           return {};
