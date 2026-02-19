@@ -31,6 +31,11 @@ model User {
   excuseRequests           ExcuseRequest[]
   guardianOf               GuardianLink[] @relation("GuardianOf")
   guardedBy                GuardianLink[] @relation("GuardedBy")
+  deviceTokens             DeviceToken[]
+  notificationPreferences  NotificationPreferences?
+  emailReportConfigs       EmailReportConfig[]
+  notificationDeliveries   NotificationDelivery[]
+  createdAnnouncements     Announcement[]
 }
 
 // ============================================
@@ -45,14 +50,16 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   // Relations
-  teams           Team[]
-  events          Event[]
-  members         OrganizationMember[]
-  recurringEvents RecurringEvent[]
-  invites         Invite[]
-  nfcTags         NfcTag[]
-  guardianLinks   GuardianLink[]
-  seasons         OrgSeason[]
+  teams              Team[]
+  events             Event[]
+  members            OrganizationMember[]
+  recurringEvents    RecurringEvent[]
+  invites            Invite[]
+  nfcTags            NfcTag[]
+  guardianLinks      GuardianLink[]
+  seasons            OrgSeason[]
+  announcements      Announcement[]
+  emailReportConfigs EmailReportConfig[]
 }
 
 model OrgSeason {
@@ -333,4 +340,149 @@ model GuardianLink {
   @@unique([guardianId, athleteId, organizationId])
   @@index([guardianId])
   @@index([athleteId])
+}
+
+// ============================================
+// Notifications & Announcements
+// ============================================
+
+enum Platform {
+  IOS
+  ANDROID
+  WEB
+}
+
+enum AnnouncementTarget {
+  ALL_TEAMS
+  SPECIFIC_TEAMS
+  EVENT_DAY
+}
+
+enum ReportFrequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  BIANNUALLY
+}
+
+enum NotificationType {
+  EVENT_REMINDER
+  ANNOUNCEMENT
+  EXCUSE_STATUS
+  ATTENDANCE_MILESTONE
+  EMAIL_REPORT
+}
+
+enum NotificationChannel {
+  EMAIL
+  PUSH
+  SMS
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+// Device tokens for push notifications
+model DeviceToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   // Expo push token
+  platform  Platform
+  endpoint  String?  // SNS platform endpoint ARN
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, token])
+  @@index([userId])
+  @@index([isActive])
+}
+
+// User notification preferences
+model NotificationPreferences {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailEnabled          Boolean  @default(true)
+  pushEnabled           Boolean  @default(true)
+  smsEnabled            Boolean  @default(false)
+  eventRemindersEnabled Boolean  @default(true)
+  eventReminderMinutes  Int      @default(120) // 2 hours default
+  announcementsEnabled  Boolean  @default(true)
+  excuseStatusEnabled   Boolean  @default(true)
+  milestonesEnabled     Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Announcements
+model Announcement {
+  id             String             @id @default(cuid())
+  title          String
+  message        String             @db.Text
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy      String
+  creator        User               @relation(fields: [createdBy], references: [id])
+  targetType     AnnouncementTarget @default(ALL_TEAMS)
+  teamIds        String[]
+  eventDate      DateTime?
+  sentAt         DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  deliveries     NotificationDelivery[]
+
+  @@index([organizationId])
+  @@index([createdBy])
+  @@index([sentAt])
+}
+
+// Email report configuration for guardians
+model EmailReportConfig {
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  frequency      ReportFrequency
+  enabled        Boolean         @default(true)
+  lastSentAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([userId, organizationId])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([enabled, frequency])
+}
+
+// Notification delivery history
+model NotificationDelivery {
+  id             String              @id @default(cuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           NotificationType
+  channel        NotificationChannel
+  title          String
+  message        String              @db.Text
+  metadata       Json?
+  status         DeliveryStatus      @default(PENDING)
+  errorMessage   String?
+  announcementId String?
+  announcement   Announcement?       @relation(fields: [announcementId], references: [id])
+  sentAt         DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
 }

@@ -6,6 +6,8 @@ import { typeDefs } from "./schema.js";
 import { resolvers } from "./resolvers/index.js";
 import { prisma } from "./db.js";
 import { startAbsentMarkerCron, stopAbsentMarkerCron } from "./cron/absentMarker.js";
+import { startEventReminderCron, stopEventReminderCron } from "./cron/eventReminders.js";
+import { startEmailReportCron, stopEmailReportCron } from "./cron/emailReportScheduler.js";
 
 interface Context {
   userId?: string;
@@ -74,18 +76,24 @@ async function main() {
   app.listen(4000, "0.0.0.0", () => {
     console.log(`🚀 Server ready at http://localhost:4000/graphql`);
     startAbsentMarkerCron();
+    startEventReminderCron();
+    startEmailReportCron();
   });
 }
 
 // Graceful shutdown
 process.on("SIGINT", async () => {
   stopAbsentMarkerCron();
+  stopEventReminderCron();
+  stopEmailReportCron();
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
   stopAbsentMarkerCron();
+  stopEventReminderCron();
+  stopEmailReportCron();
   await prisma.$disconnect();
   process.exit(0);
 });

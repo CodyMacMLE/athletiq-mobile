@@ -1,10 +1,15 @@
 import { prisma } from "../db.js";
-import { AttendanceStatus, EventType, ExcuseRequestStatus, InviteStatus, OrgRole, RecurrenceFrequency, TeamRole } from "@prisma/client";
+import { AttendanceStatus, EventType, ExcuseRequestStatus, InviteStatus, OrgRole, RecurrenceFrequency, TeamRole, Platform, AnnouncementTarget, ReportFrequency } from "@prisma/client";
 import { sendInviteEmail, sendFeedbackEmail } from "../email.js";
 import { generateProfilePictureUploadUrl } from "../s3.js";
 import { parseTimeString } from "../utils/time.js";
 import { markAbsentForEndedEvents } from "../services/markAbsent.js";
 import { CognitoIdentityProviderClient, AdminDeleteUserCommand, ListUsersCommand } from "@aws-sdk/client-cognito-identity-provider";
+import { registerPushToken } from "../notifications/sns.js";
+import { sendPushNotification } from "../notifications/pushNotifications.js";
+import { broadcastAnnouncement } from "../notifications/announcements.js";
+import { generateGuardianReport } from "../notifications/emailReports.js";
+import { sendExcuseStatusEmail } from "../notifications/emailNotifications.js";
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION || "us-east-2",
@@ -979,6 +984,99 @@ export const resolvers = {
         };
       });
     },
+
+    // Notification queries
+    myNotificationPreferences: async (
+      _: unknown,
+      __: unknown,
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Return existing preferences or create default ones
+      let prefs = await prisma.notificationPreferences.findUnique({
+        where: { userId: context.userId },
+      });
+
+      if (!prefs) {
+        prefs = await prisma.notificationPreferences.create({
+          data: { userId: context.userId },
+        });
+      }
+
+      return prefs;
+    },
+
+    myDeviceTokens: async (
+      _: unknown,
+      __: unknown,
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      return prisma.deviceToken.findMany({
+        where: { userId: context.userId },
+        orderBy: { createdAt: "desc" },
+      });
+    },
+
+    myEmailReportConfigs: async (
+      _: unknown,
+      __: unknown,
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      return prisma.emailReportConfig.findMany({
+        where: { userId: context.userId },
+        include: { organization: true },
+        orderBy: { createdAt: "desc" },
+      });
+    },
+
+    organizationAnnouncements: async (
+      _: unknown,
+      { organizationId, limit }: { organizationId: string; limit?: number },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Verify user is a member of the organization
+      const membership = await prisma.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: context.userId,
+            organizationId,
+          },
+        },
+      });
+
+      if (!membership) {
+        throw new Error("Not a member of this organization");
+      }
+
+      return prisma.announcement.findMany({
+        where: { organizationId },
+        include: { creator: true, organization: true },
+        orderBy: { createdAt: "desc" },
+        take: limit || 50,
+      });
+    },
+
+    notificationHistory: async (
+      _: unknown,
+      { limit }: { limit?: number },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      return prisma.notificationDelivery.findMany({
+        where: { userId: context.userId },
+        include: { user: true },
+        orderBy: { createdAt: "desc" },
+        take: limit || 100,
+      });
+    },
   },
 
   Mutation: {
@@ -1626,7 +1724,7 @@ export const resolvers = {
       // Determine if on time or late (on-time = before start, late = after start)
       const status: AttendanceStatus = now.getTime() <= eventStart.getTime() ? "ON_TIME" : "LATE";
 
-      return prisma.checkIn.create({
+      const checkIn = await prisma.checkIn.create({
         data: {
           userId: input.userId,
           eventId: input.eventId,
@@ -1634,6 +1732,82 @@ export const resolvers = {
           checkInTime: now,
         },
       });
+
+      // Check for attendance milestones (non-blocking)
+      (async () => {
+        try {
+          const prefs = await prisma.notificationPreferences.findUnique({
+            where: { userId: input.userId },
+          });
+
+          // Skip if milestone notifications are disabled
+          if (prefs && !prefs.milestonesEnabled) {
+            return;
+          }
+
+          // Count total successful check-ins (ON_TIME or LATE)
+          const totalCheckIns = await prisma.checkIn.count({
+            where: {
+              userId: input.userId,
+              status: { in: ["ON_TIME", "LATE"] },
+              approved: true,
+            },
+          });
+
+          // Milestone check-in counts
+          const milestones = [10, 25, 50, 100, 250, 500, 1000];
+          if (milestones.includes(totalCheckIns)) {
+            const title = `🎉 ${totalCheckIns} Check-ins!`;
+            const message = `Congratulations! You've reached ${totalCheckIns} check-ins. Keep up the great work!`;
+
+            // Send push notification
+            if (!prefs || prefs.pushEnabled) {
+              sendPushNotification(input.userId, title, message, {
+                type: "ATTENDANCE_MILESTONE",
+                milestone: totalCheckIns,
+              }).catch((err) => console.error("Failed to send milestone notification:", err));
+            }
+          }
+
+          // Check attendance percentage milestone (only for users with at least 10 events)
+          const allCheckIns = await prisma.checkIn.count({
+            where: {
+              userId: input.userId,
+              approved: true,
+            },
+          });
+
+          if (allCheckIns >= 10) {
+            const successfulCheckIns = await prisma.checkIn.count({
+              where: {
+                userId: input.userId,
+                status: { in: ["ON_TIME", "LATE"] },
+                approved: true,
+              },
+            });
+
+            const attendancePercent = (successfulCheckIns / allCheckIns) * 100;
+
+            // Perfect attendance milestone
+            if (attendancePercent === 100 && allCheckIns % 10 === 0) {
+              const title = "🏆 Perfect Attendance!";
+              const message = `Amazing! You've maintained 100% attendance across ${allCheckIns} events!`;
+
+              if (!prefs || prefs.pushEnabled) {
+                sendPushNotification(input.userId, title, message, {
+                  type: "ATTENDANCE_MILESTONE",
+                  milestone: "perfect_attendance",
+                  totalEvents: allCheckIns,
+                }).catch((err) => console.error("Failed to send milestone notification:", err));
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Failed to check attendance milestones:", err);
+        }
+      })();
+
+      return checkIn;
     },
 
     checkOut: async (
@@ -2383,6 +2557,10 @@ export const resolvers = {
       const updated = await prisma.excuseRequest.update({
         where: { id: input.id },
         data: { status: input.status },
+        include: {
+          user: true,
+          event: true,
+        },
       });
 
       // If approved, update or create the check-in as excused
@@ -2405,11 +2583,361 @@ export const resolvers = {
         });
       }
 
+      // Send notification (non-blocking)
+      if (input.status === "APPROVED" || input.status === "DENIED") {
+        (async () => {
+          try {
+            const prefs = await prisma.notificationPreferences.findUnique({
+              where: { userId: updated.userId },
+            });
+
+            // Skip if excuse status notifications are disabled
+            if (prefs && !prefs.excuseStatusEnabled) {
+              return;
+            }
+
+            const title = input.status === "APPROVED" ? "Excuse Approved" : "Excuse Denied";
+            const message = `Your excuse for ${updated.event.title} was ${input.status.toLowerCase()}`;
+
+            // Send push notification
+            if (!prefs || prefs.pushEnabled) {
+              sendPushNotification(updated.userId, title, message, {
+                type: "EXCUSE_STATUS",
+                excuseRequestId: input.id,
+                eventId: updated.eventId,
+              }).catch((err) => console.error("Failed to send push notification:", err));
+            }
+
+            // Send email notification
+            if (!prefs || prefs.emailEnabled) {
+              sendExcuseStatusEmail(
+                updated.user.email,
+                input.status,
+                updated.event.title,
+                updated.reason
+              ).catch((err) => console.error("Failed to send email notification:", err));
+            }
+          } catch (err) {
+            console.error("Failed to send excuse status notification:", err);
+          }
+        })();
+      }
+
       return updated;
     },
 
     cancelExcuseRequest: async (_: unknown, { id }: { id: string }) => {
       await prisma.excuseRequest.delete({ where: { id } });
+      return true;
+    },
+
+    // Notification mutations
+    registerDeviceToken: async (
+      _: unknown,
+      { input }: { input: { token: string; platform: Platform } },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Register with SNS
+      const endpoint = await registerPushToken(input.token, input.platform);
+
+      // Upsert device token
+      const deviceToken = await prisma.deviceToken.upsert({
+        where: {
+          userId_token: {
+            userId: context.userId,
+            token: input.token,
+          },
+        },
+        update: {
+          endpoint,
+          platform: input.platform,
+          isActive: true,
+        },
+        create: {
+          userId: context.userId,
+          token: input.token,
+          platform: input.platform,
+          endpoint,
+          isActive: true,
+        },
+      });
+
+      return deviceToken;
+    },
+
+    unregisterDeviceToken: async (
+      _: unknown,
+      { tokenId }: { tokenId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      await prisma.deviceToken.update({
+        where: { id: tokenId },
+        data: { isActive: false },
+      });
+
+      return true;
+    },
+
+    updateNotificationPreferences: async (
+      _: unknown,
+      { input }: { input: any },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const prefs = await prisma.notificationPreferences.upsert({
+        where: { userId: context.userId },
+        update: input,
+        create: {
+          userId: context.userId,
+          ...input,
+        },
+      });
+
+      return prefs;
+    },
+
+    createAnnouncement: async (
+      _: unknown,
+      { input }: { input: any },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Verify user has permission (OWNER, ADMIN, MANAGER, or COACH)
+      const membership = await prisma.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: context.userId,
+            organizationId: input.organizationId,
+          },
+        },
+      });
+
+      if (!membership || !["OWNER", "ADMIN", "MANAGER", "COACH"].includes(membership.role)) {
+        throw new Error("Insufficient permissions to create announcements");
+      }
+
+      // Create announcement
+      const announcement = await prisma.announcement.create({
+        data: {
+          title: input.title,
+          message: input.message,
+          organizationId: input.organizationId,
+          createdBy: context.userId,
+          targetType: input.targetType || "ALL_TEAMS",
+          teamIds: input.teamIds || [],
+          eventDate: input.eventDate ? new Date(input.eventDate) : null,
+        },
+        include: {
+          organization: true,
+          creator: true,
+        },
+      });
+
+      return announcement;
+    },
+
+    sendAnnouncement: async (
+      _: unknown,
+      { id }: { id: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Verify user is the creator or has admin permission
+      const announcement = await prisma.announcement.findUnique({
+        where: { id },
+        include: { organization: true },
+      });
+
+      if (!announcement) {
+        throw new Error("Announcement not found");
+      }
+
+      if (announcement.createdBy !== context.userId) {
+        const membership = await prisma.organizationMember.findUnique({
+          where: {
+            userId_organizationId: {
+              userId: context.userId,
+              organizationId: announcement.organizationId,
+            },
+          },
+        });
+
+        if (!membership || !["OWNER", "ADMIN", "MANAGER", "COACH"].includes(membership.role)) {
+          throw new Error("Insufficient permissions");
+        }
+      }
+
+      // Broadcast announcement in background (non-blocking)
+      broadcastAnnouncement(id).catch((err) => {
+        console.error(`Failed to broadcast announcement ${id}:`, err);
+      });
+
+      return true;
+    },
+
+    deleteAnnouncement: async (
+      _: unknown,
+      { id }: { id: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Verify user is the creator or has admin permission
+      const announcement = await prisma.announcement.findUnique({
+        where: { id },
+      });
+
+      if (!announcement) {
+        throw new Error("Announcement not found");
+      }
+
+      if (announcement.createdBy !== context.userId) {
+        const membership = await prisma.organizationMember.findUnique({
+          where: {
+            userId_organizationId: {
+              userId: context.userId,
+              organizationId: announcement.organizationId,
+            },
+          },
+        });
+
+        if (!membership || !["OWNER", "ADMIN"].includes(membership.role)) {
+          throw new Error("Insufficient permissions");
+        }
+      }
+
+      await prisma.announcement.delete({ where: { id } });
+      return true;
+    },
+
+    createEmailReportConfig: async (
+      _: unknown,
+      { input }: { input: { organizationId: string; frequency: ReportFrequency } },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Verify user is a GUARDIAN in the organization
+      const membership = await prisma.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: context.userId,
+            organizationId: input.organizationId,
+          },
+        },
+      });
+
+      if (!membership || membership.role !== "GUARDIAN") {
+        throw new Error("Only guardians can configure email reports");
+      }
+
+      // Verify guardian has linked athletes
+      const guardianLinks = await prisma.guardianLink.findMany({
+        where: {
+          guardianId: context.userId,
+          organizationId: input.organizationId,
+        },
+      });
+
+      if (guardianLinks.length === 0) {
+        throw new Error("No athletes linked to this guardian");
+      }
+
+      const config = await prisma.emailReportConfig.create({
+        data: {
+          userId: context.userId,
+          organizationId: input.organizationId,
+          frequency: input.frequency,
+          enabled: true,
+        },
+        include: {
+          user: true,
+          organization: true,
+        },
+      });
+
+      return config;
+    },
+
+    updateEmailReportConfig: async (
+      _: unknown,
+      { id, frequency, enabled }: { id: string; frequency?: ReportFrequency; enabled?: boolean },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Verify ownership
+      const config = await prisma.emailReportConfig.findUnique({
+        where: { id },
+      });
+
+      if (!config || config.userId !== context.userId) {
+        throw new Error("Not found or unauthorized");
+      }
+
+      const updated = await prisma.emailReportConfig.update({
+        where: { id },
+        data: {
+          ...(frequency && { frequency }),
+          ...(enabled !== undefined && { enabled }),
+        },
+        include: {
+          user: true,
+          organization: true,
+        },
+      });
+
+      return updated;
+    },
+
+    deleteEmailReportConfig: async (
+      _: unknown,
+      { id }: { id: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Verify ownership
+      const config = await prisma.emailReportConfig.findUnique({
+        where: { id },
+      });
+
+      if (!config || config.userId !== context.userId) {
+        throw new Error("Not found or unauthorized");
+      }
+
+      await prisma.emailReportConfig.delete({ where: { id } });
+      return true;
+    },
+
+    sendTestReport: async (
+      _: unknown,
+      { configId }: { configId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      // Verify ownership
+      const config = await prisma.emailReportConfig.findUnique({
+        where: { id: configId },
+      });
+
+      if (!config || config.userId !== context.userId) {
+        throw new Error("Not found or unauthorized");
+      }
+
+      // Generate and send report in background (non-blocking)
+      generateGuardianReport(configId).catch((err) => {
+        console.error(`Failed to generate test report for config ${configId}:`, err);
+      });
+
       return true;
     },
   },
@@ -2625,5 +3153,44 @@ export const resolvers = {
     organization: (parent: { organizationId: string }) =>
       prisma.organization.findUnique({ where: { id: parent.organizationId } }),
     createdAt: (parent: any) => toISO(parent.createdAt),
+  },
+
+  DeviceToken: {
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
+  },
+
+  NotificationPreferences: {
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
+  },
+
+  Announcement: {
+    organization: (parent: { organizationId: string }) =>
+      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    creator: (parent: { createdBy: string }) =>
+      prisma.user.findUnique({ where: { id: parent.createdBy } }),
+    sentAt: (parent: any) => parent.sentAt ? toISO(parent.sentAt) : null,
+    eventDate: (parent: any) => parent.eventDate ? toISO(parent.eventDate) : null,
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
+  },
+
+  EmailReportConfig: {
+    user: (parent: { userId: string }) =>
+      prisma.user.findUnique({ where: { id: parent.userId } }),
+    organization: (parent: { organizationId: string }) =>
+      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    lastSentAt: (parent: any) => parent.lastSentAt ? toISO(parent.lastSentAt) : null,
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
+  },
+
+  NotificationDelivery: {
+    user: (parent: { userId: string }) =>
+      prisma.user.findUnique({ where: { id: parent.userId } }),
+    sentAt: (parent: any) => parent.sentAt ? toISO(parent.sentAt) : null,
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 };

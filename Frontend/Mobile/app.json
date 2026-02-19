@@ -20,13 +20,17 @@
           "",
           ""
         ],
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       },
       "bundleIdentifier": "com.anonymous.athletiq"
     },
     "android": {
       "permissions": [
-        "android.permission.NFC"
+        "android.permission.NFC",
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#302b6f",
@@ -62,6 +66,14 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow Athletiq to access your photos to set a profile picture."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#a855f7",
+          "sounds": []
         }
       ]
     ],

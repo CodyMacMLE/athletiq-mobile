@@ -626,6 +626,22 @@ export default function Profile() {
                 styles.fieldItem,
                 pressed && styles.fieldItemPressed,
               ]}
+              onPress={() => router.push("/notification-settings")}
+            >
+              <View style={styles.fieldIconContainer}>
+                <Feather name="bell" size={18} color="#a855f7" />
+              </View>
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>Notification Settings</Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.fieldItem,
+                pressed && styles.fieldItemPressed,
+              ]}
               onPress={() => router.push("/help-support")}
             >
               <View style={styles.fieldIconContainer}>

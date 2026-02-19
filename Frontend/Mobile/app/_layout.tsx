@@ -1,11 +1,21 @@
 import { ApolloProvider } from "@apollo/client";
 import { Stack } from "expo-router";
+import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { apolloClient } from "@/lib/apollo";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { useNotificationRegistration } from "@/lib/notifications";
 
 function RootNavigator() {
-  const { isLoading } = useAuth();
+  const { isLoading, isAuthenticated } = useAuth();
+  const { register } = useNotificationRegistration();
+
+  // Register for push notifications when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      register();
+    }
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
