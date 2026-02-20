@@ -52,11 +52,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 
   try {
-    // Get Expo push token
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: "5b962328-12c3-475e-9902-edcca1128c5c",
-    });
-
     // Configure notification channel for Android
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("default", {
@@ -67,7 +62,10 @@ export async function registerForPushNotifications(): Promise<string | null> {
       });
     }
 
-    return tokenData.data;
+    // Get native device token (APNS on iOS, FCM on Android) required by AWS SNS
+    const tokenData = await Notifications.getDevicePushTokenAsync();
+
+    return tokenData.data as string;
   } catch (error) {
     console.error("Error getting push token:", error);
     return null;
