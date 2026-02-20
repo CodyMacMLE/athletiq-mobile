@@ -3,7 +3,9 @@ import { Stack, router } from "expo-router";
 import { useQuery, useMutation } from "@apollo/client";
 import { gql } from "@apollo/client";
 import { useState, useEffect } from "react";
-import { Ionicons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 
 const GET_NOTIFICATION_PREFERENCES = gql(`
   query GetNotificationPreferences {
@@ -51,20 +53,18 @@ export default function NotificationSettings() {
 
   const prefs = data?.myNotificationPreferences;
 
-  // Local state for immediate UI updates
-  const [emailEnabled, setEmailEnabled] = useState(prefs?.emailEnabled ?? true);
-  const [pushEnabled, setPushEnabled] = useState(prefs?.pushEnabled ?? true);
-  const [eventRemindersEnabled, setEventRemindersEnabled] = useState(prefs?.eventRemindersEnabled ?? true);
-  const [eventReminderMinutes, setEventReminderMinutes] = useState(prefs?.eventReminderMinutes ?? 120);
-  const [announcementsEnabled, setAnnouncementsEnabled] = useState(prefs?.announcementsEnabled ?? true);
-  const [excuseStatusEnabled, setExcuseStatusEnabled] = useState(prefs?.excuseStatusEnabled ?? true);
-  const [milestonesEnabled, setMilestonesEnabled] = useState(prefs?.milestonesEnabled ?? true);
+  const [pushEnabled, setPushEnabled] = useState(true);
+  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [eventRemindersEnabled, setEventRemindersEnabled] = useState(true);
+  const [eventReminderMinutes, setEventReminderMinutes] = useState(120);
+  const [announcementsEnabled, setAnnouncementsEnabled] = useState(true);
+  const [excuseStatusEnabled, setExcuseStatusEnabled] = useState(true);
+  const [milestonesEnabled, setMilestonesEnabled] = useState(true);
 
-  // Update local state when data loads
   useEffect(() => {
     if (prefs) {
-      setEmailEnabled(prefs.emailEnabled);
       setPushEnabled(prefs.pushEnabled);
+      setEmailEnabled(prefs.emailEnabled);
       setEventRemindersEnabled(prefs.eventRemindersEnabled);
       setEventReminderMinutes(prefs.eventReminderMinutes);
       setAnnouncementsEnabled(prefs.announcementsEnabled);
@@ -81,292 +81,302 @@ export default function NotificationSettings() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <Stack.Screen
-          options={{
-            headerShown: true,
-            title: "Notification Settings",
-            headerStyle: { backgroundColor: "#1a1640" },
-            headerTintColor: "#fff",
-          }}
-        />
-        <View style={styles.loading}>
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={["#302b6f", "#4d2a69", "#302b6f"]}
+      style={styles.gradient}
+      locations={[0.1, 0.6, 1]}
+    >
+      <StatusBar style="light" />
       <Stack.Screen
         options={{
           headerShown: true,
-          title: "Notification Settings",
-          headerStyle: { backgroundColor: "#1a1640" },
+          title: "Notifications",
+          headerStyle: { backgroundColor: "#302b6f" },
           headerTintColor: "#fff",
+          headerShadowVisible: false,
+          headerBackTitle: "Profile",
         }}
       />
 
-      <ScrollView style={styles.scrollView}>
-        {/* Delivery Channels */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Delivery Channels</Text>
-          <Text style={styles.sectionDescription}>
-            Choose how you want to receive notifications
-          </Text>
-
-          <View style={styles.setting}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="notifications-outline" size={20} color="#9ca3af" />
-              <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Push Notifications</Text>
-                <Text style={styles.settingDescription}>Receive alerts on your device</Text>
-              </View>
-            </View>
-            <Switch
-              value={pushEnabled}
-              onValueChange={(value) => {
-                setPushEnabled(value);
-                updatePref({ pushEnabled: value });
-              }}
-              trackColor={{ false: "#374151", true: "#a855f7" }}
-              thumbColor="#fff"
-            />
-          </View>
-
-          <View style={styles.setting}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="mail-outline" size={20} color="#9ca3af" />
-              <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Email</Text>
-                <Text style={styles.settingDescription}>Receive notifications via email</Text>
-              </View>
-            </View>
-            <Switch
-              value={emailEnabled}
-              onValueChange={(value) => {
-                setEmailEnabled(value);
-                updatePref({ emailEnabled: value });
-              }}
-              trackColor={{ false: "#374151", true: "#a855f7" }}
-              thumbColor="#fff"
-            />
-          </View>
-        </View>
-
-        {/* Event Reminders */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Event Reminders</Text>
-
-          <View style={styles.setting}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="time-outline" size={20} color="#9ca3af" />
-              <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Event Reminders</Text>
-                <Text style={styles.settingDescription}>Get notified before events start</Text>
-              </View>
-            </View>
-            <Switch
-              value={eventRemindersEnabled}
-              onValueChange={(value) => {
-                setEventRemindersEnabled(value);
-                updatePref({ eventRemindersEnabled: value });
-              }}
-              trackColor={{ false: "#374151", true: "#a855f7" }}
-              thumbColor="#fff"
-            />
-          </View>
-
-          {eventRemindersEnabled && (
-            <View style={styles.pickerContainer}>
-              <Text style={styles.pickerLabel}>Remind me</Text>
-              {REMINDER_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.pickerOption,
-                    eventReminderMinutes === option.value && styles.pickerOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setEventReminderMinutes(option.value);
-                    updatePref({ eventReminderMinutes: option.value });
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {loading ? (
+          <Text style={styles.loadingText}>Loading...</Text>
+        ) : (
+          <>
+            {/* Delivery Channels */}
+            <Text style={styles.sectionTitle}>Delivery Channels</Text>
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <View style={styles.iconContainer}>
+                  <Feather name="bell" size={18} color="#a855f7" />
+                </View>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>Push Notifications</Text>
+                  <Text style={styles.rowDescription}>Alerts on your device</Text>
+                </View>
+                <Switch
+                  value={pushEnabled}
+                  onValueChange={(value) => {
+                    setPushEnabled(value);
+                    updatePref({ pushEnabled: value });
                   }}
-                >
-                  <Text
-                    style={[
-                      styles.pickerOptionText,
-                      eventReminderMinutes === option.value && styles.pickerOptionTextSelected,
-                    ]}
-                  >
-                    {option.label}
-                  </Text>
-                  {eventReminderMinutes === option.value && (
-                    <Ionicons name="checkmark" size={20} color="#a855f7" />
-                  )}
-                </Pressable>
-              ))}
-            </View>
-          )}
-        </View>
+                  trackColor={{ false: "rgba(255,255,255,0.15)", true: "#a855f7" }}
+                  thumbColor="#fff"
+                />
+              </View>
 
-        {/* Other Notifications */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Other Notifications</Text>
+              <View style={styles.divider} />
 
-          <View style={styles.setting}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="megaphone-outline" size={20} color="#9ca3af" />
-              <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Announcements</Text>
-                <Text style={styles.settingDescription}>Team and organization announcements</Text>
+              <View style={styles.row}>
+                <View style={styles.iconContainer}>
+                  <Feather name="mail" size={18} color="#a855f7" />
+                </View>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>Email</Text>
+                  <Text style={styles.rowDescription}>Notifications via email</Text>
+                </View>
+                <Switch
+                  value={emailEnabled}
+                  onValueChange={(value) => {
+                    setEmailEnabled(value);
+                    updatePref({ emailEnabled: value });
+                  }}
+                  trackColor={{ false: "rgba(255,255,255,0.15)", true: "#a855f7" }}
+                  thumbColor="#fff"
+                />
               </View>
             </View>
-            <Switch
-              value={announcementsEnabled}
-              onValueChange={(value) => {
-                setAnnouncementsEnabled(value);
-                updatePref({ announcementsEnabled: value });
-              }}
-              trackColor={{ false: "#374151", true: "#a855f7" }}
-              thumbColor="#fff"
-            />
-          </View>
 
-          <View style={styles.setting}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="document-text-outline" size={20} color="#9ca3af" />
-              <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Excuse Status Updates</Text>
-                <Text style={styles.settingDescription}>When your excuse is approved/denied</Text>
+            {/* Event Reminders */}
+            <Text style={styles.sectionTitle}>Event Reminders</Text>
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <View style={styles.iconContainer}>
+                  <Feather name="clock" size={18} color="#a855f7" />
+                </View>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>Event Reminders</Text>
+                  <Text style={styles.rowDescription}>Get notified before events</Text>
+                </View>
+                <Switch
+                  value={eventRemindersEnabled}
+                  onValueChange={(value) => {
+                    setEventRemindersEnabled(value);
+                    updatePref({ eventRemindersEnabled: value });
+                  }}
+                  trackColor={{ false: "rgba(255,255,255,0.15)", true: "#a855f7" }}
+                  thumbColor="#fff"
+                />
+              </View>
+
+              {eventRemindersEnabled && (
+                <>
+                  <View style={styles.divider} />
+                  <Text style={styles.reminderLabel}>Remind me</Text>
+                  {REMINDER_OPTIONS.map((option, index) => (
+                    <Pressable
+                      key={option.value}
+                      style={({ pressed }) => [
+                        styles.reminderOption,
+                        index < REMINDER_OPTIONS.length - 1 && styles.reminderOptionBorder,
+                        eventReminderMinutes === option.value && styles.reminderOptionSelected,
+                        pressed && styles.reminderOptionPressed,
+                      ]}
+                      onPress={() => {
+                        setEventReminderMinutes(option.value);
+                        updatePref({ eventReminderMinutes: option.value });
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.reminderOptionText,
+                          eventReminderMinutes === option.value && styles.reminderOptionTextSelected,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      {eventReminderMinutes === option.value && (
+                        <Feather name="check" size={18} color="#a855f7" />
+                      )}
+                    </Pressable>
+                  ))}
+                </>
+              )}
+            </View>
+
+            {/* Other Notifications */}
+            <Text style={styles.sectionTitle}>Other Notifications</Text>
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <View style={styles.iconContainer}>
+                  <Feather name="volume-2" size={18} color="#a855f7" />
+                </View>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>Announcements</Text>
+                  <Text style={styles.rowDescription}>Team and org announcements</Text>
+                </View>
+                <Switch
+                  value={announcementsEnabled}
+                  onValueChange={(value) => {
+                    setAnnouncementsEnabled(value);
+                    updatePref({ announcementsEnabled: value });
+                  }}
+                  trackColor={{ false: "rgba(255,255,255,0.15)", true: "#a855f7" }}
+                  thumbColor="#fff"
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <View style={styles.iconContainer}>
+                  <Feather name="file-text" size={18} color="#a855f7" />
+                </View>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>Excuse Status</Text>
+                  <Text style={styles.rowDescription}>When your excuse is reviewed</Text>
+                </View>
+                <Switch
+                  value={excuseStatusEnabled}
+                  onValueChange={(value) => {
+                    setExcuseStatusEnabled(value);
+                    updatePref({ excuseStatusEnabled: value });
+                  }}
+                  trackColor={{ false: "rgba(255,255,255,0.15)", true: "#a855f7" }}
+                  thumbColor="#fff"
+                />
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <View style={styles.iconContainer}>
+                  <Feather name="award" size={18} color="#a855f7" />
+                </View>
+                <View style={styles.rowContent}>
+                  <Text style={styles.rowLabel}>Milestones</Text>
+                  <Text style={styles.rowDescription}>Attendance achievements</Text>
+                </View>
+                <Switch
+                  value={milestonesEnabled}
+                  onValueChange={(value) => {
+                    setMilestonesEnabled(value);
+                    updatePref({ milestonesEnabled: value });
+                  }}
+                  trackColor={{ false: "rgba(255,255,255,0.15)", true: "#a855f7" }}
+                  thumbColor="#fff"
+                />
               </View>
             </View>
-            <Switch
-              value={excuseStatusEnabled}
-              onValueChange={(value) => {
-                setExcuseStatusEnabled(value);
-                updatePref({ excuseStatusEnabled: value });
-              }}
-              trackColor={{ false: "#374151", true: "#a855f7" }}
-              thumbColor="#fff"
-            />
-          </View>
-
-          <View style={styles.setting}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="trophy-outline" size={20} color="#9ca3af" />
-              <View style={styles.settingText}>
-                <Text style={styles.settingLabel}>Milestones</Text>
-                <Text style={styles.settingDescription}>Celebrate attendance achievements</Text>
-              </View>
-            </View>
-            <Switch
-              value={milestonesEnabled}
-              onValueChange={(value) => {
-                setMilestonesEnabled(value);
-                updatePref({ milestonesEnabled: value });
-              }}
-              trackColor={{ false: "#374151", true: "#a855f7" }}
-              thumbColor="#fff"
-            />
-          </View>
-        </View>
+          </>
+        )}
       </ScrollView>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  gradient: {
     flex: 1,
-    backgroundColor: "#0f0a2e",
-  },
-  loading: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    color: "#9ca3af",
-    fontSize: 16,
   },
   scrollView: {
     flex: 1,
   },
-  section: {
-    marginTop: 24,
+  scrollContent: {
     paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 100,
+  },
+  loadingText: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 40,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-    marginBottom: 4,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    color: "#9ca3af",
-    marginBottom: 16,
-  },
-  setting: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#1a1640",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  settingLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  settingText: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  settingLabel: {
-    fontSize: 15,
-    fontWeight: "500",
-    color: "#fff",
-    marginBottom: 2,
-  },
-  settingDescription: {
+    color: "rgba(255,255,255,0.5)",
     fontSize: 13,
-    color: "#9ca3af",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 10,
+    marginLeft: 4,
+    marginTop: 24,
   },
-  pickerContainer: {
-    backgroundColor: "#1a1640",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  card: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    overflow: "hidden",
   },
-  pickerLabel: {
-    fontSize: 14,
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(168,85,247,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  rowContent: {
+    flex: 1,
+  },
+  rowLabel: {
+    color: "white",
+    fontSize: 15,
     fontWeight: "500",
-    color: "#9ca3af",
-    marginBottom: 12,
   },
-  pickerOption: {
+  rowDescription: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 13,
+    marginTop: 2,
+  },
+  reminderLabel: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 13,
+    fontWeight: "500",
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 6,
+  },
+  reminderOption: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 4,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
   },
-  pickerOptionSelected: {
-    backgroundColor: "#2a2058",
+  reminderOptionBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.08)",
   },
-  pickerOptionText: {
+  reminderOptionSelected: {
+    backgroundColor: "rgba(168,85,247,0.1)",
+  },
+  reminderOptionPressed: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+  },
+  reminderOptionText: {
+    color: "rgba(255,255,255,0.7)",
     fontSize: 15,
-    color: "#d1d5db",
   },
-  pickerOptionTextSelected: {
+  reminderOptionTextSelected: {
     color: "#a855f7",
     fontWeight: "500",
   },

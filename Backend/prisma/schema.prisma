@@ -408,7 +408,7 @@ model NotificationPreferences {
   id                    String   @id @default(cuid())
   userId                String   @unique
   user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emailEnabled          Boolean  @default(true)
+  emailEnabled          Boolean  @default(false)
   pushEnabled           Boolean  @default(true)
   smsEnabled            Boolean  @default(false)
   eventRemindersEnabled Boolean  @default(true)
