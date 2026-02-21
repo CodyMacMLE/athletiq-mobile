@@ -2861,6 +2861,12 @@ export const resolvers = {
         return true;
       }
 
+      // Mark as sent immediately so the UI reflects the sent state right away
+      await prisma.announcement.update({
+        where: { id },
+        data: { sentAt: now },
+      });
+
       // Broadcast announcement in background (non-blocking)
       broadcastAnnouncement(id).catch((err) => {
         console.error(`Failed to broadcast announcement ${id}:`, err);
