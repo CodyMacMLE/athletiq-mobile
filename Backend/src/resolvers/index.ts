@@ -1,5 +1,5 @@
 import { prisma } from "../db.js";
-import { AttendanceStatus, EventType, ExcuseRequestStatus, InviteStatus, OrgRole, RecurrenceFrequency, TeamRole, Platform, AnnouncementTarget, ReportFrequency } from "@prisma/client";
+import { AttendanceStatus, EventType, ExcuseRequestStatus, InviteStatus, OrgRole, RecurrenceFrequency, TeamRole, Platform, AnnouncementTarget, ReportFrequency, RsvpStatus } from "@prisma/client";
 import { sendInviteEmail, sendFeedbackEmail } from "../email.js";
 import { generateProfilePictureUploadUrl } from "../s3.js";
 import { parseTimeString } from "../utils/time.js";
@@ -514,6 +514,14 @@ export const resolvers = {
           event: { organizationId },
         },
         orderBy: { createdAt: "asc" },
+      });
+    },
+
+    // RSVP queries
+    myRsvps: async (_: unknown, { userId }: { userId: string }) => {
+      return prisma.eventRsvp.findMany({
+        where: { userId },
+        include: { user: true, event: true },
       });
     },
 
@@ -2631,6 +2639,77 @@ export const resolvers = {
       return true;
     },
 
+    // Notification read mutations
+    markNotificationRead: async (
+      _: unknown,
+      { id }: { id: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      return prisma.notificationDelivery.update({
+        where: { id },
+        data: { readAt: new Date() },
+      });
+    },
+
+    markAllNotificationsRead: async (
+      _: unknown,
+      __: unknown,
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      const result = await prisma.notificationDelivery.updateMany({
+        where: { userId: context.userId, readAt: null },
+        data: { readAt: new Date() },
+      });
+      return result.count;
+    },
+
+    // RSVP mutations
+    upsertRsvp: async (
+      _: unknown,
+      { input }: { input: { userId: string; eventId: string; status: RsvpStatus; note?: string } }
+    ) => {
+      const { userId, eventId, status, note } = input;
+      const prev = await prisma.eventRsvp.findUnique({
+        where: { userId_eventId: { userId, eventId } },
+      });
+      const rsvp = await prisma.eventRsvp.upsert({
+        where: { userId_eventId: { userId, eventId } },
+        create: { userId, eventId, status, note },
+        update: { status, note },
+        include: { user: true, event: true },
+      });
+      if (status === "NOT_GOING") {
+        // Auto-create excuse request
+        await prisma.excuseRequest.upsert({
+          where: { userId_eventId: { userId, eventId } },
+          create: { userId, eventId, reason: note || "Unable to attend" },
+          update: { reason: note || "Unable to attend", status: "PENDING" },
+        });
+      } else if (prev?.status === "NOT_GOING") {
+        // Switched away from NOT_GOING — cancel pending auto-excuse
+        await prisma.excuseRequest.deleteMany({
+          where: { userId, eventId, status: "PENDING" },
+        });
+      }
+      return rsvp;
+    },
+
+    deleteRsvp: async (_: unknown, { userId, eventId }: { userId: string; eventId: string }) => {
+      const existing = await prisma.eventRsvp.findUnique({
+        where: { userId_eventId: { userId, eventId } },
+      });
+      if (!existing) return false;
+      if (existing.status === "NOT_GOING") {
+        await prisma.excuseRequest.deleteMany({
+          where: { userId, eventId, status: "PENDING" },
+        });
+      }
+      await prisma.eventRsvp.delete({ where: { userId_eventId: { userId, eventId } } });
+      return true;
+    },
+
     // Notification mutations
     registerDeviceToken: async (
       _: unknown,
@@ -3090,6 +3169,7 @@ export const resolvers = {
     team: (parent: { teamId: string | null }) =>
       parent.teamId ? prisma.team.findUnique({ where: { id: parent.teamId } }) : null,
     checkIns: (parent: { id: string }) => prisma.checkIn.findMany({ where: { eventId: parent.id } }),
+    rsvps: (parent: { id: string }) => prisma.eventRsvp.findMany({ where: { eventId: parent.id }, include: { user: true } }),
     recurringEvent: (parent: { recurringEventId: string | null }) =>
       parent.recurringEventId
         ? prisma.recurringEvent.findUnique({ where: { id: parent.recurringEventId } })
@@ -3198,6 +3278,14 @@ export const resolvers = {
     user: (parent: { userId: string }) =>
       prisma.user.findUnique({ where: { id: parent.userId } }),
     sentAt: (parent: any) => parent.sentAt ? toISO(parent.sentAt) : null,
+    readAt: (parent: any) => parent.readAt ? toISO(parent.readAt) : null,
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
+  },
+
+  EventRsvp: {
+    user: (parent: any) => parent.user ?? prisma.user.findUnique({ where: { id: parent.userId } }),
+    event: (parent: any) => parent.event ?? prisma.event.findUnique({ where: { id: parent.eventId } }),
     createdAt: (parent: any) => toISO(parent.createdAt),
     updatedAt: (parent: any) => toISO(parent.updatedAt),
   },

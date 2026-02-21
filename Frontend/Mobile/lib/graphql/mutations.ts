@@ -205,3 +205,43 @@ export const DELETE_MY_ACCOUNT = gql`
     deleteMyAccount
   }
 `;
+
+// ============================================
+// Notification Mutations
+// ============================================
+
+export const MARK_NOTIFICATION_READ = gql`
+  mutation MarkNotificationRead($id: ID!) {
+    markNotificationRead(id: $id) {
+      id
+      readAt
+    }
+  }
+`;
+
+export const MARK_ALL_NOTIFICATIONS_READ = gql`
+  mutation MarkAllNotificationsRead {
+    markAllNotificationsRead
+  }
+`;
+
+// ============================================
+// RSVP Mutations
+// ============================================
+
+export const UPSERT_RSVP = gql`
+  mutation UpsertRsvp($input: UpsertRsvpInput!) {
+    upsertRsvp(input: $input) {
+      id
+      status
+      note
+      eventId
+    }
+  }
+`;
+
+export const DELETE_RSVP = gql`
+  mutation DeleteRsvp($userId: ID!, $eventId: ID!) {
+    deleteRsvp(userId: $userId, eventId: $eventId)
+  }
+`;

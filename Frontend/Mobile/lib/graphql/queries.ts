@@ -512,3 +512,40 @@ export const GET_ORGANIZATION_NFC_TAGS = gql`
     }
   }
 `;
+
+// ============================================
+// Notification Queries
+// ============================================
+
+export const GET_NOTIFICATION_HISTORY = gql`
+  query GetNotificationHistory($limit: Int) {
+    notificationHistory(limit: $limit) {
+      id
+      type
+      title
+      message
+      status
+      readAt
+      sentAt
+      createdAt
+    }
+  }
+`;
+
+// ============================================
+// RSVP Queries
+// ============================================
+
+export const GET_MY_RSVPS = gql`
+  query GetMyRsvps($userId: ID!) {
+    myRsvps(userId: $userId) {
+      id
+      status
+      note
+      eventId
+      event {
+        id
+      }
+    }
+  }
+`;

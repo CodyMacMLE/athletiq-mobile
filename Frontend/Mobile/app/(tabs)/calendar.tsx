@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { NoOrgScreen } from "@/components/NoOrgScreen";
-import { GET_EVENTS, GET_CHECKIN_HISTORY, GET_MY_EXCUSE_REQUESTS } from "@/lib/graphql/queries";
-import { CANCEL_EXCUSE_REQUEST } from "@/lib/graphql/mutations";
+import { GET_EVENTS, GET_CHECKIN_HISTORY, GET_MY_EXCUSE_REQUESTS, GET_MY_RSVPS } from "@/lib/graphql/queries";
+import { CANCEL_EXCUSE_REQUEST, UPSERT_RSVP, DELETE_RSVP } from "@/lib/graphql/mutations";
 import { useQuery, useMutation } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -19,6 +19,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   ViewToken,
 } from "react-native";
@@ -137,6 +138,8 @@ export default function Calendar() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [eventsTab, setEventsTab] = useState<"upcoming" | "past">("upcoming");
+  const [rsvpNote, setRsvpNote] = useState("");
+  const [pendingRsvpStatus, setPendingRsvpStatus] = useState<"GOING" | "MAYBE" | "NOT_GOING" | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const router = useRouter();
 
@@ -174,8 +177,21 @@ export default function Calendar() {
     skip: !targetUserId,
   });
 
+  const { data: rsvpData } = useQuery(GET_MY_RSVPS, {
+    variables: { userId: targetUserId },
+    skip: !targetUserId,
+  });
+
   const [cancelExcuse] = useMutation(CANCEL_EXCUSE_REQUEST, {
     refetchQueries: ["GetMyExcuseRequests"],
+  });
+
+  const [upsertRsvp] = useMutation(UPSERT_RSVP, {
+    refetchQueries: ["GetMyRsvps"],
+  });
+
+  const [deleteRsvp] = useMutation(DELETE_RSVP, {
+    refetchQueries: ["GetMyRsvps", "GetMyExcuseRequests"],
   });
 
   // Build lookup maps for check-ins and excuses by eventId
@@ -196,6 +212,14 @@ export default function Calendar() {
     }
     return map;
   }, [excuseData]);
+
+  const rsvpByEvent = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const r of (rsvpData?.myRsvps || [])) {
+      map.set(r.eventId, r);
+    }
+    return map;
+  }, [rsvpData]);
 
   // Parse API events into CalendarEvent objects
   const events: CalendarEvent[] = useMemo(() => {
@@ -268,6 +292,8 @@ export default function Calendar() {
     const date = new Date(currentMonth.year, currentMonth.month, day);
     const dayEvents = getEventsForDate(date);
     if (dayEvents.length > 0) {
+      setPendingRsvpStatus(null);
+      setRsvpNote("");
       setSelectedEvent(dayEvents[0]);
       setModalVisible(true);
     }
@@ -356,6 +382,7 @@ export default function Calendar() {
   const isEventPast = selectedEvent ? selectedEvent.date < (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })() : false;
   const selectedCheckIn = selectedEvent ? checkinByEvent.get(selectedEvent.id) : null;
   const selectedExcuse = selectedEvent ? excuseByEvent.get(selectedEvent.id) : null;
+  const selectedRsvp = selectedEvent ? rsvpByEvent.get(selectedEvent.id) : null;
 
   const handleRequestAbsence = () => {
     if (!selectedEvent) return;
@@ -372,6 +399,55 @@ export default function Calendar() {
         teamName: selectedEvent.team?.name || "",
       },
     });
+  };
+
+  const handleRsvpPress = async (status: "GOING" | "MAYBE" | "NOT_GOING") => {
+    if (!selectedEvent || !targetUserId) return;
+    const currentRsvp = rsvpByEvent.get(selectedEvent.id);
+    // Tapping the already-selected status clears it
+    if (currentRsvp?.status === status) {
+      try {
+        await deleteRsvp({ variables: { userId: targetUserId, eventId: selectedEvent.id } });
+        setPendingRsvpStatus(null);
+        setRsvpNote("");
+      } catch (error: any) {
+        Alert.alert("Error", error.message || "Failed to clear RSVP.");
+      }
+      return;
+    }
+    if (status === "NOT_GOING") {
+      // Show note input before confirming
+      setPendingRsvpStatus("NOT_GOING");
+      setRsvpNote("");
+      return;
+    }
+    try {
+      await upsertRsvp({ variables: { input: { userId: targetUserId, eventId: selectedEvent.id, status } } });
+      setPendingRsvpStatus(null);
+      setRsvpNote("");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to save RSVP.");
+    }
+  };
+
+  const handleConfirmNotGoing = async () => {
+    if (!selectedEvent || !targetUserId) return;
+    try {
+      await upsertRsvp({
+        variables: {
+          input: {
+            userId: targetUserId,
+            eventId: selectedEvent.id,
+            status: "NOT_GOING",
+            note: rsvpNote.trim() || undefined,
+          },
+        },
+      });
+      setPendingRsvpStatus(null);
+      setRsvpNote("");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to save RSVP.");
+    }
   };
 
   const handleCancelExcuse = (excuseId: string) => {
@@ -407,11 +483,11 @@ export default function Calendar() {
         visible={modalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => { setModalVisible(false); setPendingRsvpStatus(null); setRsvpNote(""); }}
       >
         <Pressable
           style={styles.modalOverlay}
-          onPress={() => setModalVisible(false)}
+          onPress={() => { setModalVisible(false); setPendingRsvpStatus(null); setRsvpNote(""); }}
         >
             <Pressable style={styles.eventModalContainer} onPress={(e) => e.stopPropagation()}>
             {selectedEvent && (
@@ -576,11 +652,63 @@ export default function Calendar() {
                     </View>
                   )}
 
-                  {/* Upcoming Event: Excuse Request */}
+                  {/* Upcoming Event: RSVP Widget */}
                   {!isEventPast && !isViewingAsGuardian && (
                     <View style={styles.attendanceSection}>
-                      {selectedExcuse ? (
-                        <View style={styles.attendanceCard}>
+                      <Text style={styles.attendanceSectionTitle}>Are you going?</Text>
+
+                      {/* RSVP Pill Buttons */}
+                      <View style={styles.rsvpPillRow}>
+                        {(["GOING", "MAYBE", "NOT_GOING"] as const).map((status) => {
+                          const isSelected = selectedRsvp?.status === status || pendingRsvpStatus === status;
+                          const colors: Record<string, { bg: string; text: string; activeBg: string }> = {
+                            GOING: { bg: "rgba(39,174,96,0.15)", text: "#27ae60", activeBg: "rgba(39,174,96,0.35)" },
+                            MAYBE: { bg: "rgba(243,156,18,0.15)", text: "#f39c12", activeBg: "rgba(243,156,18,0.35)" },
+                            NOT_GOING: { bg: "rgba(231,76,60,0.15)", text: "#e74c3c", activeBg: "rgba(231,76,60,0.35)" },
+                          };
+                          const c = colors[status];
+                          const labels: Record<string, string> = { GOING: "Going", MAYBE: "Maybe", NOT_GOING: "Not Going" };
+                          return (
+                            <Pressable
+                              key={status}
+                              style={({ pressed }) => [
+                                styles.rsvpPill,
+                                { backgroundColor: isSelected ? c.activeBg : c.bg, borderColor: c.text },
+                                pressed && { opacity: 0.7 },
+                              ]}
+                              onPress={() => handleRsvpPress(status)}
+                            >
+                              <Text style={[styles.rsvpPillText, { color: c.text, fontWeight: isSelected ? "700" : "500" }]}>
+                                {labels[status]}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+
+                      {/* Not Going note input */}
+                      {pendingRsvpStatus === "NOT_GOING" && (
+                        <View style={styles.rsvpNoteContainer}>
+                          <TextInput
+                            style={styles.rsvpNoteInput}
+                            placeholder="Reason (optional)"
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                            value={rsvpNote}
+                            onChangeText={setRsvpNote}
+                            multiline
+                          />
+                          <Pressable
+                            style={({ pressed }) => [styles.rsvpConfirmBtn, pressed && { opacity: 0.7 }]}
+                            onPress={handleConfirmNotGoing}
+                          >
+                            <Text style={styles.rsvpConfirmBtnText}>Confirm</Text>
+                          </Pressable>
+                        </View>
+                      )}
+
+                      {/* Excuse status block (auto-created or manual) */}
+                      {selectedExcuse && (
+                        <View style={[styles.attendanceCard, { marginTop: 10 }]}>
                           <View style={styles.attendanceStatusRow}>
                             <View style={[styles.attendanceStatusBadge, { backgroundColor: "rgba(155,89,182,0.2)" }]}>
                               <Feather
@@ -606,14 +734,6 @@ export default function Calendar() {
                             </Pressable>
                           )}
                         </View>
-                      ) : (
-                        <Pressable
-                          style={({ pressed }) => [styles.requestExcuseBtn, pressed && { opacity: 0.7 }]}
-                          onPress={handleRequestAbsence}
-                        >
-                          <Feather name="alert-circle" size={16} color="#a855f7" />
-                          <Text style={styles.requestExcuseBtnText}>Request Absence</Text>
-                        </Pressable>
                       )}
                     </View>
                   )}
@@ -623,7 +743,7 @@ export default function Calendar() {
                       styles.eventModalButton,
                       pressed && { opacity: 0.8 },
                     ]}
-                    onPress={() => setModalVisible(false)}
+                    onPress={() => { setModalVisible(false); setPendingRsvpStatus(null); setRsvpNote(""); }}
                   >
                     <Text style={styles.eventModalButtonText}>Close</Text>
                   </Pressable>
@@ -794,6 +914,8 @@ export default function Calendar() {
                   pressed && { opacity: 0.8 },
                 ]}
                 onPress={() => {
+                  setPendingRsvpStatus(null);
+                  setRsvpNote("");
                   setSelectedEvent(event);
                   setModalVisible(true);
                 }}
@@ -1283,5 +1405,49 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.4)",
     fontSize: 13,
     fontWeight: "500",
+  },
+
+  // RSVP
+  rsvpPillRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  rsvpPill: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  rsvpPillText: {
+    fontSize: 13,
+  },
+  rsvpNoteContainer: {
+    gap: 8,
+    marginTop: 4,
+  },
+  rsvpNoteInput: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "white",
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    minHeight: 60,
+    textAlignVertical: "top",
+  },
+  rsvpConfirmBtn: {
+    backgroundColor: "rgba(231,76,60,0.3)",
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  rsvpConfirmBtnText: {
+    color: "#e74c3c",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

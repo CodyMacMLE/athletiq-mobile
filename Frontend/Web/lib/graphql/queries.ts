@@ -464,6 +464,16 @@ export const GET_EVENT_DETAIL = gql`
           ...UserFields
         }
       }
+      rsvps {
+        id
+        status
+        note
+        user {
+          id
+          firstName
+          lastName
+        }
+      }
     }
   }
   ${EVENT_FRAGMENT}

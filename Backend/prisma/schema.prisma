@@ -29,6 +29,7 @@ model User {
   organizationMemberships  OrganizationMember[]
   checkIns                 CheckIn[]
   excuseRequests           ExcuseRequest[]
+  rsvps                    EventRsvp[]
   guardianOf               GuardianLink[] @relation("GuardianOf")
   guardedBy                GuardianLink[] @relation("GuardedBy")
   deviceTokens             DeviceToken[]
@@ -172,6 +173,7 @@ model Event {
   // Relations
   checkIns           CheckIn[]
   excuseRequests     ExcuseRequest[]
+  rsvps              EventRsvp[]
   recurringEventId   String?
   recurringEvent     RecurringEvent? @relation(fields: [recurringEventId], references: [id])
   participatingTeams Team[]          @relation("EventParticipatingTeams")
@@ -240,6 +242,32 @@ enum ExcuseRequestStatus {
   PENDING
   APPROVED
   DENIED
+}
+
+// ============================================
+// RSVP
+// ============================================
+
+enum RsvpStatus {
+  GOING
+  NOT_GOING
+  MAYBE
+}
+
+model EventRsvp {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  eventId   String
+  event     Event      @relation(fields: [eventId], references: [id])
+  status    RsvpStatus
+  note      String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([userId, eventId])
+  @@index([userId])
+  @@index([eventId])
 }
 
 // ============================================
@@ -482,6 +510,7 @@ model NotificationDelivery {
   announcementId String?
   announcement   Announcement?       @relation(fields: [announcementId], references: [id])
   sentAt         DateTime?
+  readAt         DateTime?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 

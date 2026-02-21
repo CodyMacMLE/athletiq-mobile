@@ -67,6 +67,17 @@ type CheckIn = {
   };
 };
 
+type EventRsvp = {
+  id: string;
+  status: "GOING" | "NOT_GOING" | "MAYBE";
+  note?: string;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+};
+
 type EventDetail = {
   id: string;
   title: string;
@@ -81,6 +92,7 @@ type EventDetail = {
   team?: Team | null;
   participatingTeams: Team[];
   checkIns: CheckIn[];
+  rsvps: EventRsvp[];
 };
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
@@ -270,6 +282,30 @@ export default function EventDetailPage() {
     };
   }, [allTeams, event]);
 
+  // Build RSVP lookup map by userId
+  const rsvpByUser = useMemo(() => {
+    if (!event) return new Map<string, EventRsvp>();
+    const map = new Map<string, EventRsvp>();
+    for (const r of event.rsvps) {
+      map.set(r.user.id, r);
+    }
+    return map;
+  }, [event]);
+
+  // RSVP counts
+  const rsvpCounts = useMemo(() => {
+    if (!event) return { going: 0, maybe: 0, notGoing: 0 };
+    return event.rsvps.reduce(
+      (acc, r) => {
+        if (r.status === "GOING") acc.going++;
+        else if (r.status === "MAYBE") acc.maybe++;
+        else if (r.status === "NOT_GOING") acc.notGoing++;
+        return acc;
+      },
+      { going: 0, maybe: 0, notGoing: 0 }
+    );
+  }, [event]);
+
   // Build attendance rows: each athlete matched against checkIns
   const attendanceRows = useMemo(() => {
     if (!event) return [];
@@ -458,6 +494,29 @@ export default function EventDetailPage() {
         </div>
       )}
 
+      {/* RSVP Summary Card */}
+      {event.rsvps.length > 0 && (
+        <div className="bg-white/8 rounded-xl p-4 border border-white/8 mb-6">
+          <h2 className="text-sm font-medium text-white/55 uppercase tracking-wider mb-3">
+            Expected Headcount
+          </h2>
+          <div className="flex items-center gap-6 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-green-400 font-bold text-lg">✓</span>
+              <span className="text-white text-sm">Going: <span className="font-bold">{rsvpCounts.going}</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-yellow-400 font-bold text-lg">?</span>
+              <span className="text-white text-sm">Maybe: <span className="font-bold">{rsvpCounts.maybe}</span></span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-red-400 font-bold text-lg">✗</span>
+              <span className="text-white text-sm">Not Going: <span className="font-bold">{rsvpCounts.notGoing}</span></span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Attendance Table */}
       <div className="bg-white/8 rounded-xl border border-white/8 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -483,97 +542,120 @@ export default function EventDetailPage() {
         <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-medium text-white/40 uppercase tracking-wider border-b border-white/8">
           <div className="col-span-3">Name</div>
           <div className="col-span-2">Status</div>
+          <div className="col-span-1">RSVP</div>
           <div className="col-span-2">Check In</div>
           <div className="col-span-2">Check Out</div>
           <div className="col-span-1">Hours</div>
-          <div className="col-span-2">Note</div>
+          <div className="col-span-1">Note</div>
         </div>
 
         {/* Rows */}
         <div className="divide-y divide-white/8/50">
-          {filteredRows.map((row) => (
-            <div
-              key={row.user.id}
-              onClick={() =>
-                canEdit
-                  ? setModifyAthlete({
-                      userId: row.user.id,
-                      name: `${row.user.firstName} ${row.user.lastName}`,
-                      checkIn: row.checkIn || undefined,
-                    })
-                  : undefined
-              }
-              className={`grid grid-cols-12 gap-2 px-3 py-3 items-center text-sm ${
-                canEdit ? "cursor-pointer hover:bg-white/5 transition-colors" : ""
-              }`}
-            >
-              {/* Name */}
-              <div className="col-span-3 flex items-center gap-2">
-                {row.user.image ? (
-                  <img
-                    src={row.user.image}
-                    alt=""
-                    className="w-7 h-7 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs font-medium">
-                    {row.user.firstName[0]}
-                    {row.user.lastName[0]}
-                  </div>
-                )}
-                <span className="text-white truncate">
-                  {row.user.firstName} {row.user.lastName}
-                </span>
-              </div>
-
-              {/* Status */}
-              <div className="col-span-2">
-                {row.checkIn ? (
-                  <span
-                    className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                      STATUS_COLORS[row.checkIn.status]
-                    }`}
-                  >
-                    {STATUS_LABELS[row.checkIn.status]}
+          {filteredRows.map((row) => {
+            const rsvp = rsvpByUser.get(row.user.id);
+            return (
+              <div
+                key={row.user.id}
+                onClick={() =>
+                  canEdit
+                    ? setModifyAthlete({
+                        userId: row.user.id,
+                        name: `${row.user.firstName} ${row.user.lastName}`,
+                        checkIn: row.checkIn || undefined,
+                      })
+                    : undefined
+                }
+                className={`grid grid-cols-12 gap-2 px-3 py-3 items-center text-sm ${
+                  canEdit ? "cursor-pointer hover:bg-white/5 transition-colors" : ""
+                }`}
+              >
+                {/* Name */}
+                <div className="col-span-3 flex items-center gap-2">
+                  {row.user.image ? (
+                    <img
+                      src={row.user.image}
+                      alt=""
+                      className="w-7 h-7 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs font-medium">
+                      {row.user.firstName[0]}
+                      {row.user.lastName[0]}
+                    </div>
+                  )}
+                  <span className="text-white truncate">
+                    {row.user.firstName} {row.user.lastName}
                   </span>
-                ) : (
-                  <span className="text-white/40 text-xs">Not Checked In</span>
-                )}
-              </div>
+                </div>
 
-              {/* Check In Time */}
-              <div className="col-span-2 text-white/55">
-                {row.checkIn?.checkInTime
-                  ? new Date(isNaN(Number(row.checkIn.checkInTime)) ? row.checkIn.checkInTime : Number(row.checkIn.checkInTime)).toLocaleTimeString("en-US", {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })
-                  : "—"}
-              </div>
+                {/* Status */}
+                <div className="col-span-2">
+                  {row.checkIn ? (
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                        STATUS_COLORS[row.checkIn.status]
+                      }`}
+                    >
+                      {STATUS_LABELS[row.checkIn.status]}
+                    </span>
+                  ) : (
+                    <span className="text-white/40 text-xs">Not Checked In</span>
+                  )}
+                </div>
 
-              {/* Check Out Time */}
-              <div className="col-span-2 text-white/55">
-                {row.checkIn?.checkOutTime
-                  ? new Date(isNaN(Number(row.checkIn.checkOutTime)) ? row.checkIn.checkOutTime : Number(row.checkIn.checkOutTime)).toLocaleTimeString("en-US", {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })
-                  : "—"}
-              </div>
+                {/* RSVP */}
+                <div className="col-span-1">
+                  {rsvp ? (
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                        rsvp.status === "GOING"
+                          ? "bg-green-600/20 text-green-400"
+                          : rsvp.status === "MAYBE"
+                          ? "bg-yellow-600/20 text-yellow-400"
+                          : "bg-red-600/20 text-red-400"
+                      }`}
+                    >
+                      {rsvp.status === "GOING" ? "Going" : rsvp.status === "MAYBE" ? "Maybe" : "Not Going"}
+                    </span>
+                  ) : (
+                    <span className="text-white/40 text-xs">—</span>
+                  )}
+                </div>
 
-              {/* Hours */}
-              <div className="col-span-1 text-white/55">
-                {row.checkIn?.hoursLogged != null
-                  ? row.checkIn.hoursLogged.toFixed(2)
-                  : "—"}
-              </div>
+                {/* Check In Time */}
+                <div className="col-span-2 text-white/55">
+                  {row.checkIn?.checkInTime
+                    ? new Date(isNaN(Number(row.checkIn.checkInTime)) ? row.checkIn.checkInTime : Number(row.checkIn.checkInTime)).toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })
+                    : "—"}
+                </div>
 
-              {/* Note */}
-              <div className="col-span-2 text-white/40 truncate">
-                {row.checkIn?.note || "—"}
+                {/* Check Out Time */}
+                <div className="col-span-2 text-white/55">
+                  {row.checkIn?.checkOutTime
+                    ? new Date(isNaN(Number(row.checkIn.checkOutTime)) ? row.checkIn.checkOutTime : Number(row.checkIn.checkOutTime)).toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })
+                    : "—"}
+                </div>
+
+                {/* Hours */}
+                <div className="col-span-1 text-white/55">
+                  {row.checkIn?.hoursLogged != null
+                    ? row.checkIn.hoursLogged.toFixed(2)
+                    : "—"}
+                </div>
+
+                {/* Note */}
+                <div className="col-span-1 text-white/40 truncate">
+                  {row.checkIn?.note || "—"}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {filteredRows.length === 0 && (
             <div className="text-center py-8">

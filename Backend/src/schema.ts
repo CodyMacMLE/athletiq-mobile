@@ -39,6 +39,12 @@ export const typeDefs = `#graphql
     DENIED
   }
 
+  enum RsvpStatus {
+    GOING
+    NOT_GOING
+    MAYBE
+  }
+
   enum TimeRange {
     WEEK
     MONTH
@@ -210,6 +216,7 @@ export const typeDefs = `#graphql
     team: Team
     participatingTeams: [Team!]!
     checkIns: [CheckIn!]!
+    rsvps: [EventRsvp!]!
     recurringEvent: RecurringEvent
     createdAt: String!
     updatedAt: String!
@@ -257,6 +264,18 @@ export const typeDefs = `#graphql
     status: ExcuseRequestStatus!
     createdAt: String!
     updatedAt: String!
+  }
+
+  type EventRsvp {
+    id: ID!
+    userId: ID!
+    eventId: ID!
+    status: RsvpStatus!
+    note: String
+    createdAt: String!
+    updatedAt: String!
+    user: User!
+    event: Event!
   }
 
   type Invite {
@@ -369,6 +388,7 @@ export const typeDefs = `#graphql
     status: DeliveryStatus!
     errorMessage: String
     sentAt: String
+    readAt: String
     createdAt: String!
     updatedAt: String!
   }
@@ -600,6 +620,13 @@ export const typeDefs = `#graphql
     frequency: ReportFrequency!
   }
 
+  input UpsertRsvpInput {
+    userId: ID!
+    eventId: ID!
+    status: RsvpStatus!
+    note: String
+  }
+
   # ============================================
   # Queries
   # ============================================
@@ -637,6 +664,9 @@ export const typeDefs = `#graphql
     excuseRequest(id: ID!): ExcuseRequest
     myExcuseRequests(userId: ID!): [ExcuseRequest!]!
     pendingExcuseRequests(organizationId: ID!): [ExcuseRequest!]!
+
+    # RSVP queries
+    myRsvps(userId: ID!): [EventRsvp!]!
 
     # Recurring event queries
     recurringEvent(id: ID!): RecurringEvent
@@ -757,6 +787,14 @@ export const typeDefs = `#graphql
     createExcuseRequest(input: CreateExcuseRequestInput!): ExcuseRequest!
     updateExcuseRequest(input: UpdateExcuseRequestInput!): ExcuseRequest!
     cancelExcuseRequest(id: ID!): Boolean!
+
+    # RSVP mutations
+    upsertRsvp(input: UpsertRsvpInput!): EventRsvp!
+    deleteRsvp(userId: ID!, eventId: ID!): Boolean!
+
+    # Notification read mutations
+    markNotificationRead(id: ID!): NotificationDelivery!
+    markAllNotificationsRead: Int!
 
     # Account mutations
     deleteMyAccount: Boolean!
