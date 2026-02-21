@@ -1,6 +1,9 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { NoOrgScreen } from "@/components/NoOrgScreen";
 import { NotificationBell } from "@/components/NotificationBell";
+import { OrgTeamPicker } from "@/components/OrgTeamPicker";
+import { OrgTeamSubtitle } from "@/components/OrgTeamSubtitle";
+import { AthletePicker } from "@/components/AthletePicker";
 import { GET_EVENTS, GET_CHECKIN_HISTORY, GET_MY_EXCUSE_REQUESTS, GET_MY_RSVPS } from "@/lib/graphql/queries";
 import { CANCEL_EXCUSE_REQUEST, UPSERT_RSVP, DELETE_RSVP } from "@/lib/graphql/mutations";
 import { useQuery, useMutation } from "@apollo/client";
@@ -118,7 +121,8 @@ function formatRelativeDate(date: Date): string {
 }
 
 export default function Calendar() {
-  const { user, selectedOrganization, targetUserId, isViewingAsGuardian } = useAuth();
+  const { user, selectedOrganization, selectedTeamId, targetUserId, isViewingAsGuardian } = useAuth();
+  const [pickerVisible, setPickerVisible] = useState(false);
   const today = new Date();
 
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -226,26 +230,31 @@ export default function Calendar() {
   const { data: eventsData, loading: eventsLoading } = useQuery(GET_EVENTS, {
     variables: {
       organizationId: selectedOrganization?.id,
+      teamId: selectedTeamId || undefined,
       startDate,
       endDate,
     },
     skip: !selectedOrganization?.id,
+    fetchPolicy: "cache-and-network",
   });
 
   // Fetch user's check-in history and excuse requests
   const { data: checkinData } = useQuery(GET_CHECKIN_HISTORY, {
     variables: { userId: targetUserId, limit: 100 },
     skip: !targetUserId,
+    fetchPolicy: "cache-and-network",
   });
 
   const { data: excuseData } = useQuery(GET_MY_EXCUSE_REQUESTS, {
     variables: { userId: targetUserId },
     skip: !targetUserId,
+    fetchPolicy: "cache-and-network",
   });
 
   const { data: rsvpData } = useQuery(GET_MY_RSVPS, {
     variables: { userId: targetUserId },
     skip: !targetUserId,
+    fetchPolicy: "cache-and-network",
   });
 
   const [cancelExcuse] = useMutation(CANCEL_EXCUSE_REQUEST, {
@@ -855,10 +864,13 @@ export default function Calendar() {
         </Pressable>
       </Modal>
 
+      <OrgTeamPicker visible={pickerVisible} onClose={() => setPickerVisible(false)} />
+
       {/* Fixed Header — stays visible while content scrolls */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.title}>Calendar</Text>
+          <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
         </View>
 
         <View style={styles.headerRight}>
@@ -878,6 +890,8 @@ export default function Calendar() {
           )}
         </View>
       </View>
+
+      <AthletePicker />
 
       {/* Unified vertical scroll — calendar + tabs + events all scroll together */}
       <ScrollView
