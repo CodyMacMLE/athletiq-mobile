@@ -204,7 +204,7 @@ export default function AccountPage() {
               type="text"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white/[0.08] border border-white/[0.08] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
+              className="w-full px-4 py-2.5 bg-white/8 border border-white/8 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
               required
             />
           </div>
@@ -214,7 +214,7 @@ export default function AccountPage() {
               type="text"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white/[0.08] border border-white/[0.08] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
+              className="w-full px-4 py-2.5 bg-white/8 border border-white/8 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
               required
             />
           </div>
@@ -226,7 +226,7 @@ export default function AccountPage() {
             type="email"
             value={user?.email || ""}
             disabled
-            className="w-full px-4 py-2.5 bg-white/[0.08]/50 border border-white/[0.08] rounded-lg text-white/55 cursor-not-allowed"
+            className="w-full px-4 py-2.5 bg-white/8/50 border border-white/8 rounded-lg text-white/55 cursor-not-allowed"
           />
         </div>
 
@@ -236,7 +236,7 @@ export default function AccountPage() {
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full px-4 py-2.5 bg-white/[0.08] border border-white/[0.08] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
+            className="w-full px-4 py-2.5 bg-white/8 border border-white/8 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
             placeholder="(555) 123-4567"
           />
         </div>
@@ -247,7 +247,7 @@ export default function AccountPage() {
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            className="w-full px-4 py-2.5 bg-white/[0.08] border border-white/[0.08] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
+            className="w-full px-4 py-2.5 bg-white/8 border border-white/8 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
             placeholder="123 Main St"
           />
         </div>
@@ -259,7 +259,7 @@ export default function AccountPage() {
               type="text"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white/[0.08] border border-white/[0.08] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
+              className="w-full px-4 py-2.5 bg-white/8 border border-white/8 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
               placeholder="New York"
             />
           </div>
@@ -269,7 +269,7 @@ export default function AccountPage() {
               type="text"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white/[0.08] border border-white/[0.08] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
+              className="w-full px-4 py-2.5 bg-white/8 border border-white/8 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
               placeholder="United States"
             />
           </div>

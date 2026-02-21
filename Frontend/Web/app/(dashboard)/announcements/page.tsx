@@ -202,7 +202,7 @@ export default function AnnouncementsPage() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-white/[0.08]">
+        <div className="flex gap-2 mb-6 border-b border-white/8">
           {(["all", "sent", "scheduled", "draft"] as const).map((tab) => (
             <button
               key={tab}
@@ -244,7 +244,7 @@ export default function AnnouncementsPage() {
             {filteredAnnouncements.map((announcement: Announcement) => (
               <div
                 key={announcement.id}
-                className="bg-white/[0.08] border border-white/[0.08] rounded-lg p-6 hover:border-white/[0.10] transition-colors"
+                className="bg-white/8 border border-white/8 rounded-lg p-6 hover:border-white/10 transition-colors"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">

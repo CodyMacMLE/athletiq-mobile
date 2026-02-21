@@ -245,7 +245,7 @@ export default function EmailReportsPage() {
 
         {/* Linked Athletes Info */}
         {linkedAthletes.length > 0 && (
-          <div className="bg-white/[0.08] border border-white/[0.08] rounded-lg p-4 mb-6">
+          <div className="bg-white/8 border border-white/8 rounded-lg p-4 mb-6">
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-4 h-4 text-[#a78bfa]" />
               <h3 className="font-medium">Your Athletes</h3>
@@ -287,7 +287,7 @@ export default function EmailReportsPage() {
             {configs.map((config: EmailReportConfig) => (
               <div
                 key={config.id}
-                className="bg-white/[0.08] border border-white/[0.08] rounded-lg p-6"
+                className="bg-white/8 border border-white/8 rounded-lg p-6"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -315,7 +315,7 @@ export default function EmailReportsPage() {
                           onChange={(e) =>
                             setEditFrequency(e.target.value as ReportFrequency)
                           }
-                          className="w-full px-3 py-2 bg-transparent border border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                          className="w-full px-3 py-2 bg-transparent border border-white/8 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                         >
                           {FREQUENCY_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -332,7 +332,7 @@ export default function EmailReportsPage() {
                           </button>
                           <button
                             onClick={() => setEditingId(null)}
-                            className="px-3 py-1.5 bg-white/[0.08] hover:bg-white/[0.12] rounded text-sm font-medium"
+                            className="px-3 py-1.5 bg-white/8 hover:bg-white/12 rounded text-sm font-medium"
                           >
                             Cancel
                           </button>
@@ -414,14 +414,14 @@ export default function EmailReportsPage() {
         {/* Create Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white/[0.08] border border-white/[0.08] rounded-lg max-w-md w-full p-6">
+            <div className="bg-white/8 border border-white/8 rounded-lg max-w-md w-full p-6">
               <h2 className="text-xl font-bold mb-4">Create Email Report</h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Organization
                   </label>
-                  <div className="px-3 py-2 bg-transparent border border-white/[0.08] rounded-lg text-white/55">
+                  <div className="px-3 py-2 bg-transparent border border-white/8 rounded-lg text-white/55">
                     {selectedOrg?.name}
                   </div>
                 </div>
@@ -434,7 +434,7 @@ export default function EmailReportsPage() {
                     onChange={(e) =>
                       setNewFrequency(e.target.value as ReportFrequency)
                     }
-                    className="w-full px-3 py-2 bg-transparent border border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                    className="w-full px-3 py-2 bg-transparent border border-white/8 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                   >
                     {FREQUENCY_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -450,14 +450,14 @@ export default function EmailReportsPage() {
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={() => setShowCreateModal(false)}
-                    className="flex-1 px-4 py-2 bg-white/[0.08] hover:bg-white/[0.12] rounded-lg font-medium transition-colors"
+                    className="flex-1 px-4 py-2 bg-white/8 hover:bg-white/12 rounded-lg font-medium transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreate}
                     disabled={linkedAthletes.length === 0}
-                    className="flex-1 px-4 py-2 bg-[#6c5ce7] hover:bg-[#5a4dd4] disabled:bg-white/[0.08] disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+                    className="flex-1 px-4 py-2 bg-[#6c5ce7] hover:bg-[#5a4dd4] disabled:bg-white/8 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
                   >
                     Create Report
                   </button>

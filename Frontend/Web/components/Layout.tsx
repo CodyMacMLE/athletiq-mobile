@@ -61,15 +61,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-transparent">
+    <div
+      className="min-h-screen"
+      style={{ background: "linear-gradient(160deg, #302b6f 10%, #4d2a69 60%, #302b6f 100%)" }}
+    >
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 bg-[rgba(20,15,50,0.82)] border-r border-white/[0.08] z-50 flex flex-col transition-all duration-300 ${
+        className={`fixed inset-y-0 left-0 bg-[rgba(20,15,50,0.82)] border-r border-white/8 z-50 flex flex-col transition-all duration-300 ${
           sidebarCollapsed ? "w-20" : "w-64"
         }`}
       >
         {/* Logo & Toggle */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-white/[0.08]">
+        <div className="flex items-center justify-between h-16 px-4 border-b border-white/8">
           {!sidebarCollapsed && (
             <Image
               src="/logo/white_icon_transparent_background.png"
@@ -92,17 +95,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Organization Selector */}
         {!sidebarCollapsed && (
-          <div className="px-4 py-4 border-b border-white/[0.08]">
+          <div className="px-4 py-4 border-b border-white/8">
             <div className="relative">
               <button
                 onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
-                className="w-full flex items-center justify-between px-3 py-2 text-sm bg-white/[0.10] rounded-lg text-white hover:bg-white/[0.12] transition-colors"
+                className="w-full flex items-center justify-between px-3 py-2 text-sm bg-white/10 rounded-lg text-white hover:bg-white/12 transition-colors"
               >
                 <span className="truncate">{selectedOrg?.name || "Select Organization"}</span>
                 <ChevronDown className="w-4 h-4 ml-2" />
               </button>
               {orgDropdownOpen && uniqueOrgs.length > 1 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white/[0.10] rounded-lg shadow-lg overflow-hidden z-10">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white/10 rounded-lg shadow-lg overflow-hidden z-10">
                   {uniqueOrgs.map((org) => (
                     <button
                       key={org.id}
@@ -110,7 +113,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         // setSelectedOrganizationId(org.id);
                         setOrgDropdownOpen(false);
                       }}
-                      className={`w-full px-3 py-2 text-sm text-left hover:bg-white/[0.12] transition-colors ${
+                      className={`w-full px-3 py-2 text-sm text-left hover:bg-white/12 transition-colors ${
                         org.id === selectedOrganizationId ? "text-[#a78bfa]" : "text-white"
                       }`}
                     >
@@ -151,7 +154,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <p className="px-3 text-xs font-semibold text-white/40 uppercase">Admin</p>
                 </div>
               )}
-              {sidebarCollapsed && <div className="border-t border-white/[0.08] my-2"></div>}
+              {sidebarCollapsed && <div className="border-t border-white/8 my-2"></div>}
               {adminOnlyNavigation.map((item) => {
                 const isActive = pathname === item.href;
                 return (
@@ -175,7 +178,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User */}
-        <div className="mt-auto p-4 border-t border-white/[0.08]">
+        <div className="mt-auto p-4 border-t border-white/8">
           {sidebarCollapsed ? (
             <div className="flex flex-col items-center space-y-3">
               <Link href="/account" className="group">

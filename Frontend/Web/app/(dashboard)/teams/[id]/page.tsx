@@ -362,7 +362,7 @@ export default function TeamDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center space-x-1 mb-6 border-b border-white/[0.08]">
+      <div className="flex items-center space-x-1 mb-6 border-b border-white/8">
         {([
           { key: "events", label: "Events", icon: <Calendar className="w-4 h-4 mr-2" /> },
           { key: "members", label: `Athletes (${members.length})`, icon: <Users className="w-4 h-4 mr-2" /> },
@@ -400,7 +400,7 @@ export default function TeamDetail() {
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     selectedType === type
                       ? "bg-[#6c5ce7] text-white"
-                      : "bg-white/[0.08] text-white/55 hover:text-white"
+                      : "bg-white/8 text-white/55 hover:text-white"
                   }`}
                 >
                   {type === "all" ? "All" : type.charAt(0) + type.slice(1).toLowerCase()}
@@ -409,7 +409,7 @@ export default function TeamDetail() {
             </div>
 
             {/* Time Filter */}
-            <div className="flex items-center bg-white/[0.08] rounded-lg p-0.5">
+            <div className="flex items-center bg-white/8 rounded-lg p-0.5">
               {(["upcoming", "past"] as const).map((time) => (
                 <button
                   key={time}
@@ -419,7 +419,7 @@ export default function TeamDetail() {
                   }}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     selectedTime === time
-                      ? "bg-white/[0.08] text-white"
+                      ? "bg-white/8 text-white"
                       : "text-white/55 hover:text-white"
                   }`}
                 >
@@ -454,7 +454,7 @@ export default function TeamDetail() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/[0.08]">
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/8">
               <p className="text-sm text-white/55">
                 Showing {pageStart + 1}-{Math.min(pageStart + EVENTS_PER_PAGE, displayedEvents.length)} of {displayedEvents.length}
               </p>
@@ -462,7 +462,7 @@ export default function TeamDetail() {
                 <button
                   onClick={() => setEventsPage((p) => Math.max(1, p - 1))}
                   disabled={safeEventsPage <= 1}
-                  className="p-2 rounded-lg bg-white/[0.08] text-white/55 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-lg bg-white/8 text-white/55 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -473,7 +473,7 @@ export default function TeamDetail() {
                     className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
                       page === safeEventsPage
                         ? "bg-[#6c5ce7] text-white"
-                        : "bg-white/[0.08] text-white/55 hover:text-white"
+                        : "bg-white/8 text-white/55 hover:text-white"
                     }`}
                   >
                     {page}
@@ -482,7 +482,7 @@ export default function TeamDetail() {
                 <button
                   onClick={() => setEventsPage((p) => Math.min(totalPages, p + 1))}
                   disabled={safeEventsPage >= totalPages}
-                  className="p-2 rounded-lg bg-white/[0.08] text-white/55 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-lg bg-white/8 text-white/55 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -498,7 +498,7 @@ export default function TeamDetail() {
           {members.map((member) => (
             <div
               key={member.id}
-              className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-4 flex items-center space-x-3"
+              className="bg-white/8 rounded-xl border border-white/8 p-4 flex items-center space-x-3"
             >
               <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
                 {member.user.firstName[0]}
@@ -516,7 +516,7 @@ export default function TeamDetail() {
                     style={{ color: member.role === "COACH" ? "#4ade80" : member.role === "ADMIN" ? "#facc15" : member.role === "CAPTAIN" ? "#60a5fa" : "#9ca3af" }}
                   >
                     {TEAM_ROLE_OPTIONS.map((role) => (
-                      <option key={role} value={role} className="bg-white/[0.08] text-white">
+                      <option key={role} value={role} className="bg-white/8 text-white">
                         {role.charAt(0) + role.slice(1).toLowerCase()}
                       </option>
                     ))}
@@ -571,7 +571,7 @@ export default function TeamDetail() {
           {coaches.map((coach) => (
             <div
               key={coach.id}
-              className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-4 flex items-center space-x-4"
+              className="bg-white/8 rounded-xl border border-white/8 p-4 flex items-center space-x-4"
             >
               <div className="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
                 {coach.user.firstName[0]}
@@ -632,7 +632,7 @@ export default function TeamDetail() {
           : coachCandidates;
         return (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-            <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-6 w-full max-w-md">
+            <div className="bg-white/8 rounded-xl border border-white/8 p-6 w-full max-w-md">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white">Assign Coach</h2>
                 <button onClick={() => setShowAssignCoach(false)} className="text-white/55 hover:text-white">
@@ -648,7 +648,7 @@ export default function TeamDetail() {
                   onChange={(e) => setCoachSearch(e.target.value)}
                   placeholder="Search by name or email..."
                   autoFocus
-                  className="w-full pl-10 pr-4 py-2.5 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full pl-10 pr-4 py-2.5 bg-white/8 border border-white/10 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 />
               </div>
 
@@ -665,7 +665,7 @@ export default function TeamDetail() {
                         key={m.user.id}
                         onClick={() => handleAssignCoach(m.user.id)}
                         disabled={assigning}
-                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-white/[0.08] bg-white/5 hover:bg-white/10 text-left transition-colors disabled:opacity-50"
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-white/8 bg-white/5 hover:bg-white/10 text-left transition-colors disabled:opacity-50"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
@@ -711,7 +711,7 @@ export default function TeamDetail() {
               <div className="flex justify-end">
                 <button
                   onClick={() => setShowAssignCoach(false)}
-                  className="px-4 py-2 bg-white/[0.08] hover:bg-white/[0.12] text-white/75 text-sm font-medium rounded-lg transition-colors"
+                  className="px-4 py-2 bg-white/8 hover:bg-white/12 text-white/75 text-sm font-medium rounded-lg transition-colors"
                 >
                   Close
                 </button>
@@ -732,7 +732,7 @@ export default function TeamDetail() {
           : athleteCandidates;
         return (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-            <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-6 w-full max-w-md">
+            <div className="bg-white/8 rounded-xl border border-white/8 p-6 w-full max-w-md">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white">Add Athlete</h2>
                 <button onClick={() => setShowAddAthlete(false)} className="text-white/55 hover:text-white">
@@ -748,7 +748,7 @@ export default function TeamDetail() {
                   onChange={(e) => setAthleteSearch(e.target.value)}
                   placeholder="Search by name or email..."
                   autoFocus
-                  className="w-full pl-10 pr-4 py-2.5 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full pl-10 pr-4 py-2.5 bg-white/8 border border-white/10 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 />
               </div>
 
@@ -765,7 +765,7 @@ export default function TeamDetail() {
                         key={m.user.id}
                         onClick={() => handleAddAthlete(m.user.id)}
                         disabled={assigning}
-                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-white/[0.08] bg-white/5 hover:bg-white/10 text-left transition-colors disabled:opacity-50"
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-white/8 bg-white/5 hover:bg-white/10 text-left transition-colors disabled:opacity-50"
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
@@ -811,7 +811,7 @@ export default function TeamDetail() {
               <div className="flex justify-end">
                 <button
                   onClick={() => setShowAddAthlete(false)}
-                  className="px-4 py-2 bg-white/[0.08] hover:bg-white/[0.12] text-white/75 text-sm font-medium rounded-lg transition-colors"
+                  className="px-4 py-2 bg-white/8 hover:bg-white/12 text-white/75 text-sm font-medium rounded-lg transition-colors"
                 >
                   Close
                 </button>
@@ -824,7 +824,7 @@ export default function TeamDetail() {
       {/* Delete Recurring Event Dialog */}
       {deleteDialogEvent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white/[0.08] rounded-xl w-full max-w-sm p-6 border border-white/[0.08]">
+          <div className="bg-white/8 rounded-xl w-full max-w-sm p-6 border border-white/8">
             <h3 className="text-lg font-bold text-white mb-2">Delete Recurring Event</h3>
             <p className="text-white/55 text-sm mb-6">
               This event is part of a recurring series. What would you like to do?
@@ -832,7 +832,7 @@ export default function TeamDetail() {
             <div className="space-y-3">
               <button
                 onClick={() => handleDeleteThisOnly(deleteDialogEvent.id)}
-                className="w-full px-4 py-2 bg-white/[0.08] text-white rounded-lg hover:bg-white/[0.12] transition-colors text-sm"
+                className="w-full px-4 py-2 bg-white/8 text-white rounded-lg hover:bg-white/12 transition-colors text-sm"
               >
                 Delete this event only
               </button>
@@ -887,7 +887,7 @@ function EventCard({
 
   return (
     <div
-      className={`bg-white/[0.08] rounded-xl border border-white/[0.08] p-4 hover:border-white/[0.10] transition-colors cursor-pointer ${
+      className={`bg-white/8 rounded-xl border border-white/8 p-4 hover:border-white/10 transition-colors cursor-pointer ${
         dimmed ? "opacity-60" : ""
       }`}
     >
@@ -1045,7 +1045,7 @@ function CreateEventModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white/[0.08] rounded-xl w-full max-w-lg p-6 border border-white/[0.08] max-h-[90vh] overflow-y-auto">
+      <div className="bg-white/8 rounded-xl w-full max-w-lg p-6 border border-white/8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">Create Event</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -1061,7 +1061,7 @@ function CreateEventModal({
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Team Practice"
             />
           </div>
@@ -1071,7 +1071,7 @@ function CreateEventModal({
             <select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             >
               <option value="PRACTICE">Practice</option>
               <option value="EVENT">Event</option>
@@ -1089,7 +1089,7 @@ function CreateEventModal({
               required
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             />
           </div>
 
@@ -1103,7 +1103,7 @@ function CreateEventModal({
               type="button"
               onClick={() => setFormData({ ...formData, isRecurring: !formData.isRecurring })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                formData.isRecurring ? "bg-[#6c5ce7]" : "bg-white/[0.12]"
+                formData.isRecurring ? "bg-[#6c5ce7]" : "bg-white/12"
               }`}
             >
               <span
@@ -1116,7 +1116,7 @@ function CreateEventModal({
 
           {/* Recurring Event Fields */}
           {formData.isRecurring && (
-            <div className="space-y-4 p-4 bg-white/[0.08] border border-white/[0.10] rounded-lg">
+            <div className="space-y-4 p-4 bg-white/8 border border-white/10 rounded-lg">
               <div>
                 <label className="block text-sm font-medium text-white/55 mb-1">Frequency</label>
                 <select
@@ -1124,7 +1124,7 @@ function CreateEventModal({
                   onChange={(e) =>
                     setFormData({ ...formData, frequency: e.target.value as typeof formData.frequency })
                   }
-                  className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 >
                   <option value="DAILY">Daily</option>
                   <option value="WEEKLY">Weekly</option>
@@ -1145,7 +1145,7 @@ function CreateEventModal({
                         className={`w-10 h-10 rounded-lg text-xs font-medium transition-colors ${
                           formData.daysOfWeek.includes(index)
                             ? "bg-[#6c5ce7] text-white"
-                            : "bg-white/[0.08] text-white/55 hover:text-white"
+                            : "bg-white/8 text-white/55 hover:text-white"
                         }`}
                       >
                         {label}
@@ -1162,7 +1162,7 @@ function CreateEventModal({
                   required
                   value={formData.endDate}
                   onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 />
               </div>
             </div>
@@ -1176,7 +1176,7 @@ function CreateEventModal({
                 required
                 value={formData.startTime}
                 onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="6:00 PM"
               />
             </div>
@@ -1187,7 +1187,7 @@ function CreateEventModal({
                 required
                 value={formData.endTime}
                 onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="8:00 PM"
               />
             </div>
@@ -1199,7 +1199,7 @@ function CreateEventModal({
               type="text"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Main Gym"
             />
           </div>
@@ -1210,7 +1210,7 @@ function CreateEventModal({
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
               placeholder="Event details..."
             />
           </div>

@@ -74,7 +74,7 @@ export default function Analytics() {
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 timeRange === range
                   ? "bg-[#6c5ce7] text-white"
-                  : "bg-white/[0.08] text-white/55 hover:text-white"
+                  : "bg-white/8 text-white/55 hover:text-white"
               }`}
             >
               {range === "ALL" ? "All Time" : range.charAt(0) + range.slice(1).toLowerCase()}
@@ -85,7 +85,7 @@ export default function Analytics() {
 
       {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white/[0.08] rounded-xl p-6 border border-white/[0.08]">
+        <div className="bg-white/8 rounded-xl p-6 border border-white/8">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/55 text-sm">Total Athletes</p>
@@ -97,7 +97,7 @@ export default function Analytics() {
           </div>
         </div>
 
-        <div className="bg-white/[0.08] rounded-xl p-6 border border-white/[0.08]">
+        <div className="bg-white/8 rounded-xl p-6 border border-white/8">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/55 text-sm">Avg Attendance</p>
@@ -109,7 +109,7 @@ export default function Analytics() {
           </div>
         </div>
 
-        <div className="bg-white/[0.08] rounded-xl p-6 border border-white/[0.08]">
+        <div className="bg-white/8 rounded-xl p-6 border border-white/8">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/55 text-sm">Teams</p>
@@ -124,8 +124,8 @@ export default function Analytics() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Team Rankings */}
-        <div className="bg-white/[0.08] rounded-xl border border-white/[0.08]">
-          <div className="px-6 py-4 border-b border-white/[0.08]">
+        <div className="bg-white/8 rounded-xl border border-white/8">
+          <div className="px-6 py-4 border-b border-white/8">
             <h2 className="text-lg font-semibold text-white">Team Rankings</h2>
             <p className="text-white/55 text-sm">Current season by attendance rate</p>
           </div>
@@ -144,7 +144,7 @@ export default function Analytics() {
                           ? "bg-white/20"
                           : ranking.rank === 3
                           ? "bg-amber-700"
-                          : "bg-white/[0.08]"
+                          : "bg-white/8"
                       }`}
                     >
                       {ranking.rank}
@@ -167,7 +167,7 @@ export default function Analytics() {
                           {Math.round(ranking.attendancePercent)}%
                         </span>
                       </div>
-                      <div className="w-full h-2 bg-white/[0.08] rounded-full">
+                      <div className="w-full h-2 bg-white/8 rounded-full">
                         <div
                           className={`h-2 rounded-full ${
                             ranking.attendancePercent >= 90
@@ -188,8 +188,8 @@ export default function Analytics() {
         </div>
 
         {/* Individual Leaderboard */}
-        <div className="bg-white/[0.08] rounded-xl border border-white/[0.08]">
-          <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between">
+        <div className="bg-white/8 rounded-xl border border-white/8">
+          <div className="px-6 py-4 border-b border-white/8 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-white">Top Athletes</h2>
               <p className="text-white/55 text-sm">Individual rankings</p>
@@ -197,7 +197,7 @@ export default function Analytics() {
             <select
               value={selectedTeamId || ""}
               onChange={(e) => setSelectedTeamId(e.target.value)}
-              className="px-3 py-1.5 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="px-3 py-1.5 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             >
               {currentSeasonTeams.map((team: any) => (
                 <option key={team.id} value={team.id}>
@@ -225,7 +225,7 @@ export default function Analytics() {
                           ? "bg-white/20 text-white"
                           : entry.rank === 3
                           ? "bg-amber-700 text-white"
-                          : "bg-white/[0.08] text-white"
+                          : "bg-white/8 text-white"
                       }`}
                     >
                       {entry.rank}

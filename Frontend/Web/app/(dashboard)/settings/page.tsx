@@ -122,7 +122,7 @@ export default function SettingsPage() {
           value={formName}
           onChange={(e) => setFormName(e.target.value)}
           placeholder="e.g., Hockey Season, Summer Training"
-          className="w-full px-3 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+          className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           autoFocus
         />
       </div>
@@ -132,7 +132,7 @@ export default function SettingsPage() {
           <select
             value={formStartMonth}
             onChange={(e) => setFormStartMonth(Number(e.target.value))}
-            className="w-full px-3 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           >
             {MONTHS.map((m, i) => (
               <option key={i} value={i + 1}>{m}</option>
@@ -144,7 +144,7 @@ export default function SettingsPage() {
           <select
             value={formEndMonth}
             onChange={(e) => setFormEndMonth(Number(e.target.value))}
-            className="w-full px-3 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           >
             {MONTHS.map((m, i) => (
               <option key={i} value={i + 1}>{m}</option>
@@ -194,7 +194,7 @@ export default function SettingsPage() {
             )}
           </div>
 
-          <div className="bg-white/[0.08] rounded-lg border border-white/[0.08] p-4">
+          <div className="bg-white/8 rounded-lg border border-white/8 p-4">
             <p className="text-sm text-white/55 mb-4">
               Define reusable season templates for your organization. Teams can then be assigned to a season and year.
             </p>
@@ -258,7 +258,7 @@ export default function SettingsPage() {
             <Shield className="w-5 h-5 text-[#a78bfa]" />
             <h2 className="text-lg font-semibold text-white">Roles</h2>
           </div>
-          <div className="bg-white/[0.08] rounded-lg border border-white/[0.08] p-4">
+          <div className="bg-white/8 rounded-lg border border-white/8 p-4">
             <p className="text-sm text-white/55 mb-4">
               Each organization role has different permissions. Here&apos;s what each role can do:
             </p>
@@ -316,7 +316,7 @@ export default function SettingsPage() {
           <HelpCircle className="w-5 h-5 text-[#a78bfa]" />
           <h2 className="text-lg font-semibold text-white">Help &amp; Support</h2>
         </div>
-        <div className="bg-white/[0.08] rounded-lg border border-white/[0.08] p-4">
+        <div className="bg-white/8 rounded-lg border border-white/8 p-4">
           <p className="text-sm text-white/75 mb-3">
             Need help or have feedback? Reach out to us.
           </p>
