@@ -498,7 +498,7 @@ export default function Calendar() {
         animationType="slide"
         onRequestClose={() => setDayPickerVisible(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setDayPickerVisible(false)}>
+        <Pressable style={styles.dayPickerOverlay} onPress={() => setDayPickerVisible(false)}>
           <Pressable style={styles.dayPickerContainer} onPress={(e) => e.stopPropagation()}>
             {/* Handle bar */}
             <View style={styles.dayPickerHandle} />
@@ -1553,20 +1553,22 @@ const styles = StyleSheet.create({
   },
 
   // Day Picker Modal
+  dayPickerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
   dayPickerContainer: {
     backgroundColor: "#2a2550",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    width: "100%",
     paddingTop: 12,
     paddingHorizontal: 20,
     paddingBottom: 36,
-    borderWidth: 1,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
   },
   dayPickerHandle: {
     width: 36,
