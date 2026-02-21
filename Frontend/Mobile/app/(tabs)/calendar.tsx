@@ -139,6 +139,11 @@ export default function Calendar() {
   const [dayPickerDate, setDayPickerDate] = useState<Date | null>(null);
   const dayPickerBackdropAnim = useRef(new Animated.Value(0)).current;
   const dayPickerSlideAnim = useRef(new Animated.Value(300)).current;
+  const tabBgAnim = useRef(new Animated.Value(0)).current;
+  const tabBgColor = tabBgAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(48,43,111,0)", "rgba(48,43,111,1)"],
+  });
   const [eventsTab, setEventsTab] = useState<"upcoming" | "past">("upcoming");
   const [rsvpNote, setRsvpNote] = useState("");
   const [pendingRsvpStatus, setPendingRsvpStatus] = useState<"GOING" | "MAYBE" | "NOT_GOING" | null>(null);
@@ -177,7 +182,11 @@ export default function Calendar() {
 
   const handleScroll = (e: any) => {
     const scrollY = e.nativeEvent.contentOffset.y;
-    calendarVisibleRef.current = scrollY < calendarSectionHeightRef.current;
+    const calH = calendarSectionHeightRef.current;
+    calendarVisibleRef.current = scrollY < calH;
+    // Fade tab background in over 24px as calendar scrolls away
+    const opacity = Math.min(1, Math.max(0, (scrollY - calH + 24) / 24));
+    tabBgAnim.setValue(opacity);
   };
 
   const goToPrevMonth = () => {
@@ -987,7 +996,7 @@ export default function Calendar() {
         </View>
 
         {/* [1] Tab Section — sticks below the fixed header once calendar scrolls away */}
-        <View style={styles.tabSection}>
+        <Animated.View style={[styles.tabSection, { backgroundColor: tabBgColor }]}>
           <View style={styles.tabRow}>
             <Pressable
               style={[styles.tab, eventsTab === "upcoming" && styles.tabActive]}
@@ -1006,9 +1015,9 @@ export default function Calendar() {
               </Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
 
-        {/* [2] Events List */}
+        {/* [2] Events List — minHeight ensures calendar can always scroll fully off screen */}
         <View style={styles.upcomingList}>
           {eventsLoading ? (
             <View style={styles.noEventsCard}>
@@ -1259,12 +1268,11 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
 
-  // Tabs — sticky, needs opaque background to cover scrolling content
+  // Tabs — sticky; background fades in via animated style as calendar scrolls away
   tabSection: {
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 8,
-    backgroundColor: "#302b6f",
+    paddingTop: 16,
+    paddingBottom: 10,
   },
   tabRow: {
     flexDirection: "row",
@@ -1295,6 +1303,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 20,
     paddingTop: 12,
+    minHeight: SCREEN_HEIGHT,
   },
   upcomingCard: {
     flexDirection: "row",
