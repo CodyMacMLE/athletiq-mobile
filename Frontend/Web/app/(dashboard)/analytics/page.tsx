@@ -91,7 +91,7 @@ export default function Analytics() {
               <p className="text-white/55 text-sm">Total Athletes</p>
               <p className="text-3xl font-bold text-white mt-1">{totalMembers}</p>
             </div>
-            <div className="w-12 h-12 bg-[#a855f7]/15 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-[#a855f7]/50 rounded-lg flex items-center justify-center">
               <Users className="w-6 h-6 text-white" />
             </div>
           </div>
@@ -103,7 +103,7 @@ export default function Analytics() {
               <p className="text-white/55 text-sm">Avg Attendance</p>
               <p className="text-3xl font-bold text-white mt-1">{Math.round(avgAttendance)}%</p>
             </div>
-            <div className="w-12 h-12 bg-green-600/20 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-green-600/50 rounded-lg flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-white" />
             </div>
           </div>
@@ -115,7 +115,7 @@ export default function Analytics() {
               <p className="text-white/55 text-sm">Teams</p>
               <p className="text-3xl font-bold text-white mt-1">{teamRankings.length}</p>
             </div>
-            <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-blue-600/50 rounded-lg flex items-center justify-center">
               <Award className="w-6 h-6 text-white" />
             </div>
           </div>

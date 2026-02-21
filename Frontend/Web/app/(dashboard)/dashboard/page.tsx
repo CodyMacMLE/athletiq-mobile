@@ -57,7 +57,7 @@ export default function Dashboard() {
               <p className="text-white/55 text-sm">Total Athletes</p>
               <p className="text-3xl font-bold text-white mt-1">{org?.memberCount || 0}</p>
             </div>
-            <div className="w-12 h-12 bg-[#a855f7]/15 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-[#a855f7]/50 rounded-lg flex items-center justify-center">
               <Users className="w-6 h-6 text-white" />
             </div>
           </div>
@@ -69,7 +69,7 @@ export default function Dashboard() {
               <p className="text-white/55 text-sm">Teams</p>
               <p className="text-3xl font-bold text-white mt-1">{teamRankings.length}</p>
             </div>
-            <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-blue-600/50 rounded-lg flex items-center justify-center">
               <Calendar className="w-6 h-6 text-white" />
             </div>
           </div>
@@ -89,7 +89,7 @@ export default function Dashboard() {
                 %
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-600/20 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-green-600/50 rounded-lg flex items-center justify-center">
               <TrendingUp className="w-6 h-6 text-white" />
             </div>
           </div>
@@ -101,7 +101,7 @@ export default function Dashboard() {
               <p className="text-white/55 text-sm">Pending Excuses</p>
               <p className="text-3xl font-bold text-white mt-1">{pendingExcuses.length}</p>
             </div>
-            <div className="w-12 h-12 bg-yellow-600/20 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-yellow-600/50 rounded-lg flex items-center justify-center">
               <AlertCircle className="w-6 h-6 text-white" />
             </div>
           </div>
@@ -145,7 +145,17 @@ export default function Dashboard() {
               <div className="space-y-4">
                 {teamRankings.map((ranking: any) => (
                   <div key={ranking.team.id} className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-white/8 flex items-center justify-center text-white font-bold text-sm">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                        ranking.rank === 1
+                          ? "bg-yellow-500"
+                          : ranking.rank === 2
+                          ? "bg-white/20"
+                          : ranking.rank === 3
+                          ? "bg-amber-700"
+                          : "bg-white/8"
+                      }`}
+                    >
                       {ranking.rank}
                     </div>
                     <div className="ml-4 flex-1">
