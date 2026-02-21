@@ -67,7 +67,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     >
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 bg-[rgba(20,15,50,0.82)] border-r border-white/8 z-50 flex flex-col transition-all duration-300 ${
+        className={`fixed inset-y-0 left-0 bg-[rgba(20,15,50,0.35)] border-r border-white/8 z-50 flex flex-col transition-all duration-300 ${
           sidebarCollapsed ? "w-20" : "w-64"
         }`}
       >
