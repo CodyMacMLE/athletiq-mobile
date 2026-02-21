@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { NoOrgScreen } from "@/components/NoOrgScreen";
+import { NotificationBell } from "@/components/NotificationBell";
 import { GET_EVENTS, GET_CHECKIN_HISTORY, GET_MY_EXCUSE_REQUESTS, GET_MY_RSVPS } from "@/lib/graphql/queries";
 import { CANCEL_EXCUSE_REQUEST, UPSERT_RSVP, DELETE_RSVP } from "@/lib/graphql/mutations";
 import { useQuery, useMutation } from "@apollo/client";
@@ -760,19 +761,22 @@ export default function Calendar() {
           <Text style={styles.title}>Calendar</Text>
         </View>
 
-        {user.image ? (
-          <Image
-            source={user.image}
-            style={[styles.avatar, styles.avatarImage]}
-          />
-        ) : (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user.firstName.charAt(0)}
-              {user.lastName.charAt(0)}
-            </Text>
-          </View>
-        )}
+        <View style={styles.headerRight}>
+          <NotificationBell />
+          {user.image ? (
+            <Image
+              source={user.image}
+              style={[styles.avatar, styles.avatarImage]}
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {user.firstName.charAt(0)}
+                {user.lastName.charAt(0)}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Month/Year Title and Navigation */}
@@ -988,6 +992,8 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     alignItems: "flex-start",
     gap: 4,
+    flex: 1,
+    minHeight: 58,
   },
   title: {
     color: "white",
@@ -1012,6 +1018,11 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 15,
     fontWeight: "600",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
 
   // Month Header

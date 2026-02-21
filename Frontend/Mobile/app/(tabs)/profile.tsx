@@ -368,7 +368,9 @@ export default function Profile() {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Profile</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.title}>Profile</Text>
+        </View>
       </View>
 
       <ScrollView
@@ -667,9 +669,19 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingTop: 80,
     paddingHorizontal: 20,
     paddingBottom: 8,
+  },
+  headerLeft: {
+    flexDirection: "column",
+    justifyContent: "flex-start",
+    alignItems: "flex-start",
+    flex: 1,
+    minHeight: 58,
   },
   title: {
     color: "white",

@@ -412,6 +412,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 4,
     flex: 1,
+    minHeight: 58,
   },
   title: {
     color: "white",
@@ -421,7 +422,7 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   bellBtn: {
     position: "relative",

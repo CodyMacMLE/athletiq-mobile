@@ -4,6 +4,7 @@ import { OrgTeamPicker } from "@/components/OrgTeamPicker";
 import { OrgTeamSubtitle } from "@/components/OrgTeamSubtitle";
 import { AthletePicker } from "@/components/AthletePicker";
 import { CoachView } from "@/components/team/CoachView";
+import { NotificationBell } from "@/components/NotificationBell";
 import {
   GET_UPCOMING_EVENTS,
   GET_CHECKIN_HISTORY,
@@ -113,19 +114,22 @@ export default function ActivityTab() {
           <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
         </View>
 
-        {user.image ? (
-          <Image
-            source={user.image}
-            style={[styles.avatar, styles.avatarImage]}
-          />
-        ) : (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user.firstName.charAt(0)}
-              {user.lastName.charAt(0)}
-            </Text>
-          </View>
-        )}
+        <View style={styles.headerRight}>
+          <NotificationBell />
+          {user.image ? (
+            <Image
+              source={user.image}
+              style={[styles.avatar, styles.avatarImage]}
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {user.firstName.charAt(0)}
+                {user.lastName.charAt(0)}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <AthletePicker />
@@ -491,6 +495,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 4,
     flex: 1,
+    minHeight: 58,
   },
   title: {
     color: "white",
@@ -515,6 +520,11 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 15,
     fontWeight: "600",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
 
   // Stats Row

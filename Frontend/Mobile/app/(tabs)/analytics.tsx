@@ -3,6 +3,7 @@ import { OrgTeamPicker } from "@/components/OrgTeamPicker";
 import { OrgTeamSubtitle } from "@/components/OrgTeamSubtitle";
 import { AthletePicker } from "@/components/AthletePicker";
 import { NoOrgScreen } from "@/components/NoOrgScreen";
+import { NotificationBell } from "@/components/NotificationBell";
 import { AthleteView } from "@/components/team/AthleteView";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -38,19 +39,22 @@ export default function Analytics() {
           <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
         </View>
 
-        {user.image ? (
-          <Image
-            source={user.image}
-            style={[styles.avatar, styles.avatarImage]}
-          />
-        ) : (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user.firstName.charAt(0)}
-              {user.lastName.charAt(0)}
-            </Text>
-          </View>
-        )}
+        <View style={styles.headerRight}>
+          <NotificationBell />
+          {user.image ? (
+            <Image
+              source={user.image}
+              style={[styles.avatar, styles.avatarImage]}
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {user.firstName.charAt(0)}
+                {user.lastName.charAt(0)}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <AthletePicker />
@@ -78,6 +82,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 4,
     flex: 1,
+    minHeight: 58,
   },
   title: {
     color: "white",
@@ -102,5 +107,10 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 15,
     fontWeight: "600",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
 });
