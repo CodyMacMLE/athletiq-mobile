@@ -4,9 +4,9 @@ import { GET_NOTIFICATION_HISTORY } from "@/lib/graphql/queries";
 import { MARK_NOTIFICATION_READ, MARK_ALL_NOTIFICATIONS_READ } from "@/lib/graphql/mutations";
 import { useQuery, useMutation } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,8 +17,6 @@ import {
   View,
   Modal,
 } from "react-native";
-
-const AVATAR_SIZE = 45;
 
 type NotificationDelivery = {
   id: string;
@@ -56,6 +54,7 @@ function formatRelativeTime(dateStr: string): string {
 
 export default function Notifications() {
   const { user, selectedOrganization } = useAuth();
+  const router = useRouter();
   const [selectedNotif, setSelectedNotif] = useState<NotificationDelivery | null>(null);
 
   const { data, loading, refetch } = useQuery(GET_NOTIFICATION_HISTORY, {
@@ -110,7 +109,14 @@ export default function Notifications() {
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
+        <Pressable
+          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
+          onPress={() => router.back()}
+        >
+          <Feather name="arrow-left" size={22} color="white" />
+        </Pressable>
+
+        <View style={styles.headerCenter}>
           <Text style={styles.title}>Notifications</Text>
           {unreadCount > 0 && (
             <View style={styles.headerBadge}>
@@ -118,25 +124,17 @@ export default function Notifications() {
             </View>
           )}
         </View>
-        <View style={styles.headerRight}>
-          {unreadCount > 0 && (
-            <Pressable
-              style={({ pressed }) => [styles.markAllBtn, pressed && { opacity: 0.7 }]}
-              onPress={handleMarkAllRead}
-            >
-              <Text style={styles.markAllBtnText}>Mark all read</Text>
-            </Pressable>
-          )}
-          {user.image ? (
-            <Image source={user.image} style={[styles.avatar, styles.avatarImage]} />
-          ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {user.firstName.charAt(0)}{user.lastName.charAt(0)}
-              </Text>
-            </View>
-          )}
-        </View>
+
+        {unreadCount > 0 ? (
+          <Pressable
+            style={({ pressed }) => [styles.markAllBtn, pressed && { opacity: 0.7 }]}
+            onPress={handleMarkAllRead}
+          >
+            <Text style={styles.markAllBtnText}>Mark all read</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       {/* List */}
@@ -261,20 +259,20 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 80,
+    paddingTop: 72,
     paddingHorizontal: 20,
     paddingBottom: 16,
+    gap: 12,
   },
-  headerLeft: {
-    flexDirection: "column",
-    gap: 4,
+  backBtn: {
+    padding: 4,
   },
-  headerRight: {
+  headerCenter: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
   },
   title: {
     color: "white",
@@ -286,7 +284,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
-    alignSelf: "flex-start",
   },
   headerBadgeText: {
     color: "#a855f7",
@@ -304,24 +301,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
-  avatar: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    justifyContent: "center",
-    alignItems: "center",
-    overflow: "hidden",
-    backgroundColor: "#241e4a",
-    borderWidth: 0.5,
-    borderColor: "#463e70",
-  },
-  avatarImage: {
-    backgroundColor: "transparent",
-  },
-  avatarText: {
-    color: "white",
-    fontSize: 15,
-    fontWeight: "600",
+  headerSpacer: {
+    width: 80,
   },
   scrollView: {
     flex: 1,
