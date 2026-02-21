@@ -6,6 +6,7 @@ import { NoOrgScreen } from "@/components/NoOrgScreen";
 import {
   GET_ACTIVE_CHECKIN,
   GET_CHECKIN_HISTORY,
+  GET_EVENTS,
   GET_NOTIFICATION_HISTORY,
   GET_PENDING_AD_HOC_CHECK_INS,
   GET_RECENT_ACTIVITY,
@@ -31,7 +32,7 @@ import {
 
 const AVATAR_SIZE = 45;
 
-const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function Index() {
   const router = useRouter();
@@ -93,9 +94,32 @@ export default function Index() {
   const { data: checkinData } = useQuery(GET_CHECKIN_HISTORY, {
     variables: {
       userId: targetUserId,
-      limit: 7,
+      limit: 14,
     },
     skip: !targetUserId,
+  });
+
+  // Fetch scheduled events for this week so we can distinguish real events from ad-hoc days
+  const { weekStartStr, weekEndStr } = useMemo(() => {
+    const now = new Date();
+    const sun = new Date(now);
+    sun.setDate(now.getDate() - now.getDay());
+    sun.setHours(0, 0, 0, 0);
+    const sat = new Date(sun);
+    sat.setDate(sun.getDate() + 6);
+    return {
+      weekStartStr: sun.toISOString().split("T")[0],
+      weekEndStr: sat.toISOString().split("T")[0],
+    };
+  }, []);
+
+  const { data: weekEventsData } = useQuery(GET_EVENTS, {
+    variables: {
+      organizationId: selectedOrganization?.id,
+      startDate: weekStartStr,
+      endDate: weekEndStr,
+    },
+    skip: !selectedOrganization?.id,
   });
 
   const { data: notifData } = useQuery(GET_NOTIFICATION_HISTORY, {
@@ -122,40 +146,55 @@ export default function Index() {
   const stats = statsData?.userStats;
   const recentActivity = activityData?.recentActivity || [];
 
-  // Build weekly check-in dots from check-in history
+  // Build weekly check-in dots: Sun–Sat, distinguishing scheduled vs ad-hoc check-ins
   const weekDots = useMemo(() => {
     const checkIns = checkinData?.checkInHistory || [];
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon...
-    // Convert to Mon=0 based
-    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const scheduledEvents = weekEventsData?.events || [];
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
 
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - mondayOffset);
-    monday.setHours(0, 0, 0, 0);
+    // Sunday of this week
+    const sunday = new Date(now);
+    sunday.setDate(now.getDate() - now.getDay());
+    sunday.setHours(0, 0, 0, 0);
 
     return WEEK_DAYS.map((_, i) => {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
-      const isFuture = date > today;
-      const isPast = date < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const isToday = !isFuture && !isPast;
+      const date = new Date(sunday);
+      date.setDate(sunday.getDate() + i);
+      const dateStr = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      const isFuture = date > now && dateStr !== todayStr;
 
-      const hasCheckIn = checkIns.some((ci: any) => {
-        const ciDate = new Date(ci.checkInTime);
-        return (
-          ciDate.getFullYear() === date.getFullYear() &&
-          ciDate.getMonth() === date.getMonth() &&
-          ciDate.getDate() === date.getDate()
-        );
+      // Is there a scheduled event on this day?
+      const hasScheduledEvent = scheduledEvents.some((ev: any) => {
+        const raw: string = ev.date || "";
+        const evDateStr = raw.includes("T") ? raw.split("T")[0] : raw;
+        // evDateStr is "YYYY-MM-DD"; convert to same key format
+        const [y, m, d] = evDateStr.split("-").map(Number);
+        return `${y}-${m - 1}-${d}` === dateStr;
       });
 
+      // Check-ins on this day
+      const dayCheckIns = checkIns.filter((ci: any) => {
+        const ciDate = new Date(Number(ci.checkInTime) || ci.checkInTime);
+        const ciStr = `${ciDate.getFullYear()}-${ciDate.getMonth()}-${ciDate.getDate()}`;
+        return ciStr === dateStr;
+      });
+
+      const regularCheckIn = dayCheckIns.find((ci: any) => !ci.isAdHoc);
+      const adHocCheckIn = dayCheckIns.find((ci: any) => ci.isAdHoc);
+
+      // Ad-hoc is "pending" when not yet approved
+      const adHocPending = adHocCheckIn ? !adHocCheckIn.approved : false;
+
       return {
-        isTrainingDay: !isFuture, // past and today are "training days"
-        isCheckedIn: hasCheckIn,
+        isFuture,
+        hasScheduledEvent,
+        hasRegularCheckIn: !!regularCheckIn,
+        hasAdHocCheckIn: !!adHocCheckIn,
+        adHocPending,
       };
     });
-  }, [checkinData]);
+  }, [checkinData, weekEventsData]);
 
   // Count today's activity
   const todayCount = useMemo(() => {
@@ -293,33 +332,48 @@ export default function Index() {
           <Text style={styles.sectionTitle}>This Week</Text>
           <View style={styles.weekRow}>
             {WEEK_DAYS.map((day, i) => {
-              const { isTrainingDay, isCheckedIn } = weekDots[i];
+              const { isFuture, hasScheduledEvent, hasRegularCheckIn, hasAdHocCheckIn, adHocPending } = weekDots[i];
+
+              // Determine dot state
+              const isCheckedIn = hasRegularCheckIn || (hasAdHocCheckIn && !adHocPending);
+              const isAdHocPending = !hasRegularCheckIn && hasAdHocCheckIn && adHocPending;
+              const isMissed = !isFuture && hasScheduledEvent && !hasRegularCheckIn && !hasAdHocCheckIn;
+              const isOff = isFuture || (!hasScheduledEvent && !hasAdHocCheckIn && !hasRegularCheckIn);
 
               return (
                 <View key={day} style={styles.dayColumn}>
                   <View
                     style={[
                       styles.dayDot,
-                      !isTrainingDay
+                      isOff
                         ? styles.dayDotOff
                         : isCheckedIn
                           ? styles.dayDotActive
-                          : styles.dayDotInactive,
+                          : isAdHocPending
+                            ? styles.dayDotAdHoc
+                            : styles.dayDotInactive,
                     ]}
                   >
-                    {!isTrainingDay && (
+                    {isOff && (
                       <Feather name="minus" size={14} color="rgba(255,255,255,0.3)" />
                     )}
-                    {isTrainingDay && isCheckedIn && (
+                    {isCheckedIn && (
+                      <Feather name="check" size={14} color="white" />
+                    )}
+                    {isAdHocPending && (
                       <Feather name="check" size={14} color="white" />
                     )}
                   </View>
                   <Text
                     style={[
                       styles.dayLabel,
-                      !isTrainingDay
+                      isOff
                         ? styles.dayLabelOff
-                        : isCheckedIn && styles.dayLabelActive,
+                        : isCheckedIn
+                          ? styles.dayLabelActive
+                          : isAdHocPending
+                            ? styles.dayLabelAdHoc
+                            : undefined,
                     ]}
                   >
                     {day}
@@ -602,6 +656,9 @@ const styles = StyleSheet.create({
   dayDotOff: {
     backgroundColor: "rgba(255,255,255,0.05)",
   },
+  dayDotAdHoc: {
+    backgroundColor: "#d97706", // amber — ad-hoc pending approval
+  },
   dayLabel: {
     color: "rgba(255,255,255,0.4)",
     fontSize: 12,
@@ -612,6 +669,9 @@ const styles = StyleSheet.create({
   },
   dayLabelOff: {
     color: "rgba(255,255,255,0.25)",
+  },
+  dayLabelAdHoc: {
+    color: "#fbbf24",
   },
 
   // Activity list

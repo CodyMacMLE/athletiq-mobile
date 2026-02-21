@@ -38,6 +38,8 @@ export const CHECKIN_FRAGMENT = gql`
     checkInTime
     checkOutTime
     hoursLogged
+    isAdHoc
+    approved
     event {
       ...EventFields
     }
