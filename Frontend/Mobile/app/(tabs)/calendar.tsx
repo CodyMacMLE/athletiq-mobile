@@ -15,15 +15,14 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  FlatList,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
-  ViewToken,
 } from "react-native";
 
 type EventType = "practice" | "event" | "meeting" | "rest";
@@ -118,26 +117,21 @@ function formatRelativeDate(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function generateMonthsList() {
-  const months: { year: number; month: number; key: string }[] = [];
-  const today = new Date();
-  for (let i = -24; i <= 24; i++) {
-    const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
-    months.push({
-      year: date.getFullYear(),
-      month: date.getMonth(),
-      key: `${date.getFullYear()}-${date.getMonth()}`,
-    });
-  }
-  return months;
-}
-
-const monthsList = generateMonthsList();
-const initialIndex = 24;
-
 export default function Calendar() {
   const { user, selectedOrganization, targetUserId, isViewingAsGuardian } = useAuth();
-  const [currentMonthIndex, setCurrentMonthIndex] = useState(initialIndex);
+  const today = new Date();
+
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
+  const [currentMonthNum, setCurrentMonthNum] = useState(today.getMonth());
+  const currentYearRef = useRef(today.getFullYear());
+  const currentMonthNumRef = useRef(today.getMonth());
+  const calendarVisibleRef = useRef(true);
+  const calendarSectionHeightRef = useRef(0);
+
+  // Keep refs in sync with state
+  currentYearRef.current = currentYear;
+  currentMonthNumRef.current = currentMonthNum;
+
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [dayPickerVisible, setDayPickerVisible] = useState(false);
@@ -148,22 +142,77 @@ export default function Calendar() {
   const [eventsTab, setEventsTab] = useState<"upcoming" | "past">("upcoming");
   const [rsvpNote, setRsvpNote] = useState("");
   const [pendingRsvpStatus, setPendingRsvpStatus] = useState<"GOING" | "MAYBE" | "NOT_GOING" | null>(null);
-  const flatListRef = useRef<FlatList>(null);
   const router = useRouter();
 
-  const currentMonth = monthsList[currentMonthIndex];
-  const today = new Date();
+  // Pan responder for horizontal swipe on calendar grid → month switching
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gs) => {
+        if (!calendarVisibleRef.current) return false;
+        return Math.abs(gs.dx) > Math.abs(gs.dy) * 1.5 && Math.abs(gs.dx) > 10;
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dx < -40) {
+          const y = currentYearRef.current;
+          const m = currentMonthNumRef.current;
+          if (m === 11) {
+            setCurrentYear(y + 1);
+            setCurrentMonthNum(0);
+          } else {
+            setCurrentMonthNum(m + 1);
+          }
+        } else if (gs.dx > 40) {
+          const y = currentYearRef.current;
+          const m = currentMonthNumRef.current;
+          if (m === 0) {
+            setCurrentYear(y - 1);
+            setCurrentMonthNum(11);
+          } else {
+            setCurrentMonthNum(m - 1);
+          }
+        }
+      },
+    })
+  ).current;
+
+  const handleScroll = (e: any) => {
+    const scrollY = e.nativeEvent.contentOffset.y;
+    calendarVisibleRef.current = scrollY < calendarSectionHeightRef.current;
+  };
+
+  const goToPrevMonth = () => {
+    if (currentMonthNum === 0) {
+      setCurrentYear((y) => y - 1);
+      setCurrentMonthNum(11);
+    } else {
+      setCurrentMonthNum((m) => m - 1);
+    }
+  };
+
+  const goToNextMonth = () => {
+    if (currentMonthNum === 11) {
+      setCurrentYear((y) => y + 1);
+      setCurrentMonthNum(0);
+    } else {
+      setCurrentMonthNum((m) => m + 1);
+    }
+  };
+
+  const goToToday = () => {
+    setCurrentYear(today.getFullYear());
+    setCurrentMonthNum(today.getMonth());
+  };
 
   // Fetch events for a wide range (3 months before and after current view)
   const startDate = useMemo(() => {
-    const d = new Date(currentMonth.year, currentMonth.month - 3, 1);
+    const d = new Date(currentYear, currentMonthNum - 3, 1);
     return d.toISOString().split("T")[0];
-  }, [currentMonth.year, currentMonth.month]);
+  }, [currentYear, currentMonthNum]);
 
   const endDate = useMemo(() => {
-    const d = new Date(currentMonth.year, currentMonth.month + 4, 0);
+    const d = new Date(currentYear, currentMonthNum + 4, 0);
     return d.toISOString().split("T")[0];
-  }, [currentMonth.year, currentMonth.month]);
+  }, [currentYear, currentMonthNum]);
 
   const { data: eventsData, loading: eventsLoading } = useQuery(GET_EVENTS, {
     variables: {
@@ -258,10 +307,10 @@ export default function Calendar() {
   const currentMonthEvents = useMemo(() =>
     events.filter(
       (e) =>
-        e.date.getFullYear() === currentMonth.year &&
-        e.date.getMonth() === currentMonth.month
+        e.date.getFullYear() === currentYear &&
+        e.date.getMonth() === currentMonthNum
     ),
-    [events, currentMonth.year, currentMonth.month]
+    [events, currentYear, currentMonthNum]
   );
 
   // Split current month's events into upcoming (today+future) and past
@@ -279,22 +328,6 @@ export default function Calendar() {
 
     return { monthUpcoming: upcoming, monthPast: past };
   }, [currentMonthEvents]);
-
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
-      if (viewableItems.length > 0 && viewableItems[0].index !== null) {
-        setCurrentMonthIndex(viewableItems[0].index);
-      }
-    }
-  ).current;
-
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
-
-  const goToToday = () => {
-    flatListRef.current?.scrollToIndex({ index: initialIndex, animated: true });
-  };
 
   const openDayPicker = (date: Date, dayEvents: CalendarEvent[]) => {
     dayPickerBackdropAnim.setValue(0);
@@ -319,7 +352,7 @@ export default function Calendar() {
   };
 
   const handleDayPress = (day: number) => {
-    const date = new Date(currentMonth.year, currentMonth.month, day);
+    const date = new Date(currentYear, currentMonthNum, day);
     const dayEvents = getEventsForDate(date);
     if (dayEvents.length === 1) {
       setPendingRsvpStatus(null);
@@ -342,73 +375,6 @@ export default function Calendar() {
 
   const getEventColor = (type: string) => EVENT_COLORS[type] || EVENT_COLORS[type.toLowerCase()] || "#6c5ce7";
   const getEventIcon = (type: string) => EVENT_ICONS[type] || EVENT_ICONS[type.toLowerCase()] || "calendar";
-
-  const renderMonth = ({
-    item,
-  }: {
-    item: { year: number; month: number; key: string };
-  }) => {
-    const days = getMonthData(item.year, item.month);
-
-    return (
-      <View style={styles.monthContainer}>
-        <View style={styles.weekHeader}>
-          {DAYS_OF_WEEK.map((day) => (
-            <View key={day} style={styles.weekDayCell}>
-              <Text style={styles.weekDayText}>{day}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.calendarGrid}>
-          {days.map((day, index) => {
-            if (day === null) {
-              return <View key={`empty-${index}`} style={styles.dayCell} />;
-            }
-
-            const date = new Date(item.year, item.month, day);
-            const dayEvents = getEventsForDate(date);
-            const isToday =
-              today.getFullYear() === item.year &&
-              today.getMonth() === item.month &&
-              today.getDate() === day;
-            const hasEvents = dayEvents.length > 0;
-
-            return (
-              <Pressable
-                key={`day-${day}`}
-                style={[styles.dayCell, hasEvents && styles.dayCellWithEvent]}
-                onPress={() => hasEvents && handleDayPress(day)}
-              >
-                <View
-                  style={[styles.dayNumber, isToday && styles.dayNumberToday]}
-                >
-                  <Text
-                    style={[
-                      styles.dayText,
-                      isToday && styles.dayTextToday,
-                    ]}
-                  >
-                    {day}
-                  </Text>
-                </View>
-                {hasEvents && (
-                  <View style={styles.eventDots}>
-                    <View
-                      style={[
-                        styles.eventDot,
-                        { backgroundColor: getEventColor(dayEvents[0].type) },
-                      ]}
-                    />
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-    );
-  };
 
   // Calculate stats for current month
   const practiceCount = currentMonthEvents.filter((e) => e.type === "practice").length;
@@ -507,6 +473,9 @@ export default function Calendar() {
 
   if (!user) return null;
   if (!selectedOrganization) return <NoOrgScreen title="Calendar" />;
+
+  // Calendar grid days
+  const calendarDays = getMonthData(currentYear, currentMonthNum);
 
   return (
     <LinearGradient
@@ -877,7 +846,7 @@ export default function Calendar() {
         </Pressable>
       </Modal>
 
-      {/* Header */}
+      {/* Fixed Header — stays visible while content scrolls */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.title}>Calendar</Text>
@@ -901,124 +870,145 @@ export default function Calendar() {
         </View>
       </View>
 
-      {/* Month/Year Title and Navigation */}
-      <View style={styles.monthHeader}>
-        <View style={styles.monthNavigation}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.monthArrow,
-              pressed && { opacity: 0.5 },
-            ]}
-            onPress={() => {
-              if (currentMonthIndex > 0) {
-                flatListRef.current?.scrollToIndex({
-                  index: currentMonthIndex - 1,
-                  animated: true,
-                });
-              }
-            }}
-          >
-            <Feather name="chevron-left" size={22} color="rgba(255,255,255,0.6)" />
-          </Pressable>
-          <Text style={styles.monthTitle}>
-            {MONTHS[currentMonth.month]} {currentMonth.year}
-          </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.monthArrow,
-              pressed && { opacity: 0.5 },
-            ]}
-            onPress={() => {
-              if (currentMonthIndex < monthsList.length - 1) {
-                flatListRef.current?.scrollToIndex({
-                  index: currentMonthIndex + 1,
-                  animated: true,
-                });
-              }
-            }}
-          >
-            <Feather name="chevron-right" size={22} color="rgba(255,255,255,0.6)" />
-          </Pressable>
-        </View>
-        <Pressable
-          style={({ pressed }) => [
-            styles.todayButton,
-            pressed && { opacity: 0.7 },
-          ]}
-          onPress={goToToday}
-        >
-          <Text style={styles.todayButtonText}>Today</Text>
-        </Pressable>
-      </View>
-
-      {/* Stats Row */}
-      <View style={styles.statsRow}>
-        {eventsLoading ? (
-          <ActivityIndicator color="#a855f7" />
-        ) : (
-          <>
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.practice }]} />
-              <Text style={styles.statText}>{practiceCount} Practices</Text>
-            </View>
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.event }]} />
-              <Text style={styles.statText}>{eventCount} Events</Text>
-            </View>
-            <View style={styles.statItem}>
-              <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.meeting }]} />
-              <Text style={styles.statText}>{meetingCount} Meetings</Text>
-            </View>
-          </>
-        )}
-      </View>
-
-      {/* Swipeable Calendar */}
-      <FlatList
-        ref={flatListRef}
-        data={monthsList}
-        renderItem={renderMonth}
-        keyExtractor={(item) => item.key}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        initialScrollIndex={initialIndex}
-        getItemLayout={(_, index) => ({
-          length: SCREEN_WIDTH,
-          offset: SCREEN_WIDTH * index,
-          index,
-        })}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        style={styles.calendarList}
-      />
-
-      {/* Events Tabs */}
-      <View style={styles.tabSection}>
-        <View style={styles.tabRow}>
-          <Pressable
-            style={[styles.tab, eventsTab === "upcoming" && styles.tabActive]}
-            onPress={() => setEventsTab("upcoming")}
-          >
-            <Text style={[styles.tabText, eventsTab === "upcoming" && styles.tabTextActive]}>
-              Upcoming ({monthUpcoming.length})
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[styles.tab, eventsTab === "past" && styles.tabActive]}
-            onPress={() => setEventsTab("past")}
-          >
-            <Text style={[styles.tabText, eventsTab === "past" && styles.tabTextActive]}>
-              Past ({monthPast.length})
-            </Text>
-          </Pressable>
-        </View>
-      </View>
+      {/* Unified vertical scroll — calendar + tabs + events all scroll together */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
+        stickyHeaderIndices={[1]}
+        contentContainerStyle={styles.scrollContent}
       >
+        {/* [0] Calendar section — scrolls away with the page */}
+        <View
+          onLayout={(e) => {
+            calendarSectionHeightRef.current = e.nativeEvent.layout.height;
+          }}
+        >
+          {/* Month Navigation */}
+          <View style={styles.monthHeader}>
+            <View style={styles.monthNavigation}>
+              <Pressable
+                style={({ pressed }) => [styles.monthArrow, pressed && { opacity: 0.5 }]}
+                onPress={goToPrevMonth}
+              >
+                <Feather name="chevron-left" size={22} color="rgba(255,255,255,0.6)" />
+              </Pressable>
+              <Text style={styles.monthTitle}>
+                {MONTHS[currentMonthNum]} {currentYear}
+              </Text>
+              <Pressable
+                style={({ pressed }) => [styles.monthArrow, pressed && { opacity: 0.5 }]}
+                onPress={goToNextMonth}
+              >
+                <Feather name="chevron-right" size={22} color="rgba(255,255,255,0.6)" />
+              </Pressable>
+            </View>
+            <Pressable
+              style={({ pressed }) => [styles.todayButton, pressed && { opacity: 0.7 }]}
+              onPress={goToToday}
+            >
+              <Text style={styles.todayButtonText}>Today</Text>
+            </Pressable>
+          </View>
+
+          {/* Stats Row */}
+          <View style={styles.statsRow}>
+            {eventsLoading ? (
+              <ActivityIndicator color="#a855f7" />
+            ) : (
+              <>
+                <View style={styles.statItem}>
+                  <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.practice }]} />
+                  <Text style={styles.statText}>{practiceCount} Practices</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.event }]} />
+                  <Text style={styles.statText}>{eventCount} Events</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <View style={[styles.statDot, { backgroundColor: EVENT_COLORS.meeting }]} />
+                  <Text style={styles.statText}>{meetingCount} Meetings</Text>
+                </View>
+              </>
+            )}
+          </View>
+
+          {/* Calendar Grid — horizontal swipe captured by PanResponder */}
+          <View style={styles.monthContainer} {...panResponder.panHandlers}>
+            <View style={styles.weekHeader}>
+              {DAYS_OF_WEEK.map((day) => (
+                <View key={day} style={styles.weekDayCell}>
+                  <Text style={styles.weekDayText}>{day}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.calendarGrid}>
+              {calendarDays.map((day, index) => {
+                if (day === null) {
+                  return <View key={`empty-${index}`} style={styles.dayCell} />;
+                }
+
+                const date = new Date(currentYear, currentMonthNum, day);
+                const dayEvents = getEventsForDate(date);
+                const isToday =
+                  today.getFullYear() === currentYear &&
+                  today.getMonth() === currentMonthNum &&
+                  today.getDate() === day;
+                const hasEvents = dayEvents.length > 0;
+
+                return (
+                  <Pressable
+                    key={`day-${day}`}
+                    style={[styles.dayCell, hasEvents && styles.dayCellWithEvent]}
+                    onPress={() => hasEvents && handleDayPress(day)}
+                  >
+                    <View style={[styles.dayNumber, isToday && styles.dayNumberToday]}>
+                      <Text style={[styles.dayText, isToday && styles.dayTextToday]}>
+                        {day}
+                      </Text>
+                    </View>
+                    {hasEvents && (
+                      <View style={styles.eventDots}>
+                        <View
+                          style={[
+                            styles.eventDot,
+                            { backgroundColor: getEventColor(dayEvents[0].type) },
+                          ]}
+                        />
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
+        {/* [1] Tab Section — sticks below the fixed header once calendar scrolls away */}
+        <View style={styles.tabSection}>
+          <View style={styles.tabRow}>
+            <Pressable
+              style={[styles.tab, eventsTab === "upcoming" && styles.tabActive]}
+              onPress={() => setEventsTab("upcoming")}
+            >
+              <Text style={[styles.tabText, eventsTab === "upcoming" && styles.tabTextActive]}>
+                Upcoming ({monthUpcoming.length})
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.tab, eventsTab === "past" && styles.tabActive]}
+              onPress={() => setEventsTab("past")}
+            >
+              <Text style={[styles.tabText, eventsTab === "past" && styles.tabTextActive]}>
+                Past ({monthPast.length})
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* [2] Events List */}
         <View style={styles.upcomingList}>
           {eventsLoading ? (
             <View style={styles.noEventsCard}>
@@ -1210,13 +1200,10 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Calendar
-  calendarList: {
-    flexGrow: 0,
-  },
+  // Calendar Grid
   monthContainer: {
-    width: SCREEN_WIDTH,
     paddingHorizontal: 20,
+    paddingBottom: 8,
   },
   weekHeader: {
     flexDirection: "row",
@@ -1272,10 +1259,12 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
 
-  // Tabs
+  // Tabs — sticky, needs opaque background to cover scrolling content
   tabSection: {
     paddingHorizontal: 20,
-    marginTop: 4,
+    paddingTop: 8,
+    paddingBottom: 8,
+    backgroundColor: "#302b6f",
   },
   tabRow: {
     flexDirection: "row",
