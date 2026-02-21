@@ -138,6 +138,9 @@ export default function Calendar() {
   const [currentMonthIndex, setCurrentMonthIndex] = useState(initialIndex);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [dayPickerVisible, setDayPickerVisible] = useState(false);
+  const [dayPickerEvents, setDayPickerEvents] = useState<CalendarEvent[]>([]);
+  const [dayPickerDate, setDayPickerDate] = useState<Date | null>(null);
   const [eventsTab, setEventsTab] = useState<"upcoming" | "past">("upcoming");
   const [rsvpNote, setRsvpNote] = useState("");
   const [pendingRsvpStatus, setPendingRsvpStatus] = useState<"GOING" | "MAYBE" | "NOT_GOING" | null>(null);
@@ -292,12 +295,24 @@ export default function Calendar() {
   const handleDayPress = (day: number) => {
     const date = new Date(currentMonth.year, currentMonth.month, day);
     const dayEvents = getEventsForDate(date);
-    if (dayEvents.length > 0) {
+    if (dayEvents.length === 1) {
       setPendingRsvpStatus(null);
       setRsvpNote("");
       setSelectedEvent(dayEvents[0]);
       setModalVisible(true);
+    } else if (dayEvents.length > 1) {
+      setDayPickerDate(date);
+      setDayPickerEvents(dayEvents);
+      setDayPickerVisible(true);
     }
+  };
+
+  const handlePickerSelectEvent = (event: CalendarEvent) => {
+    setDayPickerVisible(false);
+    setPendingRsvpStatus(null);
+    setRsvpNote("");
+    setSelectedEvent(event);
+    setModalVisible(true);
   };
 
   const getEventColor = (type: string) => EVENT_COLORS[type] || EVENT_COLORS[type.toLowerCase()] || "#6c5ce7";
@@ -354,15 +369,12 @@ export default function Calendar() {
                 </View>
                 {hasEvents && (
                   <View style={styles.eventDots}>
-                    {dayEvents.slice(0, 3).map((event, i) => (
-                      <View
-                        key={i}
-                        style={[
-                          styles.eventDot,
-                          { backgroundColor: getEventColor(event.type) },
-                        ]}
-                      />
-                    ))}
+                    <View
+                      style={[
+                        styles.eventDot,
+                        { backgroundColor: getEventColor(dayEvents[0].type) },
+                      ]}
+                    />
                   </View>
                 )}
               </Pressable>
@@ -478,6 +490,84 @@ export default function Calendar() {
       locations={[0.1, 0.6, 1]}
     >
       <StatusBar style="light" />
+
+      {/* Day Picker Modal — shown when multiple events on one day */}
+      <Modal
+        visible={dayPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDayPickerVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setDayPickerVisible(false)}>
+          <Pressable style={styles.dayPickerContainer} onPress={(e) => e.stopPropagation()}>
+            {/* Handle bar */}
+            <View style={styles.dayPickerHandle} />
+
+            <Text style={styles.dayPickerTitle}>
+              {dayPickerDate?.toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+            </Text>
+            <Text style={styles.dayPickerSubtitle}>
+              {dayPickerEvents.length} events — tap one to view details
+            </Text>
+
+            <ScrollView bounces={false} showsVerticalScrollIndicator={false} style={{ maxHeight: 340 }}>
+              <View style={styles.dayPickerList}>
+                {dayPickerEvents.map((event) => (
+                  <Pressable
+                    key={event.id}
+                    style={({ pressed }) => [styles.dayPickerItem, pressed && { opacity: 0.7 }]}
+                    onPress={() => handlePickerSelectEvent(event)}
+                  >
+                    <View style={[styles.dayPickerAccent, { backgroundColor: getEventColor(event.type) }]} />
+                    <View style={styles.dayPickerItemContent}>
+                      <View style={styles.dayPickerItemTop}>
+                        <Text style={styles.dayPickerItemTitle} numberOfLines={1}>{event.title}</Text>
+                        <View style={[styles.dayPickerTypeBadge, { backgroundColor: `${getEventColor(event.type)}25` }]}>
+                          <Text style={[styles.dayPickerTypeText, { color: getEventColor(event.type) }]}>
+                            {event.type.charAt(0).toUpperCase() + event.type.slice(1).toLowerCase()}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.dayPickerItemMeta}>
+                        {event.startTime ? (
+                          <View style={styles.dayPickerMetaRow}>
+                            <Feather name="clock" size={12} color="rgba(255,255,255,0.45)" />
+                            <Text style={styles.dayPickerMetaText}>{event.startTime}{event.endTime ? ` – ${event.endTime}` : ""}</Text>
+                          </View>
+                        ) : null}
+                        {event.location ? (
+                          <View style={styles.dayPickerMetaRow}>
+                            <Feather name="map-pin" size={12} color="rgba(255,255,255,0.45)" />
+                            <Text style={styles.dayPickerMetaText} numberOfLines={1}>{event.location}</Text>
+                          </View>
+                        ) : null}
+                        {event.team ? (
+                          <View style={styles.dayPickerMetaRow}>
+                            <Feather name="users" size={12} color="rgba(255,255,255,0.45)" />
+                            <Text style={styles.dayPickerMetaText}>{event.team.name}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                    <Feather name="chevron-right" size={16} color="rgba(255,255,255,0.3)" />
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
+
+            <Pressable
+              style={({ pressed }) => [styles.dayPickerCloseBtn, pressed && { opacity: 0.7 }]}
+              onPress={() => setDayPickerVisible(false)}
+            >
+              <Text style={styles.dayPickerCloseBtnText}>Close</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Event Detail Modal */}
       <Modal
@@ -1459,6 +1549,109 @@ const styles = StyleSheet.create({
   rsvpConfirmBtnText: {
     color: "#e74c3c",
     fontSize: 14,
+    fontWeight: "600",
+  },
+
+  // Day Picker Modal
+  dayPickerContainer: {
+    backgroundColor: "#2a2550",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    width: "100%",
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  dayPickerHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  dayPickerTitle: {
+    color: "white",
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  dayPickerSubtitle: {
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  dayPickerList: {
+    gap: 8,
+  },
+  dayPickerItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  dayPickerAccent: {
+    width: 4,
+    alignSelf: "stretch",
+  },
+  dayPickerItemContent: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  dayPickerItemTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  dayPickerItemTitle: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "600",
+    flex: 1,
+  },
+  dayPickerTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  dayPickerTypeText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  dayPickerItemMeta: {
+    gap: 4,
+  },
+  dayPickerMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  dayPickerMetaText: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 12,
+  },
+  dayPickerCloseBtn: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: "center",
+    marginTop: 16,
+  },
+  dayPickerCloseBtnText: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 15,
     fontWeight: "600",
   },
 });
