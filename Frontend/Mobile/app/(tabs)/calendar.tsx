@@ -42,6 +42,7 @@ type CalendarEvent = {
 
 const AVATAR_SIZE = 45;
 const SCREEN_WIDTH = Dimensions.get("window").width;
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -297,7 +298,7 @@ export default function Calendar() {
 
   const openDayPicker = (date: Date, dayEvents: CalendarEvent[]) => {
     dayPickerBackdropAnim.setValue(0);
-    dayPickerSlideAnim.setValue(300);
+    dayPickerSlideAnim.setValue(SCREEN_HEIGHT);
     setDayPickerDate(date);
     setDayPickerEvents(dayEvents);
     setDayPickerVisible(true);
@@ -310,7 +311,7 @@ export default function Calendar() {
   const closeDayPicker = (callback?: () => void) => {
     Animated.parallel([
       Animated.timing(dayPickerBackdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      Animated.timing(dayPickerSlideAnim, { toValue: 300, duration: 240, useNativeDriver: true }),
+      Animated.timing(dayPickerSlideAnim, { toValue: SCREEN_HEIGHT, duration: 240, useNativeDriver: true }),
     ]).start(() => {
       setDayPickerVisible(false);
       callback?.();
