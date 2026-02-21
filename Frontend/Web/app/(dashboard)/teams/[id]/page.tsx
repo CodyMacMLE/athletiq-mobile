@@ -67,10 +67,10 @@ type Member = {
 };
 
 const EVENT_TYPE_COLORS = {
-  PRACTICE: "bg-purple-600/20 text-purple-400",
+  PRACTICE: "bg-[#6c5ce7]/20 text-[#a78bfa]",
   EVENT: "bg-red-600/20 text-red-400",
   MEETING: "bg-yellow-600/20 text-yellow-400",
-  REST: "bg-gray-600/20 text-gray-400",
+  REST: "bg-white/10 text-white/55",
 };
 
 export default function TeamDetail() {
@@ -286,15 +286,15 @@ export default function TeamDetail() {
       case "ADMIN": return "bg-yellow-600/20 text-yellow-400";
       case "COACH": return "bg-green-600/20 text-green-400";
       case "CAPTAIN": return "bg-blue-600/20 text-blue-400";
-      case "MEMBER": return "bg-gray-600/20 text-gray-400";
-      default: return "bg-gray-600/20 text-gray-400";
+      case "MEMBER": return "bg-white/10 text-white/55";
+      default: return "bg-white/10 text-white/55";
     }
   };
 
   if (loading || !team) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#6c5ce7]"></div>
       </div>
     );
   }
@@ -306,13 +306,13 @@ export default function TeamDetail() {
         <div>
           <Link
             href="/teams"
-            className="flex items-center text-gray-400 hover:text-white transition-colors mb-2 text-sm"
+            className="flex items-center text-white/55 hover:text-white transition-colors mb-2 text-sm"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back to Teams
           </Link>
           <h1 className="text-2xl font-bold text-white">{team.name}</h1>
-          <div className="flex items-center space-x-4 mt-1 text-gray-400 text-sm">
+          <div className="flex items-center space-x-4 mt-1 text-white/55 text-sm">
             <span className="flex items-center">
               <Users className="w-4 h-4 mr-1" />
               {team.memberCount} members
@@ -334,7 +334,7 @@ export default function TeamDetail() {
           {canManageRoles && activeTab === "members" && (
             <button
               onClick={openAddAthlete}
-              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="flex items-center px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors"
             >
               <Plus className="w-5 h-5 mr-2" />
               Add Athlete
@@ -352,7 +352,7 @@ export default function TeamDetail() {
           {canEdit && activeTab === "events" && (
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="flex items-center px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors"
             >
               <Plus className="w-5 h-5 mr-2" />
               Create Event
@@ -362,7 +362,7 @@ export default function TeamDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center space-x-1 mb-6 border-b border-gray-700">
+      <div className="flex items-center space-x-1 mb-6 border-b border-white/10">
         {([
           { key: "events", label: "Events", icon: <Calendar className="w-4 h-4 mr-2" /> },
           { key: "members", label: `Athletes (${members.length})`, icon: <Users className="w-4 h-4 mr-2" /> },
@@ -373,8 +373,8 @@ export default function TeamDetail() {
             onClick={() => setActiveTab(tab.key)}
             className={`flex items-center px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-px ${
               activeTab === tab.key
-                ? "border-purple-500 text-white"
-                : "border-transparent text-gray-400 hover:text-white"
+                ? "border-[#6c5ce7] text-white"
+                : "border-transparent text-white/55 hover:text-white"
             }`}
           >
             {tab.icon}
@@ -399,8 +399,8 @@ export default function TeamDetail() {
                   }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     selectedType === type
-                      ? "bg-purple-600 text-white"
-                      : "bg-gray-800 text-gray-400 hover:text-white"
+                      ? "bg-[#6c5ce7] text-white"
+                      : "bg-[#1a1640] text-white/55 hover:text-white"
                   }`}
                 >
                   {type === "all" ? "All" : type.charAt(0) + type.slice(1).toLowerCase()}
@@ -409,7 +409,7 @@ export default function TeamDetail() {
             </div>
 
             {/* Time Filter */}
-            <div className="flex items-center bg-gray-800 rounded-lg p-0.5">
+            <div className="flex items-center bg-[#1a1640] rounded-lg p-0.5">
               {(["upcoming", "past"] as const).map((time) => (
                 <button
                   key={time}
@@ -419,8 +419,8 @@ export default function TeamDetail() {
                   }}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                     selectedTime === time
-                      ? "bg-gray-700 text-white"
-                      : "text-gray-400 hover:text-white"
+                      ? "bg-[#261f55] text-white"
+                      : "text-white/55 hover:text-white"
                   }`}
                 >
                   {time === "upcoming" ? `Upcoming (${upcoming.length})` : `Past (${past.length})`}
@@ -444,8 +444,8 @@ export default function TeamDetail() {
 
             {displayedEvents.length === 0 && (
               <div className="text-center py-12">
-                <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400">
+                <Calendar className="w-12 h-12 text-white/30 mx-auto mb-4" />
+                <p className="text-white/55">
                   {selectedTime === "upcoming" ? "No upcoming events" : "No past events"}
                 </p>
               </div>
@@ -454,15 +454,15 @@ export default function TeamDetail() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-700">
-              <p className="text-sm text-gray-400">
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/10">
+              <p className="text-sm text-white/55">
                 Showing {pageStart + 1}-{Math.min(pageStart + EVENTS_PER_PAGE, displayedEvents.length)} of {displayedEvents.length}
               </p>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setEventsPage((p) => Math.max(1, p - 1))}
                   disabled={safeEventsPage <= 1}
-                  className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-lg bg-[#1a1640] text-white/55 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -472,8 +472,8 @@ export default function TeamDetail() {
                     onClick={() => setEventsPage(page)}
                     className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
                       page === safeEventsPage
-                        ? "bg-purple-600 text-white"
-                        : "bg-gray-800 text-gray-400 hover:text-white"
+                        ? "bg-[#6c5ce7] text-white"
+                        : "bg-[#1a1640] text-white/55 hover:text-white"
                     }`}
                   >
                     {page}
@@ -482,7 +482,7 @@ export default function TeamDetail() {
                 <button
                   onClick={() => setEventsPage((p) => Math.min(totalPages, p + 1))}
                   disabled={safeEventsPage >= totalPages}
-                  className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="p-2 rounded-lg bg-[#1a1640] text-white/55 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -498,9 +498,9 @@ export default function TeamDetail() {
           {members.map((member) => (
             <div
               key={member.id}
-              className="bg-gray-800 rounded-xl border border-gray-700 p-4 flex items-center space-x-3"
+              className="bg-[#1a1640] rounded-xl border border-white/10 p-4 flex items-center space-x-3"
             >
-              <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+              <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
                 {member.user.firstName[0]}
                 {member.user.lastName[0]}
               </div>
@@ -516,7 +516,7 @@ export default function TeamDetail() {
                     style={{ color: member.role === "COACH" ? "#4ade80" : member.role === "ADMIN" ? "#facc15" : member.role === "CAPTAIN" ? "#60a5fa" : "#9ca3af" }}
                   >
                     {TEAM_ROLE_OPTIONS.map((role) => (
-                      <option key={role} value={role} className="bg-gray-800 text-white">
+                      <option key={role} value={role} className="bg-[#1a1640] text-white">
                         {role.charAt(0) + role.slice(1).toLowerCase()}
                       </option>
                     ))}
@@ -542,7 +542,7 @@ export default function TeamDetail() {
                 {canManageRoles && (
                   <button
                     onClick={() => handleRemoveMember(member.user.id)}
-                    className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
+                    className="p-1.5 text-white/40 hover:text-red-400 transition-colors"
                     title="Remove member"
                   >
                     <UserMinus className="w-4 h-4" />
@@ -553,10 +553,10 @@ export default function TeamDetail() {
           ))}
           {members.length === 0 && (
             <div className="col-span-full text-center py-12">
-              <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400 mb-1">No athletes yet</p>
+              <Users className="w-12 h-12 text-white/30 mx-auto mb-4" />
+              <p className="text-white/55 mb-1">No athletes yet</p>
               {canManageRoles && (
-                <p className="text-gray-500 text-sm">
+                <p className="text-white/40 text-sm">
                   Click &quot;Add Athlete&quot; to add an athlete to this team.
                 </p>
               )}
@@ -571,7 +571,7 @@ export default function TeamDetail() {
           {coaches.map((coach) => (
             <div
               key={coach.id}
-              className="bg-gray-800 rounded-xl border border-gray-700 p-4 flex items-center space-x-4"
+              className="bg-[#1a1640] rounded-xl border border-white/10 p-4 flex items-center space-x-4"
             >
               <div className="w-12 h-12 rounded-full bg-green-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
                 {coach.user.firstName[0]}
@@ -581,7 +581,7 @@ export default function TeamDetail() {
                 <p className="text-white font-medium">
                   {coach.user.firstName} {coach.user.lastName}
                 </p>
-                <p className="text-gray-400 text-sm">{coach.user.email}</p>
+                <p className="text-white/55 text-sm">{coach.user.email}</p>
               </div>
               {canManageRoles && (
                 <button
@@ -596,10 +596,10 @@ export default function TeamDetail() {
           ))}
           {coaches.length === 0 && (
             <div className="text-center py-12">
-              <Shield className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400 mb-1">No coaches assigned</p>
+              <Shield className="w-12 h-12 text-white/30 mx-auto mb-4" />
+              <p className="text-white/55 mb-1">No coaches assigned</p>
               {canManageRoles && (
-                <p className="text-gray-500 text-sm">
+                <p className="text-white/40 text-sm">
                   Click &quot;Assign Coach&quot; to add a coach to this team.
                 </p>
               )}
@@ -632,29 +632,29 @@ export default function TeamDetail() {
           : coachCandidates;
         return (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+            <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 w-full max-w-md">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white">Assign Coach</h2>
-                <button onClick={() => setShowAssignCoach(false)} className="text-gray-400 hover:text-white">
+                <button onClick={() => setShowAssignCoach(false)} className="text-white/55 hover:text-white">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
                 <input
                   type="text"
                   value={coachSearch}
                   onChange={(e) => setCoachSearch(e.target.value)}
                   placeholder="Search by name or email..."
                   autoFocus
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full pl-10 pr-4 py-2.5 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 />
               </div>
 
               {orgUsersLoading ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
+                  <Loader2 className="w-6 h-6 text-[#6c5ce7] animate-spin" />
                 </div>
               ) : (
                 <div className="space-y-1 max-h-72 overflow-y-auto mb-4">
@@ -665,24 +665,24 @@ export default function TeamDetail() {
                         key={m.user.id}
                         onClick={() => handleAssignCoach(m.user.id)}
                         disabled={assigning}
-                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-700 bg-gray-700/50 hover:bg-gray-700 text-left transition-colors disabled:opacity-50"
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-left transition-colors disabled:opacity-50"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
                             {m.user.firstName[0]}{m.user.lastName[0]}
                           </div>
                           <div>
                             <p className="text-sm text-white font-medium">
                               {m.user.firstName} {m.user.lastName}
                             </p>
-                            <p className="text-xs text-gray-400">{m.user.email}</p>
+                            <p className="text-xs text-white/55">{m.user.email}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {isOnTeam && (
-                            <span className="text-xs text-gray-500">on team</span>
+                            <span className="text-xs text-white/40">on team</span>
                           )}
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-600/20 text-gray-400">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white/55">
                             {m.role}
                           </span>
                         </div>
@@ -690,12 +690,12 @@ export default function TeamDetail() {
                     );
                   })}
                   {filtered.length === 0 && coachCandidates.length > 0 && (
-                    <p className="text-gray-500 text-sm text-center py-4">
+                    <p className="text-white/40 text-sm text-center py-4">
                       No members match &quot;{coachSearch}&quot;
                     </p>
                   )}
                   {coachCandidates.length === 0 && (
-                    <p className="text-gray-500 text-sm text-center py-4">
+                    <p className="text-white/40 text-sm text-center py-4">
                       All organization members are already coaches on this team.
                     </p>
                   )}
@@ -711,7 +711,7 @@ export default function TeamDetail() {
               <div className="flex justify-end">
                 <button
                   onClick={() => setShowAssignCoach(false)}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium rounded-lg transition-colors"
+                  className="px-4 py-2 bg-[#261f55] hover:bg-white/[0.12] text-white/75 text-sm font-medium rounded-lg transition-colors"
                 >
                   Close
                 </button>
@@ -732,29 +732,29 @@ export default function TeamDetail() {
           : athleteCandidates;
         return (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-            <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+            <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 w-full max-w-md">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white">Add Athlete</h2>
-                <button onClick={() => setShowAddAthlete(false)} className="text-gray-400 hover:text-white">
+                <button onClick={() => setShowAddAthlete(false)} className="text-white/55 hover:text-white">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
                 <input
                   type="text"
                   value={athleteSearch}
                   onChange={(e) => setAthleteSearch(e.target.value)}
                   placeholder="Search by name or email..."
                   autoFocus
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full pl-10 pr-4 py-2.5 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 />
               </div>
 
               {orgUsersLoading ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
+                  <Loader2 className="w-6 h-6 text-[#6c5ce7] animate-spin" />
                 </div>
               ) : (
                 <div className="space-y-1 max-h-72 overflow-y-auto mb-4">
@@ -765,24 +765,24 @@ export default function TeamDetail() {
                         key={m.user.id}
                         onClick={() => handleAddAthlete(m.user.id)}
                         disabled={assigning}
-                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-700 bg-gray-700/50 hover:bg-gray-700 text-left transition-colors disabled:opacity-50"
+                        className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-left transition-colors disabled:opacity-50"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
                             {m.user.firstName[0]}{m.user.lastName[0]}
                           </div>
                           <div>
                             <p className="text-sm text-white font-medium">
                               {m.user.firstName} {m.user.lastName}
                             </p>
-                            <p className="text-xs text-gray-400">{m.user.email}</p>
+                            <p className="text-xs text-white/55">{m.user.email}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {isCoachOnTeam && (
-                            <span className="text-xs text-gray-500">coach</span>
+                            <span className="text-xs text-white/40">coach</span>
                           )}
-                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-600/20 text-gray-400">
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white/55">
                             {m.role}
                           </span>
                         </div>
@@ -790,12 +790,12 @@ export default function TeamDetail() {
                     );
                   })}
                   {filtered.length === 0 && athleteCandidates.length > 0 && (
-                    <p className="text-gray-500 text-sm text-center py-4">
+                    <p className="text-white/40 text-sm text-center py-4">
                       No members match &quot;{athleteSearch}&quot;
                     </p>
                   )}
                   {athleteCandidates.length === 0 && (
-                    <p className="text-gray-500 text-sm text-center py-4">
+                    <p className="text-white/40 text-sm text-center py-4">
                       All organization members are already athletes on this team.
                     </p>
                   )}
@@ -811,7 +811,7 @@ export default function TeamDetail() {
               <div className="flex justify-end">
                 <button
                   onClick={() => setShowAddAthlete(false)}
-                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm font-medium rounded-lg transition-colors"
+                  className="px-4 py-2 bg-[#261f55] hover:bg-white/[0.12] text-white/75 text-sm font-medium rounded-lg transition-colors"
                 >
                   Close
                 </button>
@@ -824,15 +824,15 @@ export default function TeamDetail() {
       {/* Delete Recurring Event Dialog */}
       {deleteDialogEvent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl w-full max-w-sm p-6 border border-gray-700">
+          <div className="bg-[#1a1640] rounded-xl w-full max-w-sm p-6 border border-white/10">
             <h3 className="text-lg font-bold text-white mb-2">Delete Recurring Event</h3>
-            <p className="text-gray-400 text-sm mb-6">
+            <p className="text-white/55 text-sm mb-6">
               This event is part of a recurring series. What would you like to do?
             </p>
             <div className="space-y-3">
               <button
                 onClick={() => handleDeleteThisOnly(deleteDialogEvent.id)}
-                className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                className="w-full px-4 py-2 bg-[#261f55] text-white rounded-lg hover:bg-white/[0.12] transition-colors text-sm"
               >
                 Delete this event only
               </button>
@@ -844,7 +844,7 @@ export default function TeamDetail() {
               </button>
               <button
                 onClick={() => setDeleteDialogEvent(null)}
-                className="w-full px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm"
+                className="w-full px-4 py-2 text-white/55 hover:text-white transition-colors text-sm"
               >
                 Cancel
               </button>
@@ -887,7 +887,7 @@ function EventCard({
 
   return (
     <div
-      className={`bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-gray-600 transition-colors cursor-pointer ${
+      className={`bg-[#1a1640] rounded-xl border border-white/10 p-4 hover:border-white/[0.12] transition-colors cursor-pointer ${
         dimmed ? "opacity-60" : ""
       }`}
     >
@@ -904,13 +904,13 @@ function EventCard({
             <div className="flex items-center">
               <h3 className="text-white font-medium">{event.title}</h3>
               {event.recurringEvent && (
-                <span className="ml-2 flex items-center text-xs text-purple-400">
+                <span className="ml-2 flex items-center text-xs text-[#a78bfa]">
                   <Repeat className="w-3 h-3 mr-1" />
                   Recurring
                 </span>
               )}
             </div>
-            <div className="flex items-center space-x-4 mt-2 text-sm text-gray-400">
+            <div className="flex items-center space-x-4 mt-2 text-sm text-white/55">
               <div className="flex items-center">
                 <Calendar className="w-4 h-4 mr-1" />
                 {dateLabel}
@@ -929,14 +929,14 @@ function EventCard({
               )}
             </div>
             {event.description && (
-              <p className="text-gray-500 text-sm mt-2">{event.description}</p>
+              <p className="text-white/40 text-sm mt-2">{event.description}</p>
             )}
           </div>
         </div>
         <div className="flex items-center space-x-4">
           <div className="text-right">
             <p className="text-white font-medium">{event.checkIns.length}</p>
-            <p className="text-gray-400 text-xs">checked in</p>
+            <p className="text-white/55 text-xs">checked in</p>
           </div>
           {canEdit && (
             <button
@@ -945,7 +945,7 @@ function EventCard({
                 e.stopPropagation();
                 onDelete(event);
               }}
-              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+              className="p-2 text-white/55 hover:text-red-500 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -1045,33 +1045,33 @@ function CreateEventModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl w-full max-w-lg p-6 border border-gray-700 max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#1a1640] rounded-xl w-full max-w-lg p-6 border border-white/10 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">Create Event</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button onClick={onClose} className="text-white/55 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Title</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Title</label>
             <input
               type="text"
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Team Practice"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Type</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Type</label>
             <select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             >
               <option value="PRACTICE">Practice</option>
               <option value="EVENT">Event</option>
@@ -1081,7 +1081,7 @@ function CreateEventModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
+            <label className="block text-sm font-medium text-white/55 mb-1">
               {formData.isRecurring ? "Start Date" : "Date"}
             </label>
             <input
@@ -1089,13 +1089,13 @@ function CreateEventModal({
               required
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             />
           </div>
 
           {/* Recurring Event Toggle */}
           <div className="flex items-center justify-between py-2">
-            <label className="text-sm font-medium text-gray-400 flex items-center">
+            <label className="text-sm font-medium text-white/55 flex items-center">
               <Repeat className="w-4 h-4 mr-2" />
               Recurring Event
             </label>
@@ -1103,7 +1103,7 @@ function CreateEventModal({
               type="button"
               onClick={() => setFormData({ ...formData, isRecurring: !formData.isRecurring })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                formData.isRecurring ? "bg-purple-600" : "bg-gray-600"
+                formData.isRecurring ? "bg-[#6c5ce7]" : "bg-[#2e2660]"
               }`}
             >
               <span
@@ -1116,15 +1116,15 @@ function CreateEventModal({
 
           {/* Recurring Event Fields */}
           {formData.isRecurring && (
-            <div className="space-y-4 p-4 bg-gray-750 border border-gray-600 rounded-lg">
+            <div className="space-y-4 p-4 bg-[#1a1640] border border-white/[0.12] rounded-lg">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Frequency</label>
+                <label className="block text-sm font-medium text-white/55 mb-1">Frequency</label>
                 <select
                   value={formData.frequency}
                   onChange={(e) =>
                     setFormData({ ...formData, frequency: e.target.value as typeof formData.frequency })
                   }
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 >
                   <option value="DAILY">Daily</option>
                   <option value="WEEKLY">Weekly</option>
@@ -1135,7 +1135,7 @@ function CreateEventModal({
 
               {(formData.frequency === "WEEKLY" || formData.frequency === "BIWEEKLY") && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">Days of Week</label>
+                  <label className="block text-sm font-medium text-white/55 mb-2">Days of Week</label>
                   <div className="flex gap-2">
                     {DAY_LABELS.map((label, index) => (
                       <button
@@ -1144,8 +1144,8 @@ function CreateEventModal({
                         onClick={() => toggleDay(index)}
                         className={`w-10 h-10 rounded-lg text-xs font-medium transition-colors ${
                           formData.daysOfWeek.includes(index)
-                            ? "bg-purple-600 text-white"
-                            : "bg-gray-700 text-gray-400 hover:text-white"
+                            ? "bg-[#6c5ce7] text-white"
+                            : "bg-[#261f55] text-white/55 hover:text-white"
                         }`}
                       >
                         {label}
@@ -1156,13 +1156,13 @@ function CreateEventModal({
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">End Date</label>
+                <label className="block text-sm font-medium text-white/55 mb-1">End Date</label>
                 <input
                   type="date"
                   required
                   value={formData.endDate}
                   onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 />
               </div>
             </div>
@@ -1170,47 +1170,47 @@ function CreateEventModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Start Time</label>
+              <label className="block text-sm font-medium text-white/55 mb-1">Start Time</label>
               <input
                 type="text"
                 required
                 value={formData.startTime}
                 onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="6:00 PM"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">End Time</label>
+              <label className="block text-sm font-medium text-white/55 mb-1">End Time</label>
               <input
                 type="text"
                 required
                 value={formData.endTime}
                 onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="8:00 PM"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Location</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Location</label>
             <input
               type="text"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Main Gym"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
               placeholder="Event details..."
             />
           </div>
@@ -1219,13 +1219,13 @@ function CreateEventModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              className="px-4 py-2 text-white/55 hover:text-white transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors"
             >
               Create Event
             </button>

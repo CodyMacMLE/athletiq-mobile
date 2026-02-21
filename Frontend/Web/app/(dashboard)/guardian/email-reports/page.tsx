@@ -214,8 +214,8 @@ export default function EmailReportsPage() {
     return (
       <div className="min-h-screen bg-[#0a0118] text-white p-6">
         <div className="max-w-4xl mx-auto text-center py-12">
-          <Mail className="w-12 h-12 mx-auto text-gray-600 mb-4" />
-          <h3 className="text-lg font-medium text-gray-400">
+          <Mail className="w-12 h-12 mx-auto text-white/30 mb-4" />
+          <h3 className="text-lg font-medium text-white/55">
             Email reports are only available for guardians
           </h3>
         </div>
@@ -230,13 +230,13 @@ export default function EmailReportsPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold">Email Reports</h1>
-            <p className="text-gray-400 mt-1">
+            <p className="text-white/55 mt-1">
               Receive attendance reports for your athletes
             </p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-[#6c5ce7] hover:bg-[#5a4dd4] rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             New Report
@@ -245,16 +245,16 @@ export default function EmailReportsPage() {
 
         {/* Linked Athletes Info */}
         {linkedAthletes.length > 0 && (
-          <div className="bg-[#1a1640] border border-gray-700 rounded-lg p-4 mb-6">
+          <div className="bg-[#1a1640] border border-white/10 rounded-lg p-4 mb-6">
             <div className="flex items-center gap-2 mb-2">
-              <Users className="w-4 h-4 text-purple-400" />
+              <Users className="w-4 h-4 text-[#a78bfa]" />
               <h3 className="font-medium">Your Athletes</h3>
             </div>
             <div className="flex flex-wrap gap-2">
               {linkedAthletes.map((link: any) => (
                 <span
                   key={link.id}
-                  className="px-3 py-1 bg-purple-600/20 text-purple-300 rounded-full text-sm"
+                  className="px-3 py-1 bg-[#6c5ce7]/20 text-[#c4b5fd] rounded-full text-sm"
                 >
                   {link.athlete.firstName} {link.athlete.lastName}
                 </span>
@@ -265,19 +265,19 @@ export default function EmailReportsPage() {
 
         {/* Configs List */}
         {loading ? (
-          <div className="text-center py-12 text-gray-400">Loading...</div>
+          <div className="text-center py-12 text-white/55">Loading...</div>
         ) : configs.length === 0 ? (
           <div className="text-center py-12">
-            <Mail className="w-12 h-12 mx-auto text-gray-600 mb-4" />
-            <h3 className="text-lg font-medium text-gray-400 mb-2">
+            <Mail className="w-12 h-12 mx-auto text-white/30 mb-4" />
+            <h3 className="text-lg font-medium text-white/55 mb-2">
               No email reports configured
             </h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-white/40 mb-4">
               Set up automated email reports to track your athletes' attendance
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="text-purple-400 hover:text-purple-300"
+              className="text-[#a78bfa] hover:text-[#c4b5fd]"
             >
               Create your first report
             </button>
@@ -287,7 +287,7 @@ export default function EmailReportsPage() {
             {configs.map((config: EmailReportConfig) => (
               <div
                 key={config.id}
-                className="bg-[#1a1640] border border-gray-700 rounded-lg p-6"
+                className="bg-[#1a1640] border border-white/10 rounded-lg p-6"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -301,7 +301,7 @@ export default function EmailReportsPage() {
                           Active
                         </span>
                       ) : (
-                        <span className="px-2 py-1 bg-gray-600/20 text-gray-400 text-xs font-medium rounded-full flex items-center gap-1">
+                        <span className="px-2 py-1 bg-white/10 text-white/55 text-xs font-medium rounded-full flex items-center gap-1">
                           <X className="w-3 h-3" />
                           Paused
                         </span>
@@ -315,7 +315,7 @@ export default function EmailReportsPage() {
                           onChange={(e) =>
                             setEditFrequency(e.target.value as ReportFrequency)
                           }
-                          className="w-full px-3 py-2 bg-[#0a0118] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          className="w-full px-3 py-2 bg-[#0a0118] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                         >
                           {FREQUENCY_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -326,20 +326,20 @@ export default function EmailReportsPage() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleUpdate(config.id)}
-                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-sm font-medium"
+                            className="px-3 py-1.5 bg-[#6c5ce7] hover:bg-[#5a4dd4] rounded text-sm font-medium"
                           >
                             Save
                           </button>
                           <button
                             onClick={() => setEditingId(null)}
-                            className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium"
+                            className="px-3 py-1.5 bg-[#261f55] hover:bg-white/[0.12] rounded text-sm font-medium"
                           >
                             Cancel
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-4 text-sm text-gray-400">
+                      <div className="flex items-center gap-4 text-sm text-white/55">
                         <div className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
                           {
@@ -364,7 +364,7 @@ export default function EmailReportsPage() {
                     <div className="flex items-center gap-2 ml-4">
                       <button
                         onClick={() => handleSendTest(config.id)}
-                        className="p-2 hover:bg-purple-600/20 text-purple-400 rounded-lg transition-colors"
+                        className="p-2 hover:bg-[#6c5ce7]/20 text-[#a78bfa] rounded-lg transition-colors"
                         title="Send test report"
                       >
                         <Send className="w-4 h-4" />
@@ -414,14 +414,14 @@ export default function EmailReportsPage() {
         {/* Create Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-[#1a1640] border border-gray-700 rounded-lg max-w-md w-full p-6">
+            <div className="bg-[#1a1640] border border-white/10 rounded-lg max-w-md w-full p-6">
               <h2 className="text-xl font-bold mb-4">Create Email Report</h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Organization
                   </label>
-                  <div className="px-3 py-2 bg-[#0a0118] border border-gray-700 rounded-lg text-gray-400">
+                  <div className="px-3 py-2 bg-[#0a0118] border border-white/10 rounded-lg text-white/55">
                     {selectedOrg?.name}
                   </div>
                 </div>
@@ -434,7 +434,7 @@ export default function EmailReportsPage() {
                     onChange={(e) =>
                       setNewFrequency(e.target.value as ReportFrequency)
                     }
-                    className="w-full px-3 py-2 bg-[#0a0118] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    className="w-full px-3 py-2 bg-[#0a0118] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                   >
                     {FREQUENCY_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -450,14 +450,14 @@ export default function EmailReportsPage() {
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={() => setShowCreateModal(false)}
-                    className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors"
+                    className="flex-1 px-4 py-2 bg-[#261f55] hover:bg-white/[0.12] rounded-lg font-medium transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreate}
                     disabled={linkedAthletes.length === 0}
-                    className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+                    className="flex-1 px-4 py-2 bg-[#6c5ce7] hover:bg-[#5a4dd4] disabled:bg-[#261f55] disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
                   >
                     Create Report
                   </button>

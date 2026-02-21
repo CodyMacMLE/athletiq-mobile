@@ -45,7 +45,7 @@ export default function Analytics() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#6c5ce7]"></div>
       </div>
     );
   }
@@ -62,7 +62,7 @@ export default function Analytics() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">Analytics</h1>
-          <p className="text-gray-400 mt-1">Organization performance and insights</p>
+          <p className="text-white/55 mt-1">Organization performance and insights</p>
         </div>
 
         {/* Time Range Selector */}
@@ -73,8 +73,8 @@ export default function Analytics() {
               onClick={() => setTimeRange(range)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 timeRange === range
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-800 text-gray-400 hover:text-white"
+                  ? "bg-[#6c5ce7] text-white"
+                  : "bg-[#1a1640] text-white/55 hover:text-white"
               }`}
             >
               {range === "ALL" ? "All Time" : range.charAt(0) + range.slice(1).toLowerCase()}
@@ -85,22 +85,22 @@ export default function Analytics() {
 
       {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl p-6 border border-white/10">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Total Athletes</p>
+              <p className="text-white/55 text-sm">Total Athletes</p>
               <p className="text-3xl font-bold text-white mt-1">{totalMembers}</p>
             </div>
-            <div className="w-12 h-12 bg-purple-600/20 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6 text-purple-500" />
+            <div className="w-12 h-12 bg-[#6c5ce7]/20 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-[#6c5ce7]" />
             </div>
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl p-6 border border-white/10">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Avg Attendance</p>
+              <p className="text-white/55 text-sm">Avg Attendance</p>
               <p className="text-3xl font-bold text-white mt-1">{Math.round(avgAttendance)}%</p>
             </div>
             <div className="w-12 h-12 bg-green-600/20 rounded-lg flex items-center justify-center">
@@ -109,10 +109,10 @@ export default function Analytics() {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl p-6 border border-white/10">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Teams</p>
+              <p className="text-white/55 text-sm">Teams</p>
               <p className="text-3xl font-bold text-white mt-1">{teamRankings.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
@@ -124,14 +124,14 @@ export default function Analytics() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Team Rankings */}
-        <div className="bg-gray-800 rounded-xl border border-gray-700">
-          <div className="px-6 py-4 border-b border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl border border-white/10">
+          <div className="px-6 py-4 border-b border-white/10">
             <h2 className="text-lg font-semibold text-white">Team Rankings</h2>
-            <p className="text-gray-400 text-sm">Current season by attendance rate</p>
+            <p className="text-white/55 text-sm">Current season by attendance rate</p>
           </div>
           <div className="p-6">
             {teamRankings.length === 0 ? (
-              <p className="text-gray-400 text-center py-4">No data available</p>
+              <p className="text-white/55 text-center py-4">No data available</p>
             ) : (
               <div className="space-y-4">
                 {teamRankings.map((ranking: any) => (
@@ -141,17 +141,17 @@ export default function Analytics() {
                         ranking.rank === 1
                           ? "bg-yellow-500"
                           : ranking.rank === 2
-                          ? "bg-gray-400"
+                          ? "bg-white/20"
                           : ranking.rank === 3
                           ? "bg-amber-700"
-                          : "bg-gray-700"
+                          : "bg-[#261f55]"
                       }`}
                     >
                       {ranking.rank}
                     </div>
                     <div className="ml-4 flex-1">
                       <p className="text-white font-medium">{ranking.team.name}</p>
-                      <p className="text-gray-400 text-sm">{ranking.team.memberCount} members</p>
+                      <p className="text-white/55 text-sm">{ranking.team.memberCount} members</p>
                     </div>
                     <div className="w-32">
                       <div className="flex items-center justify-between mb-1">
@@ -167,7 +167,7 @@ export default function Analytics() {
                           {Math.round(ranking.attendancePercent)}%
                         </span>
                       </div>
-                      <div className="w-full h-2 bg-gray-700 rounded-full">
+                      <div className="w-full h-2 bg-[#261f55] rounded-full">
                         <div
                           className={`h-2 rounded-full ${
                             ranking.attendancePercent >= 90
@@ -188,16 +188,16 @@ export default function Analytics() {
         </div>
 
         {/* Individual Leaderboard */}
-        <div className="bg-gray-800 rounded-xl border border-gray-700">
-          <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
+        <div className="bg-[#1a1640] rounded-xl border border-white/10">
+          <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-white">Top Athletes</h2>
-              <p className="text-gray-400 text-sm">Individual rankings</p>
+              <p className="text-white/55 text-sm">Individual rankings</p>
             </div>
             <select
               value={selectedTeamId || ""}
               onChange={(e) => setSelectedTeamId(e.target.value)}
-              className="px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="px-3 py-1.5 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             >
               {currentSeasonTeams.map((team: any) => (
                 <option key={team.id} value={team.id}>
@@ -209,10 +209,10 @@ export default function Analytics() {
           <div className="p-6">
             {leaderboardLoading ? (
               <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6c5ce7]"></div>
               </div>
             ) : leaderboard.length === 0 ? (
-              <p className="text-gray-400 text-center py-4">No data available</p>
+              <p className="text-white/55 text-center py-4">No data available</p>
             ) : (
               <div className="space-y-3">
                 {leaderboard.slice(0, 10).map((entry: any) => (
@@ -222,15 +222,15 @@ export default function Analytics() {
                         entry.rank === 1
                           ? "bg-yellow-500 text-black"
                           : entry.rank === 2
-                          ? "bg-gray-400 text-black"
+                          ? "bg-white/20 text-white"
                           : entry.rank === 3
                           ? "bg-amber-700 text-white"
-                          : "bg-gray-700 text-white"
+                          : "bg-[#261f55] text-white"
                       }`}
                     >
                       {entry.rank}
                     </div>
-                    <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-medium ml-3">
+                    <div className="w-8 h-8 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs font-medium ml-3">
                       {entry.user.firstName[0]}
                       {entry.user.lastName[0]}
                     </div>
@@ -238,7 +238,7 @@ export default function Analytics() {
                       <p className="text-white text-sm font-medium">
                         {entry.user.firstName} {entry.user.lastName}
                       </p>
-                      <p className="text-gray-400 text-xs">
+                      <p className="text-white/55 text-xs">
                         {entry.hoursLogged.toFixed(1)} / {entry.hoursRequired}h
                       </p>
                     </div>

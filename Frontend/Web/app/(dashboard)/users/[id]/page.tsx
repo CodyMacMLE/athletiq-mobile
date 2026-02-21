@@ -80,7 +80,7 @@ const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle; color: string; b
   ON_TIME: { icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/20", label: "On Time" },
   LATE: { icon: Clock, color: "text-yellow-500", bg: "bg-yellow-500/20", label: "Late" },
   ABSENT: { icon: XCircle, color: "text-red-500", bg: "bg-red-500/20", label: "Absent" },
-  EXCUSED: { icon: AlertCircle, color: "text-purple-500", bg: "bg-purple-500/20", label: "Excused" },
+  EXCUSED: { icon: AlertCircle, color: "text-[#6c5ce7]", bg: "bg-[#6c5ce7]/20", label: "Excused" },
 };
 
 export default function UserDetailPage() {
@@ -183,21 +183,21 @@ export default function UserDetailPage() {
   const roleBadge = (role: string) => {
     const styles: Record<string, string> = {
       OWNER: "bg-yellow-600/20 text-yellow-400",
-      ADMIN: "bg-purple-600/20 text-purple-400",
+      ADMIN: "bg-[#6c5ce7]/20 text-[#a78bfa]",
       MANAGER: "bg-blue-600/20 text-blue-400",
       COACH: "bg-green-600/20 text-green-400",
       ATHLETE: "bg-green-600/20 text-green-400",
-      GUARDIAN: "bg-gray-600/20 text-gray-400",
+      GUARDIAN: "bg-white/10 text-white/55",
       MEMBER: "bg-green-600/20 text-green-400",
       CAPTAIN: "bg-blue-600/20 text-blue-400",
     };
-    return styles[role] || "bg-gray-600/20 text-gray-400";
+    return styles[role] || "bg-white/10 text-white/55";
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#6c5ce7]"></div>
       </div>
     );
   }
@@ -205,12 +205,12 @@ export default function UserDetailPage() {
   if (!member) {
     return (
       <div>
-        <Link href="/users" className="inline-flex items-center text-gray-400 hover:text-white transition-colors mb-6">
+        <Link href="/users" className="inline-flex items-center text-white/55 hover:text-white transition-colors mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Users
         </Link>
         <div className="text-center py-12">
-          <p className="text-gray-400">User not found</p>
+          <p className="text-white/55">User not found</p>
         </div>
       </div>
     );
@@ -230,13 +230,13 @@ export default function UserDetailPage() {
   return (
     <div className="max-w-3xl">
       {/* Back Link */}
-      <Link href="/users" className="inline-flex items-center text-gray-400 hover:text-white transition-colors mb-6">
+      <Link href="/users" className="inline-flex items-center text-white/55 hover:text-white transition-colors mb-6">
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back to Users
       </Link>
 
       {/* Summary Card */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+      <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 mb-6">
         <div className="flex items-start justify-between">
           <div className="flex items-center">
             {member.user.image ? (
@@ -246,7 +246,7 @@ export default function UserDetailPage() {
                 className="w-16 h-16 rounded-full object-cover"
               />
             ) : (
-              <div className="w-16 h-16 rounded-full bg-purple-600 flex items-center justify-center text-white text-xl font-medium">
+              <div className="w-16 h-16 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xl font-medium">
                 {member.user.firstName[0]}
                 {member.user.lastName[0]}
               </div>
@@ -255,9 +255,9 @@ export default function UserDetailPage() {
               <h1 className="text-2xl font-bold text-white">
                 {member.user.firstName} {member.user.lastName}
               </h1>
-              <p className="text-gray-400">{member.user.email}</p>
+              <p className="text-white/55">{member.user.email}</p>
               {memberSince && (
-                <p className="text-gray-500 text-sm mt-1">Member since {memberSince}</p>
+                <p className="text-white/40 text-sm mt-1">Member since {memberSince}</p>
               )}
             </div>
           </div>
@@ -265,7 +265,7 @@ export default function UserDetailPage() {
             <span className={`px-3 py-1.5 text-sm font-medium rounded ${roleBadge(member.role)}`}>
               {member.role}
             </span>
-            <span className="text-gray-400 text-sm">
+            <span className="text-white/55 text-sm">
               {member.user.memberships.length} {member.user.memberships.length === 1 ? "Team" : "Teams"}
             </span>
           </div>
@@ -273,31 +273,31 @@ export default function UserDetailPage() {
       </div>
 
       {/* Tab Bar */}
-      <div className="flex border-b border-gray-700 mb-6">
+      <div className="flex border-b border-white/10 mb-6">
         <button
           onClick={() => setActiveTab("attendance")}
           className={`px-4 py-3 text-sm font-medium transition-colors relative ${
             activeTab === "attendance"
-              ? "text-purple-400"
-              : "text-gray-400 hover:text-white"
+              ? "text-[#a78bfa]"
+              : "text-white/55 hover:text-white"
           }`}
         >
           Attendance
           {activeTab === "attendance" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500" />
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6c5ce7]" />
           )}
         </button>
         <button
           onClick={() => setActiveTab("roles")}
           className={`px-4 py-3 text-sm font-medium transition-colors relative ${
             activeTab === "roles"
-              ? "text-purple-400"
-              : "text-gray-400 hover:text-white"
+              ? "text-[#a78bfa]"
+              : "text-white/55 hover:text-white"
           }`}
         >
           Roles & Settings
           {activeTab === "roles" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-500" />
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6c5ce7]" />
           )}
         </button>
       </div>
@@ -306,13 +306,13 @@ export default function UserDetailPage() {
       {activeTab === "roles" ? (
         <>
           {/* Organization Role */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+          <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 mb-6">
             <h2 className="text-lg font-semibold text-white mb-4">Organization Role</h2>
             {canChangeOrgRole(member) ? (
               <select
                 value={member.role}
                 onChange={(e) => handleOrgRoleChange(e.target.value)}
-                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               >
                 {getAvailableOrgRoles().map((role) => (
                   <option key={role} value={role}>
@@ -328,13 +328,13 @@ export default function UserDetailPage() {
           </div>
 
           {/* Teams */}
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+          <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Teams</h2>
               {canEdit && (
                 <button
                   onClick={() => setShowAddTeamModal(true)}
-                  className="flex items-center text-sm text-purple-400 hover:text-purple-300 transition-colors"
+                  className="flex items-center text-sm text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
                 >
                   <Plus className="w-4 h-4 mr-1" />
                   Add to Team
@@ -347,12 +347,12 @@ export default function UserDetailPage() {
                 {member.user.memberships.map((membership) => (
                   <div
                     key={membership.id}
-                    className="flex items-center justify-between bg-gray-700/50 rounded-lg px-4 py-3"
+                    className="flex items-center justify-between bg-white/5 rounded-lg px-4 py-3"
                   >
                     <div className="flex items-center gap-4">
                       <Link
                         href={`/teams/${membership.team.id}`}
-                        className="text-white font-medium hover:text-purple-400 transition-colors"
+                        className="text-white font-medium hover:text-[#a78bfa] transition-colors"
                       >
                         {membership.team.name}
                       </Link>
@@ -362,7 +362,7 @@ export default function UserDetailPage() {
                         <select
                           value={membership.role}
                           onChange={(e) => handleTeamRoleChange(membership.team.id, e.target.value)}
-                          className="px-3 py-1.5 text-sm bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          className="px-3 py-1.5 text-sm bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                         >
                           {TEAM_ROLES.map((role) => (
                             <option key={role} value={role}>
@@ -378,7 +378,7 @@ export default function UserDetailPage() {
                       {canEdit && (
                         <button
                           onClick={() => handleRemoveFromTeam(membership.team.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                          className="p-1.5 text-white/55 hover:text-red-500 transition-colors"
                           title="Remove from team"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -389,15 +389,15 @@ export default function UserDetailPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-sm">Not assigned to any teams</p>
+              <p className="text-white/40 text-sm">Not assigned to any teams</p>
             )}
           </div>
 
           {/* Remove from Organization */}
           {canEdit && canRemoveMember(member) && (
-            <div className="bg-gray-800 rounded-xl border border-red-900/50 p-6">
+            <div className="bg-[#1a1640] rounded-xl border border-red-900/50 p-6">
               <h2 className="text-lg font-semibold text-white mb-2">Danger Zone</h2>
-              <p className="text-gray-400 text-sm mb-4">
+              <p className="text-white/55 text-sm mb-4">
                 Removing this user from the organization will revoke their access to all teams and data.
               </p>
               <button
@@ -414,72 +414,72 @@ export default function UserDetailPage() {
           {/* Attendance Tab */}
           {statsLoading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6c5ce7]"></div>
             </div>
           ) : (
             <>
               {/* Stats Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                <div className="bg-[#1a1640] rounded-xl border border-white/10 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className="w-4 h-4 text-green-400" />
-                    <span className="text-xs text-gray-400">Attendance Rate</span>
+                    <span className="text-xs text-white/55">Attendance Rate</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {userStats ? `${Math.round(userStats.attendancePercent)}%` : "--"}
                   </p>
                 </div>
 
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                <div className="bg-[#1a1640] rounded-xl border border-white/10 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <BarChart3 className="w-4 h-4 text-blue-400" />
-                    <span className="text-xs text-gray-400">Hours Logged</span>
+                    <span className="text-xs text-white/55">Hours Logged</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {userStats ? userStats.hoursLogged.toFixed(1) : "--"}
                   </p>
                   {userStats && userStats.hoursRequired > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">of {userStats.hoursRequired} required</p>
+                    <p className="text-xs text-white/40 mt-1">of {userStats.hoursRequired} required</p>
                   )}
                 </div>
 
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                <div className="bg-[#1a1640] rounded-xl border border-white/10 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Flame className="w-4 h-4 text-orange-400" />
-                    <span className="text-xs text-gray-400">Current Streak</span>
+                    <span className="text-xs text-white/55">Current Streak</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {userStats ? userStats.currentStreak : "--"}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">events</p>
+                  <p className="text-xs text-white/40 mt-1">events</p>
                 </div>
 
-                <div className="bg-gray-800 rounded-xl border border-gray-700 p-4">
+                <div className="bg-[#1a1640] rounded-xl border border-white/10 p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Trophy className="w-4 h-4 text-yellow-400" />
-                    <span className="text-xs text-gray-400">Org Rank</span>
+                    <span className="text-xs text-white/55">Org Rank</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {userStats && userStats.orgRank > 0 ? `#${userStats.orgRank}` : "--"}
                   </p>
                   {userStats && userStats.orgSize > 0 && (
-                    <p className="text-xs text-gray-500 mt-1">of {userStats.orgSize}</p>
+                    <p className="text-xs text-white/40 mt-1">of {userStats.orgSize}</p>
                   )}
                 </div>
               </div>
 
               {/* Recent Activity */}
-              <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+              <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6">
                 <h2 className="text-lg font-semibold text-white mb-4">Recent Activity</h2>
                 {checkInLoading ? (
                   <div className="flex items-center justify-center h-20">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#6c5ce7]"></div>
                   </div>
                 ) : checkIns.length > 0 ? (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="text-left text-xs text-gray-400 border-b border-gray-700">
+                        <tr className="text-left text-xs text-white/55 border-b border-white/10">
                           <th className="pb-3 font-medium">Event</th>
                           <th className="pb-3 font-medium">Date</th>
                           <th className="pb-3 font-medium">Status</th>
@@ -488,7 +488,7 @@ export default function UserDetailPage() {
                           <th className="pb-3 font-medium">Hours</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-700/50">
+                      <tbody className="divide-y divide-white/10/50">
                         {checkIns.map((checkIn) => {
                           const config = STATUS_CONFIG[checkIn.status];
                           const StatusIcon = config?.icon || CheckCircle;
@@ -497,24 +497,24 @@ export default function UserDetailPage() {
                               <td className="py-3 pr-4">
                                 <Link
                                   href={`/events/${checkIn.event.id}`}
-                                  className="text-white hover:text-purple-400 transition-colors"
+                                  className="text-white hover:text-[#a78bfa] transition-colors"
                                 >
                                   {checkIn.event.title}
                                 </Link>
                               </td>
-                              <td className="py-3 pr-4 text-gray-400">
+                              <td className="py-3 pr-4 text-white/55">
                                 {new Date(isNaN(Number(checkIn.event.date)) ? checkIn.event.date : Number(checkIn.event.date)).toLocaleDateString("en-US", {
                                   month: "short",
                                   day: "numeric",
                                 })}
                               </td>
                               <td className="py-3 pr-4">
-                                <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${config?.bg || "bg-gray-500/20"} ${config?.color || "text-gray-400"}`}>
+                                <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium ${config?.bg || "bg-gray-500/20"} ${config?.color || "text-white/55"}`}>
                                   <StatusIcon className="w-3 h-3" />
                                   {config?.label || checkIn.status}
                                 </span>
                               </td>
-                              <td className="py-3 pr-4 text-gray-400">
+                              <td className="py-3 pr-4 text-white/55">
                                 {checkIn.checkInTime
                                   ? new Date(isNaN(Number(checkIn.checkInTime)) ? checkIn.checkInTime : Number(checkIn.checkInTime)).toLocaleTimeString("en-US", {
                                       hour: "numeric",
@@ -522,7 +522,7 @@ export default function UserDetailPage() {
                                     })
                                   : "--"}
                               </td>
-                              <td className="py-3 pr-4 text-gray-400">
+                              <td className="py-3 pr-4 text-white/55">
                                 {checkIn.checkOutTime
                                   ? new Date(isNaN(Number(checkIn.checkOutTime)) ? checkIn.checkOutTime : Number(checkIn.checkOutTime)).toLocaleTimeString("en-US", {
                                       hour: "numeric",
@@ -530,7 +530,7 @@ export default function UserDetailPage() {
                                     })
                                   : "--"}
                               </td>
-                              <td className="py-3 text-gray-400">
+                              <td className="py-3 text-white/55">
                                 {checkIn.hoursLogged != null ? checkIn.hoursLogged.toFixed(1) : "--"}
                               </td>
                             </tr>
@@ -540,7 +540,7 @@ export default function UserDetailPage() {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-sm text-center py-8">No attendance records yet</p>
+                  <p className="text-white/40 text-sm text-center py-8">No attendance records yet</p>
                 )}
               </div>
             </>
@@ -613,21 +613,21 @@ function AddToTeamModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl w-full max-w-md p-6 border border-gray-700" ref={dropdownRef}>
+      <div className="bg-[#1a1640] rounded-xl w-full max-w-md p-6 border border-white/10" ref={dropdownRef}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">Add to Team</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button onClick={onClose} className="text-white/55 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+            className="w-full pl-9 pr-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
             placeholder="Search teams..."
             autoFocus
           />
@@ -640,14 +640,14 @@ function AddToTeamModal({
                 key={team.id}
                 onClick={() => handleAdd(team.id)}
                 disabled={submitting}
-                className="w-full flex items-center justify-between px-4 py-3 text-left text-white hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-between px-4 py-3 text-left text-white hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
               >
                 <span>{team.name}</span>
-                <Plus className="w-4 h-4 text-gray-400" />
+                <Plus className="w-4 h-4 text-white/55" />
               </button>
             ))
           ) : (
-            <p className="text-center text-gray-500 py-4 text-sm">
+            <p className="text-center text-white/40 py-4 text-sm">
               {search ? "No matching teams" : "Already on all teams"}
             </p>
           )}

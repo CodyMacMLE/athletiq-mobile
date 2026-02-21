@@ -174,7 +174,7 @@ export default function AnnouncementsPage() {
       );
     }
     return (
-      <span className="px-2 py-1 bg-gray-600/30 text-gray-400 text-xs font-medium rounded-full flex items-center gap-1">
+      <span className="px-2 py-1 bg-gray-600/30 text-white/55 text-xs font-medium rounded-full flex items-center gap-1">
         <Clock className="w-3 h-3" />
         Draft
       </span>
@@ -188,12 +188,12 @@ export default function AnnouncementsPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold">Announcements</h1>
-            <p className="text-gray-400 mt-1">Send messages to your team members</p>
+            <p className="text-white/55 mt-1">Send messages to your team members</p>
           </div>
           {canCreate && (
             <Link
               href="/announcements/new"
-              className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-[#6c5ce7] hover:bg-[#5a4dd4] rounded-lg font-medium transition-colors flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
               New Announcement
@@ -202,15 +202,15 @@ export default function AnnouncementsPage() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-gray-700">
+        <div className="flex gap-2 mb-6 border-b border-white/10">
           {(["all", "sent", "scheduled", "draft"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setFilter(tab)}
               className={`px-4 py-2 font-medium transition-colors border-b-2 capitalize ${
                 filter === tab
-                  ? "border-purple-500 text-purple-400"
-                  : "border-transparent text-gray-400 hover:text-gray-300"
+                  ? "border-[#6c5ce7] text-[#a78bfa]"
+                  : "border-transparent text-white/55 hover:text-white/75"
               }`}
             >
               {tab === "draft" ? "Drafts" : tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -220,11 +220,11 @@ export default function AnnouncementsPage() {
 
         {/* Announcements List */}
         {loading ? (
-          <div className="text-center py-12 text-gray-400">Loading...</div>
+          <div className="text-center py-12 text-white/55">Loading...</div>
         ) : filteredAnnouncements.length === 0 ? (
           <div className="text-center py-12">
             <Megaphone className="w-12 h-12 mx-auto text-gray-600 mb-4" />
-            <h3 className="text-lg font-medium text-gray-400 mb-2">
+            <h3 className="text-lg font-medium text-white/55 mb-2">
               {filter === "draft"
                 ? "No draft announcements"
                 : filter === "sent"
@@ -234,7 +234,7 @@ export default function AnnouncementsPage() {
                 : "No announcements yet"}
             </h3>
             {canCreate && filter === "all" && (
-              <Link href="/announcements/new" className="text-purple-400 hover:text-purple-300">
+              <Link href="/announcements/new" className="text-[#a78bfa] hover:text-[#c4b5fd]">
                 Create your first announcement
               </Link>
             )}
@@ -244,7 +244,7 @@ export default function AnnouncementsPage() {
             {filteredAnnouncements.map((announcement: Announcement) => (
               <div
                 key={announcement.id}
-                className="bg-[#1a1640] border border-gray-700 rounded-lg p-6 hover:border-gray-600 transition-colors"
+                className="bg-[#1a1640] border border-white/10 rounded-lg p-6 hover:border-white/[0.12] transition-colors"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
@@ -252,8 +252,8 @@ export default function AnnouncementsPage() {
                       <h3 className="text-lg font-semibold">{announcement.title}</h3>
                       {getStatusBadge(announcement)}
                     </div>
-                    <p className="text-gray-300 mb-4 line-clamp-2">{announcement.message}</p>
-                    <div className="flex items-center gap-4 text-sm text-gray-400 flex-wrap">
+                    <p className="text-white/75 mb-4 line-clamp-2">{announcement.message}</p>
+                    <div className="flex items-center gap-4 text-sm text-white/55 flex-wrap">
                       <div className="flex items-center gap-1">
                         <Users className="w-4 h-4" />
                         {getTargetLabel(announcement)}
@@ -277,7 +277,7 @@ export default function AnnouncementsPage() {
                     {!announcement.sentAt && !announcement.scheduledFor && canCreate && (
                       <button
                         onClick={() => handleSend(announcement.id)}
-                        className="p-2 hover:bg-purple-600/20 text-purple-400 rounded-lg transition-colors"
+                        className="p-2 hover:bg-[#6c5ce7]/20 text-[#a78bfa] rounded-lg transition-colors"
                         title="Send announcement"
                       >
                         <Send className="w-4 h-4" />

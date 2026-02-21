@@ -52,7 +52,7 @@ const STATUS_CONFIG = {
   ON_TIME: { icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/20", label: "On Time" },
   LATE: { icon: Clock, color: "text-yellow-500", bg: "bg-yellow-500/20", label: "Late" },
   ABSENT: { icon: XCircle, color: "text-red-500", bg: "bg-red-500/20", label: "Absent" },
-  EXCUSED: { icon: AlertCircle, color: "text-purple-500", bg: "bg-purple-500/20", label: "Excused" },
+  EXCUSED: { icon: AlertCircle, color: "text-[#6c5ce7]", bg: "bg-[#6c5ce7]/20", label: "Excused" },
 };
 
 // ============================================
@@ -76,17 +76,17 @@ function SortHeader({
   return (
     <button
       onClick={() => onSort(field)}
-      className="flex items-center gap-1 text-xs font-medium text-gray-400 uppercase tracking-wider hover:text-white transition-colors"
+      className="flex items-center gap-1 text-xs font-medium text-white/55 uppercase tracking-wider hover:text-white transition-colors"
     >
       {label}
       {isActive ? (
         currentDir === "asc" ? (
-          <ChevronUp className="w-3.5 h-3.5 text-purple-400" />
+          <ChevronUp className="w-3.5 h-3.5 text-[#a78bfa]" />
         ) : (
-          <ChevronDown className="w-3.5 h-3.5 text-purple-400" />
+          <ChevronDown className="w-3.5 h-3.5 text-[#a78bfa]" />
         )
       ) : (
-        <ArrowUpDown className="w-3 h-3 text-gray-600" />
+        <ArrowUpDown className="w-3 h-3 text-white/30" />
       )}
     </button>
   );
@@ -278,7 +278,7 @@ export default function Attendance() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Attendance</h1>
-          <p className="text-gray-400 mt-1">Track and manage event attendance</p>
+          <p className="text-white/55 mt-1">Track and manage event attendance</p>
         </div>
       </div>
 
@@ -288,8 +288,8 @@ export default function Attendance() {
           onClick={() => setActiveTab("attendance")}
           className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
             activeTab === "attendance"
-              ? "bg-purple-600 text-white"
-              : "bg-gray-800 text-gray-400 hover:text-white"
+              ? "bg-[#6c5ce7] text-white"
+              : "bg-[#1a1640] text-white/55 hover:text-white"
           }`}
         >
           Attendance
@@ -298,8 +298,8 @@ export default function Attendance() {
           onClick={() => setActiveTab("excuses")}
           className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
             activeTab === "excuses"
-              ? "bg-purple-600 text-white"
-              : "bg-gray-800 text-gray-400 hover:text-white"
+              ? "bg-[#6c5ce7] text-white"
+              : "bg-[#1a1640] text-white/55 hover:text-white"
           }`}
         >
           Pending Excuses
@@ -313,8 +313,8 @@ export default function Attendance() {
           onClick={() => setActiveTab("adhoc")}
           className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
             activeTab === "adhoc"
-              ? "bg-purple-600 text-white"
-              : "bg-gray-800 text-gray-400 hover:text-white"
+              ? "bg-[#6c5ce7] text-white"
+              : "bg-[#1a1640] text-white/55 hover:text-white"
           }`}
         >
           Ad-Hoc Check-Ins
@@ -328,24 +328,24 @@ export default function Attendance() {
 
       {/* Attendance Tab */}
       {activeTab === "attendance" && (
-        <div className="bg-gray-800 rounded-xl border border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl border border-white/10">
           {/* Toolbar: search + status filter */}
-          <div className="px-6 py-4 border-b border-gray-700 flex flex-col sm:flex-row gap-3">
+          <div className="px-6 py-4 border-b border-white/10 flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
               <input
                 type="text"
                 placeholder="Search by name or event..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                className="w-full pl-10 pr-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
               />
             </div>
             <div className="relative">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 appearance-none pr-9 text-sm"
+                className="px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] appearance-none pr-9 text-sm"
               >
                 <option value="ALL">All Statuses</option>
                 <option value="ON_TIME">On Time</option>
@@ -353,19 +353,19 @@ export default function Attendance() {
                 <option value="ABSENT">Absent</option>
                 <option value="EXCUSED">Excused</option>
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55 pointer-events-none" />
             </div>
           </div>
 
           {/* Table */}
           {recordsLoading ? (
             <div className="flex items-center justify-center h-48">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6c5ce7]"></div>
             </div>
           ) : filteredSorted.length === 0 ? (
             <div className="text-center py-16">
-              <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">
+              <Users className="w-12 h-12 text-white/30 mx-auto mb-4" />
+              <p className="text-white/55">
                 {allRecords.length === 0 ? "No attendance records yet" : "No records match your filters"}
               </p>
             </div>
@@ -373,7 +373,7 @@ export default function Attendance() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-700">
+                  <tr className="border-b border-white/10">
                     <th className="px-6 py-3 text-left">
                       <SortHeader label="Athlete" field="name" currentSort={sortField} currentDir={sortDir} onSort={handleSort} />
                     </th>
@@ -397,12 +397,12 @@ export default function Attendance() {
                     </th>
                     {canEdit && (
                       <th className="px-6 py-3 text-left">
-                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</span>
+                        <span className="text-xs font-medium text-white/55 uppercase tracking-wider">Actions</span>
                       </th>
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-700/50">
+                <tbody className="divide-y divide-white/10/50">
                   {paginatedRecords.map((record) => {
                     const config = STATUS_CONFIG[record.status];
                     const Icon = config.icon;
@@ -413,11 +413,11 @@ export default function Attendance() {
                       (record.status === "ON_TIME" || record.status === "LATE");
 
                     return (
-                      <tr key={record.id} className="hover:bg-gray-700/30 transition-colors">
+                      <tr key={record.id} className="hover:bg-white/[0.04] transition-colors">
                         {/* Athlete */}
                         <td className="px-6 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-medium shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs font-medium shrink-0">
                               {record.user.firstName[0]}
                               {record.user.lastName[0]}
                             </div>
@@ -428,11 +428,11 @@ export default function Attendance() {
                         </td>
                         {/* Event */}
                         <td className="px-6 py-3">
-                          <span className="text-gray-300 text-sm">{record.event.title}</span>
+                          <span className="text-white/75 text-sm">{record.event.title}</span>
                         </td>
                         {/* Date */}
                         <td className="px-6 py-3">
-                          <span className="text-gray-400 text-sm">
+                          <span className="text-white/55 text-sm">
                             {new Date(isNaN(Number(record.event.date)) ? record.event.date : Number(record.event.date)).toLocaleDateString("en-US", {
                               month: "short",
                               day: "numeric",
@@ -448,7 +448,7 @@ export default function Attendance() {
                         </td>
                         {/* Check In */}
                         <td className="px-6 py-3">
-                          <span className="text-gray-400 text-sm">
+                          <span className="text-white/55 text-sm">
                             {record.checkInTime
                               ? new Date(record.checkInTime).toLocaleTimeString("en-US", {
                                   hour: "numeric",
@@ -459,7 +459,7 @@ export default function Attendance() {
                         </td>
                         {/* Check Out */}
                         <td className="px-6 py-3">
-                          <span className="text-gray-400 text-sm">
+                          <span className="text-white/55 text-sm">
                             {record.checkOutTime
                               ? new Date(record.checkOutTime).toLocaleTimeString("en-US", {
                                   hour: "numeric",
@@ -470,7 +470,7 @@ export default function Attendance() {
                         </td>
                         {/* Hours */}
                         <td className="px-6 py-3">
-                          <span className="text-gray-400 text-sm">
+                          <span className="text-white/55 text-sm">
                             {record.hoursLogged != null && record.hoursLogged > 0
                               ? `${record.hoursLogged.toFixed(1)}h`
                               : "—"}
@@ -500,19 +500,19 @@ export default function Attendance() {
 
           {/* Pagination */}
           {!recordsLoading && filteredSorted.length > 0 && (
-            <div className="px-6 py-3 border-t border-gray-700 flex items-center justify-between">
+            <div className="px-6 py-3 border-t border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-gray-500 text-xs">Show</span>
+                <span className="text-white/40 text-xs">Show</span>
                 <select
                   value={pageSize}
                   onChange={(e) => setPageSize(Number(e.target.value))}
-                  className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-purple-500 appearance-none"
+                  className="px-2 py-1 bg-[#261f55] border border-white/[0.12] rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] appearance-none"
                 >
                   <option value={20}>20</option>
                   <option value={50}>50</option>
                   <option value={100}>100</option>
                 </select>
-                <span className="text-gray-500 text-xs">
+                <span className="text-white/40 text-xs">
                   &middot; {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredSorted.length)} of {filteredSorted.length}
                 </span>
               </div>
@@ -520,17 +520,17 @@ export default function Attendance() {
                 <button
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 transition-colors"
+                  className="p-1.5 rounded-lg text-white/55 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-white/55 transition-colors"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="text-gray-400 text-xs px-2">
+                <span className="text-white/55 text-xs px-2">
                   {page + 1} / {totalPages}
                 </span>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400 transition-colors"
+                  className="p-1.5 rounded-lg text-white/55 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-white/55 transition-colors"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -542,24 +542,24 @@ export default function Attendance() {
 
       {/* Excuses Tab */}
       {activeTab === "excuses" && (
-        <div className="bg-gray-800 rounded-xl border border-gray-700">
-          <div className="px-6 py-4 border-b border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl border border-white/10">
+          <div className="px-6 py-4 border-b border-white/10">
             <h2 className="text-lg font-semibold text-white">Pending Excuse Requests</h2>
-            <p className="text-gray-400 text-sm">{pendingExcuses.length} requests awaiting review</p>
+            <p className="text-white/55 text-sm">{pendingExcuses.length} requests awaiting review</p>
           </div>
 
           {pendingExcuses.length === 0 ? (
             <div className="p-12 text-center">
               <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-              <p className="text-gray-400">All caught up! No pending excuse requests.</p>
+              <p className="text-white/55">All caught up! No pending excuse requests.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-700">
+            <div className="divide-y divide-white/10">
               {pendingExcuses.map((excuse: any) => (
                 <div key={excuse.id} className="px-6 py-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                      <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-sm font-medium">
                         {excuse.user.firstName[0]}
                         {excuse.user.lastName[0]}
                       </div>
@@ -567,7 +567,7 @@ export default function Attendance() {
                         <p className="text-white font-medium text-sm">
                           {excuse.user.firstName} {excuse.user.lastName}
                         </p>
-                        <p className="text-gray-400 text-xs">
+                        <p className="text-white/55 text-xs">
                           {excuse.event.title} &middot;{" "}
                           {new Date(isNaN(Number(excuse.event.date)) ? excuse.event.date : Number(excuse.event.date)).toLocaleDateString("en-US", {
                             month: "short",
@@ -593,7 +593,7 @@ export default function Attendance() {
                       </div>
                     )}
                   </div>
-                  <p className="text-gray-300 text-sm mt-2 ml-[52px]">{excuse.reason}</p>
+                  <p className="text-white/75 text-sm mt-2 ml-[52px]">{excuse.reason}</p>
                 </div>
               ))}
             </div>
@@ -603,30 +603,30 @@ export default function Attendance() {
 
       {/* Ad-Hoc Check-Ins Tab */}
       {activeTab === "adhoc" && (
-        <div className="bg-gray-800 rounded-xl border border-gray-700">
-          <div className="px-6 py-4 border-b border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl border border-white/10">
+          <div className="px-6 py-4 border-b border-white/10">
             <h2 className="text-lg font-semibold text-white">Pending Ad-Hoc Check-Ins</h2>
-            <p className="text-gray-400 text-sm">
+            <p className="text-white/55 text-sm">
               {pendingAdHocCheckIns.length} ad-hoc check-in{pendingAdHocCheckIns.length !== 1 ? "s" : ""} awaiting approval
             </p>
           </div>
 
           {adHocLoading ? (
             <div className="flex items-center justify-center h-48">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6c5ce7]"></div>
             </div>
           ) : pendingAdHocCheckIns.length === 0 ? (
             <div className="p-12 text-center">
               <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-              <p className="text-gray-400">No pending ad-hoc check-ins.</p>
+              <p className="text-white/55">No pending ad-hoc check-ins.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-700">
+            <div className="divide-y divide-white/10">
               {pendingAdHocCheckIns.map((checkIn: any) => (
                 <div key={checkIn.id} className="px-6 py-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                      <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-sm font-medium">
                         {checkIn.user.firstName[0]}
                         {checkIn.user.lastName[0]}
                       </div>
@@ -634,7 +634,7 @@ export default function Attendance() {
                         <p className="text-white font-medium text-sm">
                           {checkIn.user.firstName} {checkIn.user.lastName}
                         </p>
-                        <p className="text-gray-400 text-xs">
+                        <p className="text-white/55 text-xs">
                           {checkIn.event.team?.name || "No team"} &middot;{" "}
                           {(() => {
                             const d = Number(checkIn.event.date);
@@ -682,8 +682,8 @@ export default function Attendance() {
                   </div>
                   {checkIn.note && (
                     <div className="flex items-start gap-2 mt-2 ml-[52px]">
-                      <MessageCircle className="w-3.5 h-3.5 text-gray-500 mt-0.5 shrink-0" />
-                      <p className="text-gray-300 text-sm">{checkIn.note}</p>
+                      <MessageCircle className="w-3.5 h-3.5 text-white/40 mt-0.5 shrink-0" />
+                      <p className="text-white/75 text-sm">{checkIn.note}</p>
                     </div>
                   )}
                 </div>

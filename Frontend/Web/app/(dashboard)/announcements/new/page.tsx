@@ -151,7 +151,7 @@ export default function NewAnnouncementPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold">New Announcement</h1>
-            <p className="text-sm text-gray-400 mt-1">Send a message to your team members</p>
+            <p className="text-sm text-white/55 mt-1">Send a message to your team members</p>
           </div>
         </div>
 
@@ -168,7 +168,7 @@ export default function NewAnnouncementPage() {
               placeholder="e.g., Practice Cancelled Tomorrow"
               required
               maxLength={100}
-              className="w-full px-4 py-3 bg-[#1a1640] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-3 bg-[#1a1640] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             />
           </div>
 
@@ -183,9 +183,9 @@ export default function NewAnnouncementPage() {
               placeholder="Write your announcement message here..."
               required
               rows={6}
-              className="w-full px-4 py-3 bg-[#1a1640] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              className="w-full px-4 py-3 bg-[#1a1640] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
             />
-            <p className="text-xs text-gray-400 mt-1">{message.length} characters</p>
+            <p className="text-xs text-white/55 mt-1">{message.length} characters</p>
           </div>
 
           {/* Target Type */}
@@ -200,15 +200,15 @@ export default function NewAnnouncementPage() {
                 onClick={() => setTargetType("ALL_TEAMS")}
                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                   targetType === "ALL_TEAMS"
-                    ? "border-purple-500 bg-purple-500/10"
-                    : "border-gray-700 bg-[#1a1640] hover:border-gray-600"
+                    ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
+                    : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <Users className="w-5 h-5 mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="font-medium">Everyone</div>
-                    <div className="text-sm text-gray-400 mt-1">Send to everyone in the organization</div>
+                    <div className="text-sm text-white/55 mt-1">Send to everyone in the organization</div>
                   </div>
                 </div>
               </button>
@@ -219,15 +219,15 @@ export default function NewAnnouncementPage() {
                 onClick={() => setTargetType("SPECIFIC_TEAMS")}
                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                   targetType === "SPECIFIC_TEAMS"
-                    ? "border-purple-500 bg-purple-500/10"
-                    : "border-gray-700 bg-[#1a1640] hover:border-gray-600"
+                    ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
+                    : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <Megaphone className="w-5 h-5 mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="font-medium">Specific Teams</div>
-                    <div className="text-sm text-gray-400 mt-1">Choose which teams to notify</div>
+                    <div className="text-sm text-white/55 mt-1">Choose which teams to notify</div>
                   </div>
                 </div>
               </button>
@@ -238,15 +238,15 @@ export default function NewAnnouncementPage() {
                 onClick={() => setTargetType("SPECIFIC_USERS")}
                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                   targetType === "SPECIFIC_USERS"
-                    ? "border-purple-500 bg-purple-500/10"
-                    : "border-gray-700 bg-[#1a1640] hover:border-gray-600"
+                    ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
+                    : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <User className="w-5 h-5 mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="font-medium">Individuals</div>
-                    <div className="text-sm text-gray-400 mt-1">Send to specific people</div>
+                    <div className="text-sm text-white/55 mt-1">Send to specific people</div>
                   </div>
                 </div>
               </button>
@@ -257,15 +257,15 @@ export default function NewAnnouncementPage() {
                 onClick={() => setTargetType("CUSTOM")}
                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                   targetType === "CUSTOM"
-                    ? "border-purple-500 bg-purple-500/10"
-                    : "border-gray-700 bg-[#1a1640] hover:border-gray-600"
+                    ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
+                    : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <Users className="w-5 h-5 mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="font-medium">Custom</div>
-                    <div className="text-sm text-gray-400 mt-1">Combine teams and individuals</div>
+                    <div className="text-sm text-white/55 mt-1">Combine teams and individuals</div>
                   </div>
                 </div>
               </button>
@@ -276,15 +276,15 @@ export default function NewAnnouncementPage() {
                 onClick={() => setTargetType("EVENT_DAY")}
                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                   targetType === "EVENT_DAY"
-                    ? "border-purple-500 bg-purple-500/10"
-                    : "border-gray-700 bg-[#1a1640] hover:border-gray-600"
+                    ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
+                    : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
                 }`}
               >
                 <div className="flex items-start gap-3">
                   <Calendar className="w-5 h-5 mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="font-medium">Event Day</div>
-                    <div className="text-sm text-gray-400 mt-1">
+                    <div className="text-sm text-white/55 mt-1">
                       Send to teams with events on a specific date
                     </div>
                   </div>
@@ -307,8 +307,8 @@ export default function NewAnnouncementPage() {
                     onClick={() => toggleTeam(team.id)}
                     className={`p-3 rounded-lg border-2 transition-all text-left ${
                       selectedTeams.includes(team.id)
-                        ? "border-purple-500 bg-purple-500/10"
-                        : "border-gray-700 bg-[#1a1640] hover:border-gray-600"
+                        ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
+                        : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
                     }`}
                   >
                     <div className="font-medium text-sm">{team.name}</div>
@@ -335,8 +335,8 @@ export default function NewAnnouncementPage() {
                     onClick={() => toggleUser(member.id)}
                     className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
                       selectedUsers.includes(member.id)
-                        ? "border-purple-500 bg-purple-500/10"
-                        : "border-gray-700 bg-[#1a1640] hover:border-gray-600"
+                        ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
+                        : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
                     }`}
                   >
                     <div className="font-medium text-sm">
@@ -362,7 +362,7 @@ export default function NewAnnouncementPage() {
                 value={eventDate}
                 onChange={(e) => setEventDate(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-[#1a1640] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-4 py-3 bg-[#1a1640] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               />
             </div>
           )}
@@ -376,8 +376,8 @@ export default function NewAnnouncementPage() {
                 onClick={() => setSendMode("now")}
                 className={`flex-1 py-2 px-4 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
                   sendMode === "now"
-                    ? "border-purple-500 bg-purple-500/10 text-white"
-                    : "border-gray-700 bg-[#1a1640] text-gray-400 hover:border-gray-600"
+                    ? "border-[#6c5ce7] bg-[#6c5ce7]/10 text-white"
+                    : "border-white/10 bg-[#1a1640] text-white/55 hover:border-white/[0.12]"
                 }`}
               >
                 <Send className="w-4 h-4" />
@@ -388,8 +388,8 @@ export default function NewAnnouncementPage() {
                 onClick={() => setSendMode("schedule")}
                 className={`flex-1 py-2 px-4 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
                   sendMode === "schedule"
-                    ? "border-purple-500 bg-purple-500/10 text-white"
-                    : "border-gray-700 bg-[#1a1640] text-gray-400 hover:border-gray-600"
+                    ? "border-[#6c5ce7] bg-[#6c5ce7]/10 text-white"
+                    : "border-white/10 bg-[#1a1640] text-white/55 hover:border-white/[0.12]"
                 }`}
               >
                 <Clock className="w-4 h-4" />
@@ -408,9 +408,9 @@ export default function NewAnnouncementPage() {
                   onChange={(e) => setScheduledFor(e.target.value)}
                   required
                   min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-                  className="w-full px-4 py-3 bg-[#1a1640] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-3 bg-[#1a1640] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-white/55 mt-1">
                   The announcement will be sent automatically at the scheduled time.
                 </p>
               </div>
@@ -421,14 +421,14 @@ export default function NewAnnouncementPage() {
           <div className="flex gap-3 pt-4">
             <Link
               href="/announcements"
-              className="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors text-center"
+              className="flex-1 px-6 py-3 bg-[#261f55] hover:bg-white/[0.12] rounded-lg font-medium transition-colors text-center"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={isDisabled}
-              className="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-3 bg-[#6c5ce7] hover:bg-[#5a4dd4] disabled:bg-[#261f55] disabled:cursor-not-allowed rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
             >
               {sendMode === "schedule" ? (
                 <>

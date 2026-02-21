@@ -117,19 +117,19 @@ export default function UsersPage() {
   const roleBadge = (role: string) => {
     const styles: Record<string, string> = {
       OWNER: "bg-yellow-600/20 text-yellow-400",
-      ADMIN: "bg-purple-600/20 text-purple-400",
+      ADMIN: "bg-[#6c5ce7]/20 text-[#a78bfa]",
       MANAGER: "bg-blue-600/20 text-blue-400",
       COACH: "bg-green-600/20 text-green-400",
       ATHLETE: "bg-green-600/20 text-green-400",
-      GUARDIAN: "bg-gray-600/20 text-gray-400",
+      GUARDIAN: "bg-white/10 text-white/55",
     };
-    return styles[role] || "bg-gray-600/20 text-gray-400";
+    return styles[role] || "bg-white/10 text-white/55";
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#6c5ce7]"></div>
       </div>
     );
   }
@@ -139,12 +139,12 @@ export default function UsersPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white">Users</h1>
-          <p className="text-gray-400 mt-1">Manage users in your organization</p>
+          <p className="text-white/55 mt-1">Manage users in your organization</p>
         </div>
         {canEdit && (
           <button
             onClick={() => setIsInviteModalOpen(true)}
-            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors"
           >
             <UserPlus className="w-5 h-5 mr-2" />
             Invite User
@@ -155,44 +155,44 @@ export default function UsersPage() {
       {/* Search */}
       <div className="flex items-center space-x-4 mb-6">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/55" />
           <input
             type="text"
             placeholder="Search users..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-10 pr-4 py-2 bg-[#1a1640] border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
       </div>
 
       {/* Users Table */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+      <div className="bg-[#1a1640] rounded-xl border border-white/10 overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-gray-700">
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            <tr className="border-b border-white/10">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-white/55 uppercase tracking-wider">
                 User
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-white/55 uppercase tracking-wider">
                 Role
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-semibold text-white/55 uppercase tracking-wider">
                 Teams
               </th>
               {canEdit && (
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-right text-xs font-semibold text-white/55 uppercase tracking-wider">
                   Actions
                 </th>
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-700">
+          <tbody className="divide-y divide-white/10">
             {filteredMembers.map((member) => (
-              <tr key={member.id} className="hover:bg-gray-700/50 transition-colors cursor-pointer">
+              <tr key={member.id} className="hover:bg-white/5 transition-colors cursor-pointer">
                 <td className="px-6 py-4">
                   <Link href={`/users/${member.user.id}`} className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium">
+                    <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white font-medium">
                       {member.user.firstName[0]}
                       {member.user.lastName[0]}
                     </div>
@@ -200,7 +200,7 @@ export default function UsersPage() {
                       <p className="text-white font-medium">
                         {member.user.firstName} {member.user.lastName}
                       </p>
-                      <p className="text-gray-400 text-sm">{member.user.email}</p>
+                      <p className="text-white/55 text-sm">{member.user.email}</p>
                     </div>
                   </Link>
                 </td>
@@ -220,13 +220,13 @@ export default function UsersPage() {
                         member.user.memberships.map((m) => (
                           <span
                             key={m.id}
-                            className="px-2 py-0.5 text-xs font-medium rounded bg-gray-700 text-gray-300"
+                            className="px-2 py-0.5 text-xs font-medium rounded bg-[#261f55] text-white/75"
                           >
                             {m.team.name}
                           </span>
                         ))
                       ) : (
-                        <span className="text-xs text-gray-500">No teams</span>
+                        <span className="text-xs text-white/40">No teams</span>
                       )}
                     </div>
                   </Link>
@@ -236,7 +236,7 @@ export default function UsersPage() {
                     {canRemoveMember(member) && (
                       <button
                         onClick={(e) => handleDeleteUser(e, member.user.id)}
-                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                        className="p-2 text-white/55 hover:text-red-500 transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -250,7 +250,7 @@ export default function UsersPage() {
 
         {filteredMembers.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-gray-400">No users found</p>
+            <p className="text-white/55">No users found</p>
           </div>
         )}
       </div>
@@ -261,37 +261,37 @@ export default function UsersPage() {
           <h2 className="text-lg font-semibold text-white mb-4">
             Pending Invites ({pendingInvites.length})
           </h2>
-          <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden">
+          <div className="bg-[#1a1640] rounded-xl border border-white/10 overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-700">
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <tr className="border-b border-white/10">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-white/55 uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-white/55 uppercase tracking-wider">
                     Role
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-white/55 uppercase tracking-wider">
                     Status
                   </th>
                   {canEdit && (
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-white/55 uppercase tracking-wider">
                       Actions
                     </th>
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-700">
+              <tbody className="divide-y divide-white/10">
                 {pendingInvites.map((invite) => (
-                  <tr key={invite.id} className="hover:bg-gray-700/50 transition-colors">
+                  <tr key={invite.id} className="hover:bg-white/5 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center">
-                          <Mail className="w-5 h-5 text-gray-400" />
+                        <div className="w-10 h-10 rounded-full bg-[#261f55] flex items-center justify-center">
+                          <Mail className="w-5 h-5 text-white/55" />
                         </div>
                         <div className="ml-4">
                           <p className="text-white font-medium">{invite.email}</p>
-                          <p className="text-gray-400 text-sm">
+                          <p className="text-white/55 text-sm">
                             Invited {new Date(isNaN(Number(invite.createdAt)) ? invite.createdAt : Number(invite.createdAt)).toLocaleDateString()}
                           </p>
                         </div>
@@ -314,14 +314,14 @@ export default function UsersPage() {
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => handleResendInvite(invite.id)}
-                          className="p-2 text-gray-400 hover:text-purple-400 transition-colors"
+                          className="p-2 text-white/55 hover:text-[#a78bfa] transition-colors"
                           title="Resend invite"
                         >
                           <RefreshCw className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleCancelInvite(invite.id)}
-                          className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                          className="p-2 text-white/55 hover:text-red-500 transition-colors"
                           title="Cancel invite"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -442,10 +442,10 @@ function InviteUserModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl w-full max-w-md p-6 border border-gray-700">
+      <div className="bg-[#1a1640] rounded-xl w-full max-w-md p-6 border border-white/10">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">Invite User</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button onClick={onClose} className="text-white/55 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -458,25 +458,25 @@ function InviteUserModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Email</label>
             <input
               ref={emailRef}
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="user@example.com"
             />
           </div>
 
           {/* Role */}
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Role</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Role</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             >
               <option value="ATHLETE">Athlete</option>
               <option value="COACH">Coach</option>
@@ -487,8 +487,8 @@ function InviteUserModal({
 
           {/* Teams Picker */}
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              Teams <span className="text-gray-500">(optional)</span>
+            <label className="block text-sm font-medium text-white/55 mb-1">
+              Teams <span className="text-white/40">(optional)</span>
             </label>
 
             {selectedTeams.length > 0 && (
@@ -496,7 +496,7 @@ function InviteUserModal({
                 {selectedTeams.map((team) => (
                   <span
                     key={team.id}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-purple-600/20 text-purple-400 rounded-lg text-sm"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-[#6c5ce7]/20 text-[#a78bfa] rounded-lg text-sm"
                   >
                     {team.name}
                     <button
@@ -513,7 +513,7 @@ function InviteUserModal({
 
             <div className="relative" ref={dropdownRef}>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
                 <input
                   type="text"
                   value={teamSearch}
@@ -522,19 +522,19 @@ function InviteUserModal({
                     setShowTeamDropdown(true);
                   }}
                   onFocus={() => setShowTeamDropdown(true)}
-                  className="w-full pl-9 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  className="w-full pl-9 pr-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
                   placeholder="Search teams..."
                 />
               </div>
 
               {showTeamDropdown && filteredTeams.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                <div className="absolute z-10 w-full mt-1 bg-[#261f55] border border-white/[0.12] rounded-lg shadow-lg max-h-40 overflow-y-auto">
                   {filteredTeams.map((team) => (
                     <button
                       key={team.id}
                       type="button"
                       onClick={() => addTeam(team)}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-600 hover:text-white transition-colors"
+                      className="w-full px-4 py-2 text-left text-sm text-white/75 hover:bg-white/[0.12] hover:text-white transition-colors"
                     >
                       {team.name}
                     </button>
@@ -543,8 +543,8 @@ function InviteUserModal({
               )}
 
               {showTeamDropdown && teamSearch && filteredTeams.length === 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-gray-700 border border-gray-600 rounded-lg shadow-lg">
-                  <p className="px-4 py-2 text-sm text-gray-400">No teams found</p>
+                <div className="absolute z-10 w-full mt-1 bg-[#261f55] border border-white/[0.12] rounded-lg shadow-lg">
+                  <p className="px-4 py-2 text-sm text-white/55">No teams found</p>
                 </div>
               )}
             </div>
@@ -552,7 +552,7 @@ function InviteUserModal({
 
           {/* Create Another Toggle */}
           <div className="flex items-center justify-between pt-2">
-            <label htmlFor="create-another" className="text-sm text-gray-400 cursor-pointer">
+            <label htmlFor="create-another" className="text-sm text-white/55 cursor-pointer">
               Create another
             </label>
             <button
@@ -562,7 +562,7 @@ function InviteUserModal({
               aria-checked={createAnother}
               onClick={() => setCreateAnother(!createAnother)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                createAnother ? "bg-purple-600" : "bg-gray-600"
+                createAnother ? "bg-[#6c5ce7]" : "bg-[#2e2660]"
               }`}
             >
               <span
@@ -577,14 +577,14 @@ function InviteUserModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              className="px-4 py-2 text-white/55 hover:text-white transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors disabled:opacity-50"
             >
               {submitting ? "Sending..." : "Send Invite"}
             </button>

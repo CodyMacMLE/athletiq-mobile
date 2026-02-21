@@ -87,7 +87,7 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   PRACTICE: "bg-green-600/20 text-green-400",
   EVENT: "bg-red-600/20 text-red-400",
   MEETING: "bg-yellow-600/20 text-yellow-400",
-  REST: "bg-gray-600/20 text-gray-400",
+  REST: "bg-white/10 text-white/55",
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -101,7 +101,7 @@ const STATUS_COLORS: Record<string, string> = {
   ON_TIME: "bg-green-600/20 text-green-400",
   LATE: "bg-yellow-600/20 text-yellow-400",
   ABSENT: "bg-red-600/20 text-red-400",
-  EXCUSED: "bg-purple-600/20 text-purple-400",
+  EXCUSED: "bg-[#6c5ce7]/20 text-[#a78bfa]",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -305,7 +305,7 @@ export default function EventDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#6c5ce7]"></div>
       </div>
     );
   }
@@ -313,8 +313,8 @@ export default function EventDetailPage() {
   if (!event) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-400">Event not found</p>
-        <Link href="/events" className="text-purple-400 hover:text-purple-300 mt-2 inline-block">
+        <p className="text-white/55">Event not found</p>
+        <Link href="/events" className="text-[#a78bfa] hover:text-[#c4b5fd] mt-2 inline-block">
           Back to Events
         </Link>
       </div>
@@ -343,24 +343,24 @@ export default function EventDetailPage() {
       {/* Back Link */}
       <Link
         href="/events"
-        className="flex items-center text-gray-400 hover:text-white transition-colors mb-4 text-sm w-fit"
+        className="flex items-center text-white/55 hover:text-white transition-colors mb-4 text-sm w-fit"
       >
         <ArrowLeft className="w-4 h-4 mr-1" />
         Back to Events
       </Link>
 
       {/* Event Summary */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
+      <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 mb-6">
         <div className="flex items-start gap-3 mb-3">
           <span
             className={`px-3 py-1 rounded-lg text-xs font-medium ${
-              EVENT_TYPE_COLORS[event.type] || "bg-gray-600/20 text-gray-400"
+              EVENT_TYPE_COLORS[event.type] || "bg-white/10 text-white/55"
             }`}
           >
             {EVENT_TYPE_LABELS[event.type] || event.type}
           </span>
           {event.recurringEvent && (
-            <span className="flex items-center text-xs text-purple-400">
+            <span className="flex items-center text-xs text-[#a78bfa]">
               <Repeat className="w-3 h-3 mr-1" />
               Recurring
             </span>
@@ -374,14 +374,14 @@ export default function EventDetailPage() {
               {!eventHasEnded && (
                 <button
                   onClick={() => setIsEditModalOpen(true)}
-                  className="p-2 text-gray-400 hover:text-purple-400 transition-colors"
+                  className="p-2 text-white/55 hover:text-[#a78bfa] transition-colors"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
               )}
               <button
                 onClick={() => setDeleteDialogOpen(true)}
-                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                className="p-2 text-white/55 hover:text-red-500 transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -389,7 +389,7 @@ export default function EventDetailPage() {
           )}
         </div>
 
-        <div className="flex items-center flex-wrap gap-4 text-sm text-gray-400">
+        <div className="flex items-center flex-wrap gap-4 text-sm text-white/55">
           <div className="flex items-center">
             <Calendar className="w-4 h-4 mr-1.5" />
             {dateLabel}
@@ -411,11 +411,11 @@ export default function EventDetailPage() {
         {/* Teams */}
         {allTeams.length > 0 && (
           <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <Users className="w-3.5 h-3.5 text-gray-500" />
+            <Users className="w-3.5 h-3.5 text-white/40" />
             {allTeams.map((team) => (
               <span
                 key={team.id}
-                className="px-2 py-0.5 bg-purple-600/15 text-purple-400 rounded text-xs"
+                className="px-2 py-0.5 bg-[#6c5ce7]/15 text-[#a78bfa] rounded text-xs"
               >
                 {team.name}
               </span>
@@ -424,14 +424,14 @@ export default function EventDetailPage() {
         )}
 
         {event.description && (
-          <p className="text-gray-500 text-sm mt-3">{event.description}</p>
+          <p className="text-white/40 text-sm mt-3">{event.description}</p>
         )}
       </div>
 
       {/* Coaches Section */}
       {coaches.length > 0 && (
-        <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 mb-6">
-          <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-3">
+        <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 mb-6">
+          <h2 className="text-sm font-medium text-white/55 uppercase tracking-wider mb-3">
             Coaches
           </h2>
           <div className="flex flex-wrap gap-3">
@@ -459,28 +459,28 @@ export default function EventDetailPage() {
       )}
 
       {/* Attendance Table */}
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6">
+      <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-white font-medium">
             Attendance{" "}
-            <span className="text-gray-400 font-normal">
+            <span className="text-white/55 font-normal">
               ({checkedInCount}/{athletes.length})
             </span>
           </h2>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search athletes..."
-              className="pl-9 pr-4 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 w-56"
+              className="pl-9 pr-4 py-1.5 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] w-56"
             />
           </div>
         </div>
 
         {/* Table Header */}
-        <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-700">
+        <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-medium text-white/40 uppercase tracking-wider border-b border-white/10">
           <div className="col-span-3">Name</div>
           <div className="col-span-2">Status</div>
           <div className="col-span-2">Check In</div>
@@ -490,7 +490,7 @@ export default function EventDetailPage() {
         </div>
 
         {/* Rows */}
-        <div className="divide-y divide-gray-700/50">
+        <div className="divide-y divide-white/10/50">
           {filteredRows.map((row) => (
             <div
               key={row.user.id}
@@ -504,7 +504,7 @@ export default function EventDetailPage() {
                   : undefined
               }
               className={`grid grid-cols-12 gap-2 px-3 py-3 items-center text-sm ${
-                canEdit ? "cursor-pointer hover:bg-gray-700/50 transition-colors" : ""
+                canEdit ? "cursor-pointer hover:bg-white/5 transition-colors" : ""
               }`}
             >
               {/* Name */}
@@ -516,7 +516,7 @@ export default function EventDetailPage() {
                     className="w-7 h-7 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-medium">
+                  <div className="w-7 h-7 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs font-medium">
                     {row.user.firstName[0]}
                     {row.user.lastName[0]}
                   </div>
@@ -537,12 +537,12 @@ export default function EventDetailPage() {
                     {STATUS_LABELS[row.checkIn.status]}
                   </span>
                 ) : (
-                  <span className="text-gray-500 text-xs">Not Checked In</span>
+                  <span className="text-white/40 text-xs">Not Checked In</span>
                 )}
               </div>
 
               {/* Check In Time */}
-              <div className="col-span-2 text-gray-400">
+              <div className="col-span-2 text-white/55">
                 {row.checkIn?.checkInTime
                   ? new Date(isNaN(Number(row.checkIn.checkInTime)) ? row.checkIn.checkInTime : Number(row.checkIn.checkInTime)).toLocaleTimeString("en-US", {
                       hour: "numeric",
@@ -552,7 +552,7 @@ export default function EventDetailPage() {
               </div>
 
               {/* Check Out Time */}
-              <div className="col-span-2 text-gray-400">
+              <div className="col-span-2 text-white/55">
                 {row.checkIn?.checkOutTime
                   ? new Date(isNaN(Number(row.checkIn.checkOutTime)) ? row.checkIn.checkOutTime : Number(row.checkIn.checkOutTime)).toLocaleTimeString("en-US", {
                       hour: "numeric",
@@ -562,14 +562,14 @@ export default function EventDetailPage() {
               </div>
 
               {/* Hours */}
-              <div className="col-span-1 text-gray-400">
+              <div className="col-span-1 text-white/55">
                 {row.checkIn?.hoursLogged != null
                   ? row.checkIn.hoursLogged.toFixed(2)
                   : "—"}
               </div>
 
               {/* Note */}
-              <div className="col-span-2 text-gray-500 truncate">
+              <div className="col-span-2 text-white/40 truncate">
                 {row.checkIn?.note || "—"}
               </div>
             </div>
@@ -577,7 +577,7 @@ export default function EventDetailPage() {
 
           {filteredRows.length === 0 && (
             <div className="text-center py-8">
-              <p className="text-gray-500 text-sm">
+              <p className="text-white/40 text-sm">
                 {searchQuery ? "No athletes match your search" : "No athletes found"}
               </p>
             </div>
@@ -613,11 +613,11 @@ export default function EventDetailPage() {
       {/* Delete Confirmation Dialog */}
       {deleteDialogOpen && event && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-xl w-full max-w-sm p-6 border border-gray-700">
+          <div className="bg-[#1a1640] rounded-xl w-full max-w-sm p-6 border border-white/10">
             <h3 className="text-lg font-bold text-white mb-2">
               {event.recurringEvent ? "Delete Recurring Event" : "Delete Event"}
             </h3>
-            <p className="text-gray-400 text-sm mb-6">
+            <p className="text-white/55 text-sm mb-6">
               {event.recurringEvent
                 ? "This event is part of a recurring series. What would you like to do?"
                 : `Are you sure you want to delete "${event.title}"? This action cannot be undone.`}
@@ -627,7 +627,7 @@ export default function EventDetailPage() {
                 <>
                   <button
                     onClick={handleDeleteThisOnly}
-                    className="w-full px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+                    className="w-full px-4 py-2 bg-[#261f55] text-white rounded-lg hover:bg-white/[0.12] transition-colors text-sm"
                   >
                     Delete this event only
                   </button>
@@ -648,7 +648,7 @@ export default function EventDetailPage() {
               )}
               <button
                 onClick={() => setDeleteDialogOpen(false)}
-                className="w-full px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm"
+                className="w-full px-4 py-2 text-white/55 hover:text-white transition-colors text-sm"
               >
                 Cancel
               </button>
@@ -727,26 +727,26 @@ function ModifyAttendanceModal({
     { value: "ON_TIME", label: "On Time", color: "bg-green-600 hover:bg-green-700" },
     { value: "LATE", label: "Late", color: "bg-yellow-600 hover:bg-yellow-700" },
     { value: "ABSENT", label: "Absent", color: "bg-red-600 hover:bg-red-700" },
-    { value: "EXCUSED", label: "Excused", color: "bg-purple-600 hover:bg-purple-700" },
+    { value: "EXCUSED", label: "Excused", color: "bg-[#6c5ce7] hover:bg-[#5a4dd4]" },
   ];
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+      <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-white">Modify Attendance</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button onClick={onClose} className="text-white/55 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-gray-400 text-sm mb-4">
+        <p className="text-white/55 text-sm mb-4">
           Updating attendance for <span className="text-white font-medium">{athleteName}</span>
         </p>
 
         {/* Status Buttons */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-400 mb-2">Status</label>
+          <label className="block text-sm font-medium text-white/55 mb-2">Status</label>
           <div className="grid grid-cols-2 gap-2">
             {STATUS_OPTIONS.map((opt) => (
               <button
@@ -756,7 +756,7 @@ function ModifyAttendanceModal({
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   status === opt.value
                     ? `${opt.color} text-white`
-                    : "bg-gray-700 text-gray-400 hover:text-white"
+                    : "bg-[#261f55] text-white/55 hover:text-white"
                 }`}
               >
                 {opt.label}
@@ -767,34 +767,34 @@ function ModifyAttendanceModal({
 
         {/* Check-In Time */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-400 mb-1">Check-In Time</label>
+          <label className="block text-sm font-medium text-white/55 mb-1">Check-In Time</label>
           <input
             type="datetime-local"
             value={checkInTimeValue}
             onChange={(e) => setCheckInTimeValue(e.target.value)}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
 
         {/* Check-Out Time */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-400 mb-1">Check-Out Time</label>
+          <label className="block text-sm font-medium text-white/55 mb-1">Check-Out Time</label>
           <input
             type="datetime-local"
             value={checkOutTimeValue}
             onChange={(e) => setCheckOutTimeValue(e.target.value)}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
 
         {/* Note */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-400 mb-1">Note (optional)</label>
+          <label className="block text-sm font-medium text-white/55 mb-1">Note (optional)</label>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+            className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
             placeholder="Add a note..."
           />
         </div>
@@ -803,14 +803,14 @@ function ModifyAttendanceModal({
         <div className="flex items-center justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm"
+            className="px-4 py-2 text-white/55 hover:text-white transition-colors text-sm"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm disabled:opacity-50"
+            className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors text-sm disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save"}
           </button>
@@ -877,33 +877,33 @@ function EditEventModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl w-full max-w-lg p-6 border border-gray-700 max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#1a1640] rounded-xl w-full max-w-lg p-6 border border-white/10 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">Edit Event</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button onClick={onClose} className="text-white/55 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Title</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Title</label>
             <input
               type="text"
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Spring Tournament"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Type</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Type</label>
             <select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as "PRACTICE" | "EVENT" | "MEETING" })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             >
               <option value="PRACTICE">Practice</option>
               <option value="EVENT">Tournament</option>
@@ -912,7 +912,7 @@ function EditEventModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
+            <label className="block text-sm font-medium text-white/55 mb-1">
               {formData.isMultiDay ? "Start Date" : "Date"}
             </label>
             <input
@@ -920,13 +920,13 @@ function EditEventModal({
               required
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             />
           </div>
 
           {/* Multi-day Toggle */}
           <div className="flex items-center justify-between py-2">
-            <label className="text-sm font-medium text-gray-400 flex items-center">
+            <label className="text-sm font-medium text-white/55 flex items-center">
               <Calendar className="w-4 h-4 mr-2" />
               Multi-day Event
             </label>
@@ -934,7 +934,7 @@ function EditEventModal({
               type="button"
               onClick={() => setFormData({ ...formData, isMultiDay: !formData.isMultiDay })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                formData.isMultiDay ? "bg-purple-600" : "bg-gray-600"
+                formData.isMultiDay ? "bg-[#6c5ce7]" : "bg-[#2e2660]"
               }`}
             >
               <span
@@ -947,36 +947,36 @@ function EditEventModal({
 
           {formData.isMultiDay ? (
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">End Date</label>
+              <label className="block text-sm font-medium text-white/55 mb-1">End Date</label>
               <input
                 type="date"
                 required
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               />
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Start Time</label>
+                <label className="block text-sm font-medium text-white/55 mb-1">Start Time</label>
                 <input
                   type="text"
                   required
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                   placeholder="6:00 PM"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">End Time</label>
+                <label className="block text-sm font-medium text-white/55 mb-1">End Time</label>
                 <input
                   type="text"
                   required
                   value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                   placeholder="8:00 PM"
                 />
               </div>
@@ -984,12 +984,12 @@ function EditEventModal({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Location</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Location</label>
             <input
               type="text"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Main Gym"
             />
           </div>
@@ -997,12 +997,12 @@ function EditEventModal({
           {/* Teams (read-only) */}
           {event.participatingTeams.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Teams</label>
+              <label className="block text-sm font-medium text-white/55 mb-1">Teams</label>
               <div className="flex flex-wrap gap-2">
                 {event.participatingTeams.map((team) => (
                   <span
                     key={team.id}
-                    className="px-2.5 py-1 bg-purple-600/20 text-purple-400 rounded-lg text-sm"
+                    className="px-2.5 py-1 bg-[#6c5ce7]/20 text-[#a78bfa] rounded-lg text-sm"
                   >
                     {team.name}
                   </span>
@@ -1012,21 +1012,21 @@ function EditEventModal({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
               placeholder="Event details..."
             />
           </div>
 
           <div className="flex justify-end space-x-3 mt-6">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-white/55 hover:text-white transition-colors">
               Cancel
             </button>
-            <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+            <button type="submit" className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors">
               Save Changes
             </button>
           </div>

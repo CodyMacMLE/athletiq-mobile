@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 body {
-  background-color: #111827;
+  background-color: #0a0118;
   color: white;
   margin: 0;
   -webkit-font-smoothing: antialiased;
@@ -15,14 +15,14 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background-color: #1f2937;
+  background-color: #1a1640;
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #4b5563;
+  background-color: #6c5ce7;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #6b7280;
+  background-color: #a78bfa;
 }

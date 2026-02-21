@@ -61,15 +61,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-[#0a0118]">
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 bg-gray-800 border-r border-gray-700 z-50 flex flex-col transition-all duration-300 ${
+        className={`fixed inset-y-0 left-0 bg-[#1a1640] border-r border-white/10 z-50 flex flex-col transition-all duration-300 ${
           sidebarCollapsed ? "w-20" : "w-64"
         }`}
       >
         {/* Logo & Toggle */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-700">
+        <div className="flex items-center justify-between h-16 px-4 border-b border-white/10">
           {!sidebarCollapsed && (
             <Image
               src="/logo/white_icon_transparent_background.png"
@@ -81,7 +81,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           )}
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className={`p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors ${
+            className={`p-2 text-white/55 hover:text-white hover:bg-white/10 rounded-lg transition-colors ${
               sidebarCollapsed ? "mx-auto" : ""
             }`}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -92,17 +92,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         {/* Organization Selector */}
         {!sidebarCollapsed && (
-          <div className="px-4 py-4 border-b border-gray-700">
+          <div className="px-4 py-4 border-b border-white/10">
             <div className="relative">
               <button
                 onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
-                className="w-full flex items-center justify-between px-3 py-2 text-sm bg-gray-700 rounded-lg text-white hover:bg-gray-600 transition-colors"
+                className="w-full flex items-center justify-between px-3 py-2 text-sm bg-[#261f55] rounded-lg text-white hover:bg-white/[0.12] transition-colors"
               >
                 <span className="truncate">{selectedOrg?.name || "Select Organization"}</span>
                 <ChevronDown className="w-4 h-4 ml-2" />
               </button>
               {orgDropdownOpen && uniqueOrgs.length > 1 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-gray-700 rounded-lg shadow-lg overflow-hidden z-10">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-[#261f55] rounded-lg shadow-lg overflow-hidden z-10">
                   {uniqueOrgs.map((org) => (
                     <button
                       key={org.id}
@@ -110,8 +110,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         // setSelectedOrganizationId(org.id);
                         setOrgDropdownOpen(false);
                       }}
-                      className={`w-full px-3 py-2 text-sm text-left hover:bg-gray-600 transition-colors ${
-                        org.id === selectedOrganizationId ? "text-purple-400" : "text-white"
+                      className={`w-full px-3 py-2 text-sm text-left hover:bg-white/[0.12] transition-colors ${
+                        org.id === selectedOrganizationId ? "text-[#a78bfa]" : "text-white"
                       }`}
                     >
                       {org.name}
@@ -133,8 +133,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 href={item.href}
                 className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                   isActive
-                    ? "bg-purple-600 text-white"
-                    : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                    ? "bg-[#6c5ce7] text-white"
+                    : "text-white/75 hover:bg-white/10 hover:text-white"
                 } ${sidebarCollapsed ? "justify-center" : ""}`}
                 title={sidebarCollapsed ? item.name : ""}
               >
@@ -148,10 +148,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <>
               {!sidebarCollapsed && (
                 <div className="pt-4 pb-2">
-                  <p className="px-3 text-xs font-semibold text-gray-500 uppercase">Admin</p>
+                  <p className="px-3 text-xs font-semibold text-white/40 uppercase">Admin</p>
                 </div>
               )}
-              {sidebarCollapsed && <div className="border-t border-gray-700 my-2"></div>}
+              {sidebarCollapsed && <div className="border-t border-white/10 my-2"></div>}
               {adminOnlyNavigation.map((item) => {
                 const isActive = pathname === item.href;
                 return (
@@ -160,8 +160,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     href={item.href}
                     className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                       isActive
-                        ? "bg-purple-600 text-white"
-                        : "text-gray-300 hover:bg-gray-700 hover:text-white"
+                        ? "bg-[#6c5ce7] text-white"
+                        : "text-white/75 hover:bg-white/10 hover:text-white"
                     } ${sidebarCollapsed ? "justify-center" : ""}`}
                     title={sidebarCollapsed ? item.name : ""}
                   >
@@ -175,7 +175,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User */}
-        <div className="mt-auto p-4 border-t border-gray-700">
+        <div className="mt-auto p-4 border-t border-white/10">
           {sidebarCollapsed ? (
             <div className="flex flex-col items-center space-y-3">
               <Link href="/account" className="group">
@@ -183,10 +183,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <img
                     src={user.image}
                     alt=""
-                    className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-transparent group-hover:ring-purple-500 transition-all"
+                    className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-transparent group-hover:ring-[#6c5ce7] transition-all"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium shrink-0 group-hover:bg-purple-500 transition-colors">
+                  <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white font-medium shrink-0 group-hover:bg-[#a78bfa] transition-colors">
                     {user?.firstName?.[0]}
                     {user?.lastName?.[0]}
                   </div>
@@ -194,7 +194,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
               <button
                 onClick={() => logout()}
-                className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
+                className="p-2 text-white/55 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                 title="Sign out"
               >
                 <LogOut className="w-5 h-5" />
@@ -207,23 +207,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <img
                     src={user.image}
                     alt=""
-                    className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-transparent group-hover:ring-purple-500 transition-all"
+                    className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-transparent group-hover:ring-[#6c5ce7] transition-all"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium shrink-0 group-hover:bg-purple-500 transition-colors">
+                  <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white font-medium shrink-0 group-hover:bg-[#a78bfa] transition-colors">
                     {user?.firstName?.[0]}
                     {user?.lastName?.[0]}
                   </div>
                 )}
                 <div className="ml-3 min-w-0">
-                  <p className="text-sm font-medium text-white truncate group-hover:text-purple-300 transition-colors">
+                  <p className="text-sm font-medium text-white truncate group-hover:text-[#c4b5fd] transition-colors">
                     {user?.firstName} {user?.lastName}
                   </p>
                 </div>
               </Link>
               <button
                 onClick={() => logout()}
-                className="p-2 text-gray-400 hover:text-white transition-colors"
+                className="p-2 text-white/55 hover:text-white transition-colors"
                 title="Sign out"
               >
                 <LogOut className="w-5 h-5" />

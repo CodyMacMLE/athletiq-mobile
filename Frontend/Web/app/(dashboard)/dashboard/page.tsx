@@ -37,7 +37,7 @@ export default function Dashboard() {
   if (orgLoading || statsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#6c5ce7]"></div>
       </div>
     );
   }
@@ -46,27 +46,27 @@ export default function Dashboard() {
     <div>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">{org?.name || "Dashboard"}</h1>
-        <p className="text-gray-400 mt-1">Organization overview and quick stats</p>
+        <p className="text-white/55 mt-1">Organization overview and quick stats</p>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl p-6 border border-white/10">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Total Athletes</p>
+              <p className="text-white/55 text-sm">Total Athletes</p>
               <p className="text-3xl font-bold text-white mt-1">{org?.memberCount || 0}</p>
             </div>
-            <div className="w-12 h-12 bg-purple-600/20 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6 text-purple-500" />
+            <div className="w-12 h-12 bg-[#6c5ce7]/20 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-[#6c5ce7]" />
             </div>
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl p-6 border border-white/10">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Teams</p>
+              <p className="text-white/55 text-sm">Teams</p>
               <p className="text-3xl font-bold text-white mt-1">{teamRankings.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
@@ -75,10 +75,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl p-6 border border-white/10">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Avg Attendance</p>
+              <p className="text-white/55 text-sm">Avg Attendance</p>
               <p className="text-3xl font-bold text-white mt-1">
                 {teamRankings.length > 0
                   ? Math.round(
@@ -95,10 +95,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl p-6 border border-white/10">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Pending Excuses</p>
+              <p className="text-white/55 text-sm">Pending Excuses</p>
               <p className="text-3xl font-bold text-white mt-1">{pendingExcuses.length}</p>
             </div>
             <div className="w-12 h-12 bg-yellow-600/20 rounded-lg flex items-center justify-center">
@@ -123,34 +123,34 @@ export default function Dashboard() {
                 <p className="text-white font-medium">
                   {pendingAdHocCheckIns.length} Pending Ad-Hoc Check-In{pendingAdHocCheckIns.length !== 1 ? "s" : ""}
                 </p>
-                <p className="text-gray-400 text-sm">Review and approve athlete ad-hoc check-ins</p>
+                <p className="text-white/55 text-sm">Review and approve athlete ad-hoc check-ins</p>
               </div>
             </div>
-            <span className="text-gray-400 text-sm">View &rarr;</span>
+            <span className="text-white/55 text-sm">View &rarr;</span>
           </div>
         </Link>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Team Rankings */}
-        <div className="bg-gray-800 rounded-xl border border-gray-700">
-          <div className="px-6 py-4 border-b border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl border border-white/10">
+          <div className="px-6 py-4 border-b border-white/10">
             <h2 className="text-lg font-semibold text-white">Team Rankings</h2>
-            <p className="text-gray-400 text-sm">Current season attendance</p>
+            <p className="text-white/55 text-sm">Current season attendance</p>
           </div>
           <div className="p-6">
             {teamRankings.length === 0 ? (
-              <p className="text-gray-400 text-center py-4">No data available</p>
+              <p className="text-white/55 text-center py-4">No data available</p>
             ) : (
               <div className="space-y-4">
                 {teamRankings.map((ranking: any) => (
                   <div key={ranking.team.id} className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-white font-bold text-sm">
+                    <div className="w-8 h-8 rounded-full bg-[#261f55] flex items-center justify-center text-white font-bold text-sm">
                       {ranking.rank}
                     </div>
                     <div className="ml-4 flex-1">
                       <p className="text-white font-medium">{ranking.team.name}</p>
-                      <p className="text-gray-400 text-sm">{ranking.team.memberCount} members</p>
+                      <p className="text-white/55 text-sm">{ranking.team.memberCount} members</p>
                     </div>
                     <div className="text-right">
                       <p
@@ -173,20 +173,20 @@ export default function Dashboard() {
         </div>
 
         {/* Pending Excuse Requests */}
-        <div className="bg-gray-800 rounded-xl border border-gray-700">
-          <div className="px-6 py-4 border-b border-gray-700">
+        <div className="bg-[#1a1640] rounded-xl border border-white/10">
+          <div className="px-6 py-4 border-b border-white/10">
             <h2 className="text-lg font-semibold text-white">Pending Excuse Requests</h2>
-            <p className="text-gray-400 text-sm">Requires approval</p>
+            <p className="text-white/55 text-sm">Requires approval</p>
           </div>
           <div className="p-6">
             {pendingExcuses.length === 0 ? (
-              <p className="text-gray-400 text-center py-4">No pending requests</p>
+              <p className="text-white/55 text-center py-4">No pending requests</p>
             ) : (
               <div className="space-y-4">
                 {pendingExcuses.slice(0, 5).map((excuse: any) => (
                   <div key={excuse.id} className="flex items-start justify-between">
                     <div className="flex items-start">
-                      <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium text-sm">
+                      <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white font-medium text-sm">
                         {excuse.user.firstName[0]}
                         {excuse.user.lastName[0]}
                       </div>
@@ -194,8 +194,8 @@ export default function Dashboard() {
                         <p className="text-white font-medium">
                           {excuse.user.firstName} {excuse.user.lastName}
                         </p>
-                        <p className="text-gray-400 text-sm">{excuse.event.title}</p>
-                        <p className="text-gray-500 text-xs mt-1 truncate max-w-xs">{excuse.reason}</p>
+                        <p className="text-white/55 text-sm">{excuse.event.title}</p>
+                        <p className="text-white/40 text-xs mt-1 truncate max-w-xs">{excuse.reason}</p>
                       </div>
                     </div>
                     {canEdit && (

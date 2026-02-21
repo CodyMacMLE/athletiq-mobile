@@ -256,13 +256,13 @@ export default function Teams() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#6c5ce7]"></div>
       </div>
     );
   }
 
   const renderTeamCard = (team: Team) => (
-    <div key={team.id} className={`bg-gray-800 rounded-xl border overflow-hidden ${team.archivedAt ? "border-gray-700/50 opacity-70" : "border-gray-700"}`}>
+    <div key={team.id} className={`bg-[#1a1640] rounded-xl border overflow-hidden ${team.archivedAt ? "border-white/10/50 opacity-70" : "border-white/10"}`}>
       <div className="p-6">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -284,13 +284,13 @@ export default function Teams() {
             <div className="flex items-center space-x-1">
               <button
                 onClick={() => setEditingTeam(team)}
-                className="p-2 text-gray-400 hover:text-white transition-colors"
+                className="p-2 text-white/55 hover:text-white transition-colors"
               >
                 <Edit2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setDeletingTeam(team)}
-                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                className="p-2 text-white/55 hover:text-red-500 transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -299,7 +299,7 @@ export default function Teams() {
           {canEdit && team.archivedAt && (
             <button
               onClick={() => handleRestoreTeam(team.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 text-sm font-medium rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7]/20 hover:bg-[#6c5ce7]/30 text-[#a78bfa] text-sm font-medium rounded-lg transition-colors"
             >
               <ArchiveRestore className="w-4 h-4" />
               Restore
@@ -307,22 +307,22 @@ export default function Teams() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
+        <div className="flex items-center gap-2 text-sm text-white/55 mb-4">
           <span>{getSeasonLabel(team)}</span>
           {team.sport && (
             <>
-              <span className="text-gray-600">&middot;</span>
+              <span className="text-white/30">&middot;</span>
               <span>{team.sport}</span>
             </>
           )}
         </div>
 
         {team.description && (
-          <p className="text-sm text-gray-500 mb-4 line-clamp-2">{team.description}</p>
+          <p className="text-sm text-white/40 mb-4 line-clamp-2">{team.description}</p>
         )}
 
         <div className="flex items-center space-x-6">
-          <div className="flex items-center text-gray-400">
+          <div className="flex items-center text-white/55">
             <Users className="w-4 h-4 mr-2" />
             <span>{team.memberCount} members</span>
           </div>
@@ -344,7 +344,7 @@ export default function Teams() {
 
       <Link
         href={`/teams/${team.id}`}
-        className="flex items-center justify-between px-6 py-3 bg-gray-700/50 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+        className="flex items-center justify-between px-6 py-3 bg-white/5 text-white/55 hover:text-white hover:bg-white/10 transition-colors"
       >
         <span className="text-sm">View Team</span>
         <ChevronRight className="w-4 h-4" />
@@ -357,12 +357,12 @@ export default function Teams() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Teams</h1>
-          <p className="text-gray-400 mt-1">Manage teams in your organization</p>
+          <p className="text-white/55 mt-1">Manage teams in your organization</p>
         </div>
         {canEdit && (
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors"
           >
             <Plus className="w-5 h-5 mr-2" />
             Create Team
@@ -373,7 +373,7 @@ export default function Teams() {
       {/* Toolbar: Filter tabs, Search, Sort */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
         {/* View filter tabs */}
-        <div className="flex items-center bg-gray-800 rounded-lg p-0.5">
+        <div className="flex items-center bg-[#1a1640] rounded-lg p-0.5">
           {([
             { key: "active" as ViewFilter, label: "Active", count: activeCount },
             { key: "archived" as ViewFilter, label: "Archived", count: archivedCount },
@@ -384,8 +384,8 @@ export default function Teams() {
               onClick={() => setViewFilter(tab.key)}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 viewFilter === tab.key
-                  ? "bg-gray-700 text-white"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-[#261f55] text-white"
+                  : "text-white/55 hover:text-white"
               }`}
             >
               {tab.label} ({tab.count})
@@ -395,23 +395,23 @@ export default function Teams() {
 
         {/* Search */}
         <div className="relative flex-1 min-w-0 w-full sm:w-auto">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search teams..."
-            className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-10 pr-4 py-2 bg-[#1a1640] border border-white/10 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
 
         {/* Sort */}
         <div className="relative">
-          <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55 pointer-events-none" />
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="pl-10 pr-8 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="pl-10 pr-8 py-2 bg-[#1a1640] border border-white/10 rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           >
             <option value="name">Name</option>
             <option value="season">Season</option>
@@ -433,11 +433,11 @@ export default function Teams() {
                   className="flex items-center gap-2 mb-3 group"
                 >
                   {collapsed ? (
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                    <ChevronRight className="w-4 h-4 text-white/55" />
                   ) : (
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                    <ChevronDown className="w-4 h-4 text-white/55" />
                   )}
-                  <h2 className="text-lg font-semibold text-white group-hover:text-purple-400 transition-colors">
+                  <h2 className="text-lg font-semibold text-white group-hover:text-[#a78bfa] transition-colors">
                     {group.label}
                   </h2>
                   {group.status === "current" && (
@@ -451,11 +451,11 @@ export default function Teams() {
                     </span>
                   )}
                   {group.status === "past" && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-600/20 text-gray-400">
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white/55">
                       Past
                     </span>
                   )}
-                  <span className="text-sm text-gray-500">({group.teams.length})</span>
+                  <span className="text-sm text-white/40">({group.teams.length})</span>
                 </button>
                 {!collapsed && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -476,22 +476,22 @@ export default function Teams() {
         <div className="text-center py-12">
           {searchQuery ? (
             <>
-              <Search className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">No teams match &quot;{searchQuery}&quot;</p>
+              <Search className="w-12 h-12 text-white/30 mx-auto mb-4" />
+              <p className="text-white/55">No teams match &quot;{searchQuery}&quot;</p>
             </>
           ) : viewFilter === "archived" ? (
             <>
-              <Archive className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">No archived teams</p>
+              <Archive className="w-12 h-12 text-white/30 mx-auto mb-4" />
+              <p className="text-white/55">No archived teams</p>
             </>
           ) : (
             <>
-              <Users className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">No teams yet</p>
+              <Users className="w-12 h-12 text-white/30 mx-auto mb-4" />
+              <p className="text-white/55">No teams yet</p>
               {canEdit && (
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
-                  className="mt-4 text-purple-500 hover:text-purple-400"
+                  className="mt-4 text-[#6c5ce7] hover:text-[#a78bfa]"
                 >
                   Create your first team
                 </button>
@@ -504,20 +504,20 @@ export default function Teams() {
       {/* Archive / Delete Confirmation Modal */}
       {deletingTeam && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-gray-800 rounded-xl w-full max-w-sm p-6 border border-gray-700">
+          <div className="bg-[#1a1640] rounded-xl w-full max-w-sm p-6 border border-white/10">
             <h3 className="text-lg font-bold text-white mb-2">Remove Team</h3>
-            <p className="text-gray-400 text-sm mb-6">
+            <p className="text-white/55 text-sm mb-6">
               What would you like to do with <span className="text-white font-medium">{deletingTeam.name}</span>?
             </p>
             <div className="space-y-3">
               <button
                 onClick={() => handleDeleteTeam(false)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors text-sm font-medium"
               >
                 <Archive className="w-4 h-4" />
                 Archive Team
               </button>
-              <p className="text-xs text-gray-500 text-center -mt-1">
+              <p className="text-xs text-white/40 text-center -mt-1">
                 Members are removed but attendance records are preserved for historical stats.
               </p>
               <button
@@ -531,12 +531,12 @@ export default function Teams() {
                 <Trash2 className="w-4 h-4" />
                 Permanently Delete
               </button>
-              <p className="text-xs text-gray-500 text-center -mt-1">
+              <p className="text-xs text-white/40 text-center -mt-1">
                 Removes the team entirely. Events keep their check-ins but lose the team association.
               </p>
               <button
                 onClick={() => setDeletingTeam(null)}
-                className="w-full px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm"
+                className="w-full px-4 py-2 text-white/55 hover:text-white transition-colors text-sm"
               >
                 Cancel
               </button>
@@ -618,24 +618,24 @@ function TeamModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-xl w-full max-w-md p-6 border border-gray-700">
+      <div className="bg-[#1a1640] rounded-xl w-full max-w-md p-6 border border-white/10">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button onClick={onClose} className="text-white/55 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Team Name *</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Team Name *</label>
             <input
               type="text"
               name="name"
               required
               value={form.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Varsity, Junior Elite"
               autoFocus
             />
@@ -644,12 +644,12 @@ function TeamModal({
           {orgSeasons.length > 0 ? (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Season *</label>
+                <label className="block text-sm font-medium text-white/55 mb-1">Season *</label>
                 <select
                   name="orgSeasonId"
                   value={form.orgSeasonId}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 >
                   <option value="">Select season...</option>
                   {orgSeasons.map((s) => (
@@ -658,12 +658,12 @@ function TeamModal({
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Year *</label>
+                <label className="block text-sm font-medium text-white/55 mb-1">Year *</label>
                 <select
                   name="seasonYear"
                   value={form.seasonYear}
                   onChange={(e) => setForm(prev => ({ ...prev, seasonYear: Number(e.target.value) }))}
-                  className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 >
                   {yearOptions.map((y) => (
                     <option key={y} value={y}>{y}</option>
@@ -673,36 +673,36 @@ function TeamModal({
             </div>
           ) : (
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Season *</label>
+              <label className="block text-sm font-medium text-white/55 mb-1">Season *</label>
               <input
                 type="text"
                 name="season"
                 required
                 value={form.season}
                 onChange={handleChange}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="e.g., Spring 2026, Fall 2025"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                <Link href="/settings" className="text-purple-400 hover:text-purple-300">Define seasons in Settings</Link> for structured season management.
+              <p className="text-xs text-white/40 mt-1">
+                <Link href="/settings" className="text-[#a78bfa] hover:text-[#c4b5fd]">Define seasons in Settings</Link> for structured season management.
               </p>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Sport</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Sport</label>
             <input
               type="text"
               name="sport"
               value={form.sport}
               onChange={handleChange}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Basketball, Track & Field"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Team Color</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Team Color</label>
             <div className="flex items-center gap-2 flex-wrap">
               {COLOR_PRESETS.map((c) => (
                 <button
@@ -720,20 +720,20 @@ function TeamModal({
                 name="color"
                 value={form.color}
                 onChange={handleChange}
-                className="w-24 px-2 py-1 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-24 px-2 py-1 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="#hex"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Description</label>
             <textarea
               name="description"
               value={form.description}
               onChange={handleChange}
               rows={2}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
               placeholder="Optional notes about this team"
             />
           </div>
@@ -742,13 +742,13 @@ function TeamModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              className="px-4 py-2 text-white/55 hover:text-white transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors"
             >
               {initialData ? "Save Changes" : "Create Team"}
             </button>

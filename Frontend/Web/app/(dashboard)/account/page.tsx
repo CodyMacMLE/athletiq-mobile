@@ -157,7 +157,7 @@ export default function AccountPage() {
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-purple-600 flex items-center justify-center text-white text-2xl font-medium">
+            <div className="w-full h-full bg-[#6c5ce7] flex items-center justify-center text-white text-2xl font-medium">
               {user?.firstName?.[0]}
               {user?.lastName?.[0]}
             </div>
@@ -181,7 +181,7 @@ export default function AccountPage() {
           <h2 className="text-lg font-semibold text-white">
             {user?.firstName} {user?.lastName}
           </h2>
-          <p className="text-sm text-gray-400">{user?.email}</p>
+          <p className="text-sm text-white/55">{user?.email}</p>
         </div>
       </div>
 
@@ -199,77 +199,77 @@ export default function AccountPage() {
       <form onSubmit={handleSaveProfile} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">First Name</label>
+            <label className="block text-sm font-medium text-white/75 mb-1">First Name</label>
             <input
               type="text"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
-              className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 bg-[#1a1640] border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Last Name</label>
+            <label className="block text-sm font-medium text-white/75 mb-1">Last Name</label>
             <input
               type="text"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
-              className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 bg-[#1a1640] border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
               required
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+          <label className="block text-sm font-medium text-white/75 mb-1">Email</label>
           <input
             type="email"
             value={user?.email || ""}
             disabled
-            className="w-full px-4 py-2.5 bg-gray-800/50 border border-gray-700 rounded-lg text-gray-400 cursor-not-allowed"
+            className="w-full px-4 py-2.5 bg-[#1a1640]/50 border border-white/10 rounded-lg text-white/55 cursor-not-allowed"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Phone</label>
+          <label className="block text-sm font-medium text-white/75 mb-1">Phone</label>
           <input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-4 py-2.5 bg-[#1a1640] border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
             placeholder="(555) 123-4567"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Address</label>
+          <label className="block text-sm font-medium text-white/75 mb-1">Address</label>
           <input
             type="text"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-4 py-2.5 bg-[#1a1640] border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
             placeholder="123 Main St"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">City</label>
+            <label className="block text-sm font-medium text-white/75 mb-1">City</label>
             <input
               type="text"
               value={city}
               onChange={(e) => setCity(e.target.value)}
-              className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 bg-[#1a1640] border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
               placeholder="New York"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Country</label>
+            <label className="block text-sm font-medium text-white/75 mb-1">Country</label>
             <input
               type="text"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
-              className="w-full px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2.5 bg-[#1a1640] border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent"
               placeholder="United States"
             />
           </div>
@@ -278,7 +278,7 @@ export default function AccountPage() {
         <button
           type="submit"
           disabled={saving}
-          className="py-2.5 px-6 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-2"
+          className="py-2.5 px-6 bg-[#6c5ce7] hover:bg-[#5a4dd4] text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-2"
         >
           {saving ? (
             <>
