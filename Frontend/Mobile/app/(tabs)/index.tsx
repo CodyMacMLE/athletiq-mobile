@@ -7,6 +7,7 @@ import {
   GET_ACTIVE_CHECKIN,
   GET_CHECKIN_HISTORY,
   GET_EVENTS,
+  GET_MY_EXCUSE_REQUESTS,
   GET_NOTIFICATION_HISTORY,
   GET_PENDING_AD_HOC_CHECK_INS,
   GET_RECENT_ACTIVITY,
@@ -99,17 +100,19 @@ export default function Index() {
     skip: !targetUserId,
   });
 
-  // Fetch scheduled events for this week so we can distinguish real events from ad-hoc days
+  // Fetch scheduled events for this week so we can distinguish real events from ad-hoc days.
+  // End date is set to the day AFTER Saturday because events are stored at noon UTC —
+  // using Saturday midnight as lte would exclude same-day events.
   const { weekStartStr, weekEndStr } = useMemo(() => {
     const now = new Date();
     const sun = new Date(now);
     sun.setDate(now.getDate() - now.getDay());
     sun.setHours(0, 0, 0, 0);
-    const sat = new Date(sun);
-    sat.setDate(sun.getDate() + 6);
+    const nextSun = new Date(sun);
+    nextSun.setDate(sun.getDate() + 7); // exclusive upper bound
     return {
       weekStartStr: sun.toISOString().split("T")[0],
-      weekEndStr: sat.toISOString().split("T")[0],
+      weekEndStr: nextSun.toISOString().split("T")[0],
     };
   }, []);
 
@@ -120,6 +123,13 @@ export default function Index() {
       endDate: weekEndStr,
     },
     skip: !selectedOrganization?.id,
+    fetchPolicy: "cache-and-network",
+  });
+
+  const { data: weekExcuseData } = useQuery(GET_MY_EXCUSE_REQUESTS, {
+    variables: { userId: targetUserId },
+    skip: !targetUserId,
+    fetchPolicy: "cache-and-network",
   });
 
   const { data: notifData } = useQuery(GET_NOTIFICATION_HISTORY, {
@@ -146,14 +156,30 @@ export default function Index() {
   const stats = statsData?.userStats;
   const recentActivity = activityData?.recentActivity || [];
 
-  // Build weekly check-in dots: Sun–Sat, distinguishing scheduled vs ad-hoc check-ins
+  // Build weekly check-in dots: Sun–Sat with 6 states per day
   const weekDots = useMemo(() => {
     const checkIns = checkinData?.checkInHistory || [];
     const scheduledEvents = weekEventsData?.events || [];
+    const excuses = weekExcuseData?.myExcuseRequests || [];
     const now = new Date();
-    const todayStr = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
 
-    // Sunday of this week
+    // Normalize a raw event/checkin date string or number into a "YYYY-M-D" key (local calendar day)
+    const toDateKey = (raw: string | number): string => {
+      let d: Date;
+      const num = Number(raw);
+      if (!isNaN(num) && String(raw).length > 8) {
+        // unix timestamp (ms or s)
+        d = new Date(num > 9999999999 ? num : num * 1000);
+      } else {
+        const s = String(raw);
+        const datePart = s.includes("T") ? s.split("T")[0] : s;
+        const [y, m, day] = datePart.split("-").map(Number);
+        d = new Date(y, m - 1, day); // local date, avoids UTC shift
+      }
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    };
+
+    // Sunday of this week (local)
     const sunday = new Date(now);
     sunday.setDate(now.getDate() - now.getDay());
     sunday.setHours(0, 0, 0, 0);
@@ -161,40 +187,36 @@ export default function Index() {
     return WEEK_DAYS.map((_, i) => {
       const date = new Date(sunday);
       date.setDate(sunday.getDate() + i);
-      const dateStr = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-      const isFuture = date > now && dateStr !== todayStr;
+      const dateKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 
-      // Is there a scheduled event on this day?
-      const hasScheduledEvent = scheduledEvents.some((ev: any) => {
-        const raw: string = ev.date || "";
-        const evDateStr = raw.includes("T") ? raw.split("T")[0] : raw;
-        // evDateStr is "YYYY-MM-DD"; convert to same key format
-        const [y, m, d] = evDateStr.split("-").map(Number);
-        return `${y}-${m - 1}-${d}` === dateStr;
-      });
+      const isPast = date.getFullYear() < now.getFullYear()
+        || (date.getFullYear() === now.getFullYear() && date.getMonth() < now.getMonth())
+        || (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() < now.getDate());
+      const isToday = date.getFullYear() === now.getFullYear()
+        && date.getMonth() === now.getMonth()
+        && date.getDate() === now.getDate();
+      const isFuture = !isPast && !isToday;
 
-      // Check-ins on this day
-      const dayCheckIns = checkIns.filter((ci: any) => {
-        const ciDate = new Date(Number(ci.checkInTime) || ci.checkInTime);
-        const ciStr = `${ciDate.getFullYear()}-${ciDate.getMonth()}-${ciDate.getDate()}`;
-        return ciStr === dateStr;
-      });
+      // Scheduled event on this day?
+      const hasScheduledEvent = scheduledEvents.some(
+        (ev: any) => toDateKey(ev.date) === dateKey
+      );
 
-      const regularCheckIn = dayCheckIns.find((ci: any) => !ci.isAdHoc);
-      const adHocCheckIn = dayCheckIns.find((ci: any) => ci.isAdHoc);
+      // Regular (non-ad-hoc) check-in on this day
+      const hasCheckIn = checkIns.some(
+        (ci: any) => !ci.isAdHoc && toDateKey(ci.checkInTime) === dateKey
+      );
 
-      // Ad-hoc is "pending" when not yet approved
-      const adHocPending = adHocCheckIn ? !adHocCheckIn.approved : false;
+      // Excuse request whose event falls on this day
+      const excuse = excuses.find(
+        (ex: any) => toDateKey(ex.event.date) === dateKey
+      );
+      const excuseStatus: "PENDING" | "APPROVED" | "DENIED" | null =
+        excuse?.status ?? null;
 
-      return {
-        isFuture,
-        hasScheduledEvent,
-        hasRegularCheckIn: !!regularCheckIn,
-        hasAdHocCheckIn: !!adHocCheckIn,
-        adHocPending,
-      };
+      return { isFuture, isToday, isPast, hasScheduledEvent, hasCheckIn, excuseStatus };
     });
-  }, [checkinData, weekEventsData]);
+  }, [checkinData, weekEventsData, weekExcuseData]);
 
   // Count today's activity
   const todayCount = useMemo(() => {
@@ -332,52 +354,59 @@ export default function Index() {
           <Text style={styles.sectionTitle}>This Week</Text>
           <View style={styles.weekRow}>
             {WEEK_DAYS.map((day, i) => {
-              const { isFuture, hasScheduledEvent, hasRegularCheckIn, hasAdHocCheckIn, adHocPending } = weekDots[i];
+              const { isFuture, isToday, hasScheduledEvent, hasCheckIn, excuseStatus } = weekDots[i];
 
-              // Determine dot state
-              const isCheckedIn = hasRegularCheckIn || (hasAdHocCheckIn && !adHocPending);
-              const isAdHocPending = !hasRegularCheckIn && hasAdHocCheckIn && adHocPending;
-              const isMissed = !isFuture && hasScheduledEvent && !hasRegularCheckIn && !hasAdHocCheckIn;
-              const isOff = isFuture || (!hasScheduledEvent && !hasAdHocCheckIn && !hasRegularCheckIn);
+              // Derive display state (priority order)
+              let dotStyle = styles.dayDotOff;
+              let icon: string | null = "minus";
+              let iconColor = "rgba(255,255,255,0.3)";
+              let labelStyle = styles.dayLabelOff;
+
+              if (!hasScheduledEvent) {
+                // No event — always show off regardless of any check-in
+                dotStyle = styles.dayDotOff;
+                icon = "minus";
+                iconColor = "rgba(255,255,255,0.3)";
+                labelStyle = styles.dayLabelOff;
+              } else if (isFuture || (isToday && !hasCheckIn && excuseStatus !== "APPROVED")) {
+                // Scheduled event but not yet happened / today with no action yet
+                dotStyle = styles.dayDotScheduled;
+                icon = null;
+                labelStyle = styles.dayLabel;
+              } else if (hasCheckIn) {
+                // Checked in ✓
+                dotStyle = styles.dayDotCheckedIn;
+                icon = "check";
+                iconColor = "white";
+                labelStyle = styles.dayLabelActive;
+              } else if (excuseStatus === "APPROVED") {
+                // Absence approved (orange)
+                dotStyle = styles.dayDotExcuseApproved;
+                icon = "check";
+                iconColor = "white";
+                labelStyle = styles.dayLabelExcuseApproved;
+              } else if (excuseStatus === "PENDING") {
+                // Absence request pending (yellow)
+                dotStyle = styles.dayDotExcusePending;
+                icon = "clock";
+                iconColor = "white";
+                labelStyle = styles.dayLabelExcusePending;
+              } else {
+                // Absent — past event, no check-in, no valid excuse (or excuse denied)
+                dotStyle = styles.dayDotAbsent;
+                icon = "x";
+                iconColor = "white";
+                labelStyle = styles.dayLabelAbsent;
+              }
 
               return (
                 <View key={day} style={styles.dayColumn}>
-                  <View
-                    style={[
-                      styles.dayDot,
-                      isOff
-                        ? styles.dayDotOff
-                        : isCheckedIn
-                          ? styles.dayDotActive
-                          : isAdHocPending
-                            ? styles.dayDotAdHoc
-                            : styles.dayDotInactive,
-                    ]}
-                  >
-                    {isOff && (
-                      <Feather name="minus" size={14} color="rgba(255,255,255,0.3)" />
-                    )}
-                    {isCheckedIn && (
-                      <Feather name="check" size={14} color="white" />
-                    )}
-                    {isAdHocPending && (
-                      <Feather name="check" size={14} color="white" />
+                  <View style={[styles.dayDot, dotStyle]}>
+                    {icon && (
+                      <Feather name={icon as any} size={14} color={iconColor} />
                     )}
                   </View>
-                  <Text
-                    style={[
-                      styles.dayLabel,
-                      isOff
-                        ? styles.dayLabelOff
-                        : isCheckedIn
-                          ? styles.dayLabelActive
-                          : isAdHocPending
-                            ? styles.dayLabelAdHoc
-                            : undefined,
-                    ]}
-                  >
-                    {day}
-                  </Text>
+                  <Text style={[styles.dayLabel, labelStyle]}>{day}</Text>
                 </View>
               );
             })}
@@ -647,17 +676,26 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  dayDotActive: {
-    backgroundColor: "#6c5ce7",
-  },
-  dayDotInactive: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-  },
+  // 6-state dots for weekly overview
   dayDotOff: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "rgba(255,255,255,0.05)", // no event — minus icon
   },
-  dayDotAdHoc: {
-    backgroundColor: "#d97706", // amber — ad-hoc pending approval
+  dayDotScheduled: {
+    backgroundColor: "rgba(108,92,231,0.35)", // event exists, future or today pending
+    borderWidth: 1.5,
+    borderColor: "rgba(108,92,231,0.7)",
+  },
+  dayDotCheckedIn: {
+    backgroundColor: "#16a34a", // green — checked in
+  },
+  dayDotExcuseApproved: {
+    backgroundColor: "#ea580c", // orange — absence approved
+  },
+  dayDotExcusePending: {
+    backgroundColor: "#ca8a04", // yellow — absence request pending
+  },
+  dayDotAbsent: {
+    backgroundColor: "#dc2626", // red — absent / no valid excuse
   },
   dayLabel: {
     color: "rgba(255,255,255,0.4)",
@@ -665,13 +703,19 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   dayLabelActive: {
-    color: "rgba(255,255,255,0.8)",
+    color: "rgba(255,255,255,0.9)",
   },
   dayLabelOff: {
-    color: "rgba(255,255,255,0.25)",
+    color: "rgba(255,255,255,0.2)",
   },
-  dayLabelAdHoc: {
+  dayLabelExcuseApproved: {
+    color: "#fb923c",
+  },
+  dayLabelExcusePending: {
     color: "#fbbf24",
+  },
+  dayLabelAbsent: {
+    color: "#f87171",
   },
 
   // Activity list
