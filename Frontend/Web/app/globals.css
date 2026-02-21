@@ -5,6 +5,7 @@ body {
   height: 100%;
   margin: 0;
   color: white;
+  background-color: #302b6f;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
