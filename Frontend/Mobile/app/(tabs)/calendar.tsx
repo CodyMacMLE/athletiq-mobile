@@ -11,6 +11,7 @@ import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import {
+  Animated,
   ActivityIndicator,
   Alert,
   Dimensions,
@@ -141,6 +142,8 @@ export default function Calendar() {
   const [dayPickerVisible, setDayPickerVisible] = useState(false);
   const [dayPickerEvents, setDayPickerEvents] = useState<CalendarEvent[]>([]);
   const [dayPickerDate, setDayPickerDate] = useState<Date | null>(null);
+  const dayPickerBackdropAnim = useRef(new Animated.Value(0)).current;
+  const dayPickerSlideAnim = useRef(new Animated.Value(300)).current;
   const [eventsTab, setEventsTab] = useState<"upcoming" | "past">("upcoming");
   const [rsvpNote, setRsvpNote] = useState("");
   const [pendingRsvpStatus, setPendingRsvpStatus] = useState<"GOING" | "MAYBE" | "NOT_GOING" | null>(null);
@@ -292,6 +295,28 @@ export default function Calendar() {
     flatListRef.current?.scrollToIndex({ index: initialIndex, animated: true });
   };
 
+  const openDayPicker = (date: Date, dayEvents: CalendarEvent[]) => {
+    dayPickerBackdropAnim.setValue(0);
+    dayPickerSlideAnim.setValue(300);
+    setDayPickerDate(date);
+    setDayPickerEvents(dayEvents);
+    setDayPickerVisible(true);
+    Animated.parallel([
+      Animated.timing(dayPickerBackdropAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.timing(dayPickerSlideAnim, { toValue: 0, duration: 320, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const closeDayPicker = (callback?: () => void) => {
+    Animated.parallel([
+      Animated.timing(dayPickerBackdropAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(dayPickerSlideAnim, { toValue: 300, duration: 240, useNativeDriver: true }),
+    ]).start(() => {
+      setDayPickerVisible(false);
+      callback?.();
+    });
+  };
+
   const handleDayPress = (day: number) => {
     const date = new Date(currentMonth.year, currentMonth.month, day);
     const dayEvents = getEventsForDate(date);
@@ -301,18 +326,17 @@ export default function Calendar() {
       setSelectedEvent(dayEvents[0]);
       setModalVisible(true);
     } else if (dayEvents.length > 1) {
-      setDayPickerDate(date);
-      setDayPickerEvents(dayEvents);
-      setDayPickerVisible(true);
+      openDayPicker(date, dayEvents);
     }
   };
 
   const handlePickerSelectEvent = (event: CalendarEvent) => {
-    setDayPickerVisible(false);
-    setPendingRsvpStatus(null);
-    setRsvpNote("");
-    setSelectedEvent(event);
-    setModalVisible(true);
+    closeDayPicker(() => {
+      setPendingRsvpStatus(null);
+      setRsvpNote("");
+      setSelectedEvent(event);
+      setModalVisible(true);
+    });
   };
 
   const getEventColor = (type: string) => EVENT_COLORS[type] || EVENT_COLORS[type.toLowerCase()] || "#6c5ce7";
@@ -495,10 +519,16 @@ export default function Calendar() {
       <Modal
         visible={dayPickerVisible}
         transparent
-        animationType="slide"
-        onRequestClose={() => setDayPickerVisible(false)}
+        animationType="none"
+        onRequestClose={() => closeDayPicker()}
       >
-        <Pressable style={styles.dayPickerOverlay} onPress={() => setDayPickerVisible(false)}>
+        <View style={styles.dayPickerOverlay}>
+          {/* Fading backdrop */}
+          <Animated.View style={[StyleSheet.absoluteFill, styles.dayPickerBackdrop, { opacity: dayPickerBackdropAnim }]} />
+          {/* Dismiss tap area */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => closeDayPicker()} />
+          {/* Sliding sheet */}
+          <Animated.View style={{ transform: [{ translateY: dayPickerSlideAnim }], width: "100%" }}>
           <Pressable style={styles.dayPickerContainer} onPress={(e) => e.stopPropagation()}>
             {/* Handle bar */}
             <View style={styles.dayPickerHandle} />
@@ -561,12 +591,13 @@ export default function Calendar() {
 
             <Pressable
               style={({ pressed }) => [styles.dayPickerCloseBtn, pressed && { opacity: 0.7 }]}
-              onPress={() => setDayPickerVisible(false)}
+              onPress={() => closeDayPicker()}
             >
               <Text style={styles.dayPickerCloseBtnText}>Close</Text>
             </Pressable>
           </Pressable>
-        </Pressable>
+          </Animated.View>
+        </View>
       </Modal>
 
       {/* Event Detail Modal */}
@@ -1555,8 +1586,10 @@ const styles = StyleSheet.create({
   // Day Picker Modal
   dayPickerOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "flex-end",
+  },
+  dayPickerBackdrop: {
+    backgroundColor: "rgba(0,0,0,0.6)",
   },
   dayPickerContainer: {
     backgroundColor: "#2a2550",
