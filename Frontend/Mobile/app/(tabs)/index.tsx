@@ -6,6 +6,7 @@ import { NoOrgScreen } from "@/components/NoOrgScreen";
 import {
   GET_ACTIVE_CHECKIN,
   GET_CHECKIN_HISTORY,
+  GET_NOTIFICATION_HISTORY,
   GET_PENDING_AD_HOC_CHECK_INS,
   GET_RECENT_ACTIVITY,
   GET_USER_STATS,
@@ -97,6 +98,18 @@ export default function Index() {
     skip: !targetUserId,
   });
 
+  const { data: notifData } = useQuery(GET_NOTIFICATION_HISTORY, {
+    variables: { limit: 100 },
+    skip: !user,
+    fetchPolicy: "cache-and-network",
+    pollInterval: 60000,
+  });
+
+  const unreadCount = useMemo(() => {
+    if (!notifData?.notificationHistory) return 0;
+    return notifData.notificationHistory.filter((n: any) => !n.readAt).length;
+  }, [notifData]);
+
   const isCoachOrAdmin = !isViewingAsGuardian && (orgRole === "OWNER" || orgRole === "MANAGER" || orgRole === "COACH");
 
   const { data: pendingAdHocData } = useQuery(GET_PENDING_AD_HOC_CHECK_INS, {
@@ -172,19 +185,30 @@ export default function Index() {
           <OrgTeamSubtitle onPress={() => setPickerVisible(true)} />
         </View>
 
-        {user.image ? (
-          <Image
-            source={user.image}
-            style={[styles.avatar, styles.avatarImage]}
-          />
-        ) : (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user.firstName.charAt(0)}
-              {user.lastName.charAt(0)}
-            </Text>
-          </View>
-        )}
+        <View style={styles.headerRight}>
+          {/* Bell icon with unread badge */}
+          <Pressable
+            style={({ pressed }) => [styles.bellBtn, pressed && { opacity: 0.7 }]}
+            onPress={() => router.push("/notifications")}
+          >
+            <Feather name="bell" size={22} color={unreadCount > 0 ? "#a855f7" : "rgba(255,255,255,0.55)"} />
+            {unreadCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadCount > 99 ? "99+" : unreadCount}</Text>
+              </View>
+            )}
+          </Pressable>
+
+          {user.image ? (
+            <Image source={user.image} style={[styles.avatar, styles.avatarImage]} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <AthletePicker />
@@ -393,6 +417,33 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 22,
     fontWeight: "bold",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  bellBtn: {
+    position: "relative",
+    padding: 4,
+  },
+  bellBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    backgroundColor: "#e74c3c",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellBadgeText: {
+    color: "white",
+    fontSize: 10,
+    fontWeight: "700",
+    lineHeight: 12,
   },
   avatar: {
     width: AVATAR_SIZE,
