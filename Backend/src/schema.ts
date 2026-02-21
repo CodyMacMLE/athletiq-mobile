@@ -79,6 +79,8 @@ export const typeDefs = `#graphql
   enum AnnouncementTarget {
     ALL_TEAMS
     SPECIFIC_TEAMS
+    SPECIFIC_USERS
+    CUSTOM
     EVENT_DAY
   }
 
@@ -335,7 +337,9 @@ export const typeDefs = `#graphql
     creator: User!
     targetType: AnnouncementTarget!
     teamIds: [ID!]!
+    userIds: [ID!]!
     eventDate: String
+    scheduledFor: String
     sentAt: String
     createdAt: String!
     updatedAt: String!
@@ -586,7 +590,9 @@ export const typeDefs = `#graphql
     organizationId: ID!
     targetType: AnnouncementTarget!
     teamIds: [ID!]
+    userIds: [ID!]
     eventDate: String
+    scheduledFor: String
   }
 
   input CreateEmailReportConfigInput {

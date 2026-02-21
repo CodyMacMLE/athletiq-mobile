@@ -25,7 +25,9 @@ const GET_ANNOUNCEMENTS = gql`
       message
       targetType
       teamIds
+      userIds
       eventDate
+      scheduledFor
       sentAt
       createdAt
       creator {
@@ -53,9 +55,11 @@ type Announcement = {
   id: string;
   title: string;
   message: string;
-  targetType: "ALL_TEAMS" | "SPECIFIC_TEAMS" | "EVENT_DAY";
+  targetType: "ALL_TEAMS" | "SPECIFIC_TEAMS" | "SPECIFIC_USERS" | "CUSTOM" | "EVENT_DAY";
   teamIds: string[];
+  userIds: string[];
   eventDate: string | null;
+  scheduledFor: string | null;
   sentAt: string | null;
   createdAt: string;
   creator: {
@@ -68,7 +72,7 @@ type Announcement = {
 export default function AnnouncementsPage() {
   const router = useRouter();
   const { selectedOrganizationId, currentOrgRole } = useAuth();
-  const [filter, setFilter] = useState<"all" | "sent" | "draft">("all");
+  const [filter, setFilter] = useState<"all" | "sent" | "scheduled" | "draft">("all");
 
   const { data, loading, refetch } = useQuery(GET_ANNOUNCEMENTS, {
     variables: {
@@ -86,7 +90,6 @@ export default function AnnouncementsPage() {
     onCompleted: () => refetch(),
   });
 
-  // Check if user can create announcements
   const canCreate = ["OWNER", "ADMIN", "MANAGER", "COACH"].includes(currentOrgRole || "");
 
   const handleDelete = async (id: string) => {
@@ -111,8 +114,9 @@ export default function AnnouncementsPage() {
 
   const announcements = (data as any)?.organizationAnnouncements || [];
   const filteredAnnouncements = announcements.filter((a: Announcement) => {
-    if (filter === "sent") return a.sentAt;
-    if (filter === "draft") return !a.sentAt;
+    if (filter === "sent") return !!a.sentAt;
+    if (filter === "scheduled") return !a.sentAt && !!a.scheduledFor;
+    if (filter === "draft") return !a.sentAt && !a.scheduledFor;
     return true;
   });
 
@@ -133,6 +137,16 @@ export default function AnnouncementsPage() {
         return "All Teams";
       case "SPECIFIC_TEAMS":
         return `${announcement.teamIds.length} Team${announcement.teamIds.length !== 1 ? "s" : ""}`;
+      case "SPECIFIC_USERS":
+        return `${announcement.userIds.length} ${announcement.userIds.length !== 1 ? "People" : "Person"}`;
+      case "CUSTOM": {
+        const teams = announcement.teamIds.length;
+        const people = announcement.userIds.length;
+        const parts: string[] = [];
+        if (teams > 0) parts.push(`${teams} Team${teams !== 1 ? "s" : ""}`);
+        if (people > 0) parts.push(`${people} ${people !== 1 ? "People" : "Person"}`);
+        return parts.join(" + ") || "Custom";
+      }
       case "EVENT_DAY":
         return announcement.eventDate
           ? `Events on ${new Date(announcement.eventDate).toLocaleDateString()}`
@@ -142,6 +156,31 @@ export default function AnnouncementsPage() {
     }
   };
 
+  const getStatusBadge = (announcement: Announcement) => {
+    if (announcement.sentAt) {
+      return (
+        <span className="px-2 py-1 bg-green-600/20 text-green-400 text-xs font-medium rounded-full flex items-center gap-1">
+          <CheckCircle className="w-3 h-3" />
+          Sent
+        </span>
+      );
+    }
+    if (announcement.scheduledFor) {
+      return (
+        <span className="px-2 py-1 bg-yellow-600/20 text-yellow-400 text-xs font-medium rounded-full flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          Scheduled
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-1 bg-gray-600/30 text-gray-400 text-xs font-medium rounded-full flex items-center gap-1">
+        <Clock className="w-3 h-3" />
+        Draft
+      </span>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0118] text-white p-6">
       <div className="max-w-6xl mx-auto">
@@ -149,9 +188,7 @@ export default function AnnouncementsPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold">Announcements</h1>
-            <p className="text-gray-400 mt-1">
-              Send messages to your team members
-            </p>
+            <p className="text-gray-400 mt-1">Send messages to your team members</p>
           </div>
           {canCreate && (
             <Link
@@ -166,36 +203,19 @@ export default function AnnouncementsPage() {
 
         {/* Filter Tabs */}
         <div className="flex gap-2 mb-6 border-b border-gray-700">
-          <button
-            onClick={() => setFilter("all")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-              filter === "all"
-                ? "border-purple-500 text-purple-400"
-                : "border-transparent text-gray-400 hover:text-gray-300"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setFilter("sent")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-              filter === "sent"
-                ? "border-purple-500 text-purple-400"
-                : "border-transparent text-gray-400 hover:text-gray-300"
-            }`}
-          >
-            Sent
-          </button>
-          <button
-            onClick={() => setFilter("draft")}
-            className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-              filter === "draft"
-                ? "border-purple-500 text-purple-400"
-                : "border-transparent text-gray-400 hover:text-gray-300"
-            }`}
-          >
-            Drafts
-          </button>
+          {(["all", "sent", "scheduled", "draft"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilter(tab)}
+              className={`px-4 py-2 font-medium transition-colors border-b-2 capitalize ${
+                filter === tab
+                  ? "border-purple-500 text-purple-400"
+                  : "border-transparent text-gray-400 hover:text-gray-300"
+              }`}
+            >
+              {tab === "draft" ? "Drafts" : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
         </div>
 
         {/* Announcements List */}
@@ -209,13 +229,12 @@ export default function AnnouncementsPage() {
                 ? "No draft announcements"
                 : filter === "sent"
                 ? "No sent announcements"
+                : filter === "scheduled"
+                ? "No scheduled announcements"
                 : "No announcements yet"}
             </h3>
             {canCreate && filter === "all" && (
-              <Link
-                href="/announcements/new"
-                className="text-purple-400 hover:text-purple-300"
-              >
+              <Link href="/announcements/new" className="text-purple-400 hover:text-purple-300">
                 Create your first announcement
               </Link>
             )}
@@ -230,25 +249,11 @@ export default function AnnouncementsPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold">
-                        {announcement.title}
-                      </h3>
-                      {announcement.sentAt ? (
-                        <span className="px-2 py-1 bg-green-600/20 text-green-400 text-xs font-medium rounded-full flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" />
-                          Sent
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-yellow-600/20 text-yellow-400 text-xs font-medium rounded-full flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          Draft
-                        </span>
-                      )}
+                      <h3 className="text-lg font-semibold">{announcement.title}</h3>
+                      {getStatusBadge(announcement)}
                     </div>
-                    <p className="text-gray-300 mb-4 line-clamp-2">
-                      {announcement.message}
-                    </p>
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
+                    <p className="text-gray-300 mb-4 line-clamp-2">{announcement.message}</p>
+                    <div className="flex items-center gap-4 text-sm text-gray-400 flex-wrap">
                       <div className="flex items-center gap-1">
                         <Users className="w-4 h-4" />
                         {getTargetLabel(announcement)}
@@ -257,18 +262,19 @@ export default function AnnouncementsPage() {
                         <Calendar className="w-4 h-4" />
                         {announcement.sentAt
                           ? formatDate(announcement.sentAt)
+                          : announcement.scheduledFor
+                          ? `Scheduled for ${formatDate(announcement.scheduledFor)}`
                           : `Created ${formatDate(announcement.createdAt)}`}
                       </div>
                       <div>
-                        By {announcement.creator.firstName}{" "}
-                        {announcement.creator.lastName}
+                        By {announcement.creator.firstName} {announcement.creator.lastName}
                       </div>
                     </div>
                   </div>
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 ml-4">
-                    {!announcement.sentAt && canCreate && (
+                    {!announcement.sentAt && !announcement.scheduledFor && canCreate && (
                       <button
                         onClick={() => handleSend(announcement.id)}
                         className="p-2 hover:bg-purple-600/20 text-purple-400 rounded-lg transition-colors"

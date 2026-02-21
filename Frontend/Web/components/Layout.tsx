@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Menu,
   X,
+  Megaphone,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -26,6 +27,7 @@ const navigation = [
   { name: "Events", href: "/events", icon: Calendar },
   { name: "Attendance", href: "/attendance", icon: ClipboardList },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Announcements", href: "/announcements", icon: Megaphone },
 ];
 
 const adminOnlyNavigation = [

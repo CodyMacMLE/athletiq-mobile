@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { gql } from "@apollo/client";
-import { ArrowLeft, Send, Users, Calendar, Megaphone } from "lucide-react";
+import { ArrowLeft, Send, Users, Calendar, Megaphone, User, Clock } from "lucide-react";
 import Link from "next/link";
 
 const GET_TEAMS = gql`
@@ -13,6 +13,22 @@ const GET_TEAMS = gql`
     teams(organizationId: $organizationId) {
       id
       name
+    }
+  }
+`;
+
+const GET_MEMBERS = gql`
+  query GetMembers($id: ID!) {
+    organization(id: $id) {
+      id
+      members {
+        id
+        user {
+          id
+          firstName
+          lastName
+        }
+      }
     }
   }
 `;
@@ -33,7 +49,7 @@ const SEND_ANNOUNCEMENT = gql`
   }
 `;
 
-type TargetType = "ALL_TEAMS" | "SPECIFIC_TEAMS" | "EVENT_DAY";
+type TargetType = "ALL_TEAMS" | "SPECIFIC_TEAMS" | "SPECIFIC_USERS" | "CUSTOM" | "EVENT_DAY";
 
 export default function NewAnnouncementPage() {
   const router = useRouter();
@@ -42,16 +58,30 @@ export default function NewAnnouncementPage() {
   const [message, setMessage] = useState("");
   const [targetType, setTargetType] = useState<TargetType>("ALL_TEAMS");
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [eventDate, setEventDate] = useState("");
+  const [sendMode, setSendMode] = useState<"now" | "schedule">("now");
+  const [scheduledFor, setScheduledFor] = useState("");
   const [isSending, setIsSending] = useState(false);
+
+  const needsTeams = targetType === "SPECIFIC_TEAMS" || targetType === "CUSTOM";
+  const needsUsers = targetType === "SPECIFIC_USERS" || targetType === "CUSTOM";
 
   const { data: teamsData } = useQuery(GET_TEAMS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
+  const { data: membersData } = useQuery(GET_MEMBERS, {
+    variables: { id: selectedOrganizationId },
+    skip: !selectedOrganizationId || !needsUsers,
+  });
+
   const [createAnnouncement] = useMutation(CREATE_ANNOUNCEMENT);
   const [sendAnnouncement] = useMutation(SEND_ANNOUNCEMENT);
+
+  const members: { id: string; firstName: string; lastName: string }[] =
+    (membersData as any)?.organization?.members?.map((m: any) => m.user) || [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,7 +89,6 @@ export default function NewAnnouncementPage() {
 
     setIsSending(true);
     try {
-      // Create announcement
       const { data } = await createAnnouncement({
         variables: {
           input: {
@@ -67,18 +96,20 @@ export default function NewAnnouncementPage() {
             message,
             organizationId: selectedOrganizationId,
             targetType,
-            teamIds: targetType === "SPECIFIC_TEAMS" ? selectedTeams : [],
+            teamIds: needsTeams ? selectedTeams : [],
+            userIds: needsUsers ? selectedUsers : [],
             eventDate: targetType === "EVENT_DAY" ? eventDate : null,
+            scheduledFor: sendMode === "schedule" && scheduledFor ? scheduledFor : null,
           },
         },
       });
 
-      // Send announcement
-      await sendAnnouncement({
-        variables: { id: (data as any).createAnnouncement.id },
-      });
+      const announcementId = (data as any).createAnnouncement.id;
 
-      // Redirect to announcements list
+      if (sendMode === "now") {
+        await sendAnnouncement({ variables: { id: announcementId } });
+      }
+
       router.push("/announcements");
     } catch (error) {
       console.error("Failed to create announcement:", error);
@@ -90,28 +121,37 @@ export default function NewAnnouncementPage() {
 
   const toggleTeam = (teamId: string) => {
     setSelectedTeams((prev) =>
-      prev.includes(teamId)
-        ? prev.filter((id) => id !== teamId)
-        : [...prev, teamId]
+      prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId]
     );
   };
+
+  const toggleUser = (userId: string) => {
+    setSelectedUsers((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const isDisabled =
+    isSending ||
+    !title ||
+    !message ||
+    (targetType === "SPECIFIC_TEAMS" && selectedTeams.length === 0) ||
+    (targetType === "SPECIFIC_USERS" && selectedUsers.length === 0) ||
+    (targetType === "CUSTOM" && selectedTeams.length === 0 && selectedUsers.length === 0) ||
+    (targetType === "EVENT_DAY" && !eventDate) ||
+    (sendMode === "schedule" && !scheduledFor);
 
   return (
     <div className="min-h-screen bg-[#0a0118] text-white p-6">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <Link
-            href="/announcements"
-            className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-          >
+          <Link href="/announcements" className="p-2 hover:bg-white/5 rounded-lg transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
             <h1 className="text-2xl font-bold">New Announcement</h1>
-            <p className="text-sm text-gray-400 mt-1">
-              Send a message to your team members
-            </p>
+            <p className="text-sm text-gray-400 mt-1">Send a message to your team members</p>
           </div>
         </div>
 
@@ -145,9 +185,7 @@ export default function NewAnnouncementPage() {
               rows={6}
               className="w-full px-4 py-3 bg-[#1a1640] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
             />
-            <p className="text-xs text-gray-400 mt-1">
-              {message.length} characters
-            </p>
+            <p className="text-xs text-gray-400 mt-1">{message.length} characters</p>
           </div>
 
           {/* Target Type */}
@@ -156,7 +194,7 @@ export default function NewAnnouncementPage() {
               Send To <span className="text-red-400">*</span>
             </label>
             <div className="space-y-3">
-              {/* All Teams */}
+              {/* Everyone */}
               <button
                 type="button"
                 onClick={() => setTargetType("ALL_TEAMS")}
@@ -169,10 +207,8 @@ export default function NewAnnouncementPage() {
                 <div className="flex items-start gap-3">
                   <Users className="w-5 h-5 mt-0.5 flex-shrink-0" />
                   <div>
-                    <div className="font-medium">All Teams</div>
-                    <div className="text-sm text-gray-400 mt-1">
-                      Send to everyone in the organization
-                    </div>
+                    <div className="font-medium">Everyone</div>
+                    <div className="text-sm text-gray-400 mt-1">Send to everyone in the organization</div>
                   </div>
                 </div>
               </button>
@@ -191,9 +227,45 @@ export default function NewAnnouncementPage() {
                   <Megaphone className="w-5 h-5 mt-0.5 flex-shrink-0" />
                   <div>
                     <div className="font-medium">Specific Teams</div>
-                    <div className="text-sm text-gray-400 mt-1">
-                      Choose which teams to notify
-                    </div>
+                    <div className="text-sm text-gray-400 mt-1">Choose which teams to notify</div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Individuals */}
+              <button
+                type="button"
+                onClick={() => setTargetType("SPECIFIC_USERS")}
+                className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                  targetType === "SPECIFIC_USERS"
+                    ? "border-purple-500 bg-purple-500/10"
+                    : "border-gray-700 bg-[#1a1640] hover:border-gray-600"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <User className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-medium">Individuals</div>
+                    <div className="text-sm text-gray-400 mt-1">Send to specific people</div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Custom */}
+              <button
+                type="button"
+                onClick={() => setTargetType("CUSTOM")}
+                className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                  targetType === "CUSTOM"
+                    ? "border-purple-500 bg-purple-500/10"
+                    : "border-gray-700 bg-[#1a1640] hover:border-gray-600"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <Users className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <div className="font-medium">Custom</div>
+                    <div className="text-sm text-gray-400 mt-1">Combine teams and individuals</div>
                   </div>
                 </div>
               </button>
@@ -221,11 +293,11 @@ export default function NewAnnouncementPage() {
             </div>
           </div>
 
-          {/* Team Selection (for SPECIFIC_TEAMS) */}
-          {targetType === "SPECIFIC_TEAMS" && (
+          {/* Team Selection */}
+          {needsTeams && (
             <div>
               <label className="block text-sm font-medium mb-3">
-                Select Teams <span className="text-red-400">*</span>
+                Select Teams{targetType === "SPECIFIC_TEAMS" && <span className="text-red-400"> *</span>}
               </label>
               <div className="grid grid-cols-2 gap-3">
                 {(teamsData as any)?.teams.map((team: any) => (
@@ -243,15 +315,43 @@ export default function NewAnnouncementPage() {
                   </button>
                 ))}
               </div>
-              {selectedTeams.length === 0 && (
-                <p className="text-sm text-red-400 mt-2">
-                  Please select at least one team
-                </p>
+              {targetType === "SPECIFIC_TEAMS" && selectedTeams.length === 0 && (
+                <p className="text-sm text-red-400 mt-2">Please select at least one team</p>
               )}
             </div>
           )}
 
-          {/* Event Date (for EVENT_DAY) */}
+          {/* Member Selection */}
+          {needsUsers && (
+            <div>
+              <label className="block text-sm font-medium mb-3">
+                Select Individuals{targetType === "SPECIFIC_USERS" && <span className="text-red-400"> *</span>}
+              </label>
+              <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                {members.map((member) => (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() => toggleUser(member.id)}
+                    className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
+                      selectedUsers.includes(member.id)
+                        ? "border-purple-500 bg-purple-500/10"
+                        : "border-gray-700 bg-[#1a1640] hover:border-gray-600"
+                    }`}
+                  >
+                    <div className="font-medium text-sm">
+                      {member.firstName} {member.lastName}
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {targetType === "SPECIFIC_USERS" && selectedUsers.length === 0 && (
+                <p className="text-sm text-red-400 mt-2">Please select at least one person</p>
+              )}
+            </div>
+          )}
+
+          {/* Event Date */}
           {targetType === "EVENT_DAY" && (
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -267,6 +367,56 @@ export default function NewAnnouncementPage() {
             </div>
           )}
 
+          {/* Scheduling */}
+          <div>
+            <label className="block text-sm font-medium mb-3">When to Send</label>
+            <div className="flex gap-3 mb-4">
+              <button
+                type="button"
+                onClick={() => setSendMode("now")}
+                className={`flex-1 py-2 px-4 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                  sendMode === "now"
+                    ? "border-purple-500 bg-purple-500/10 text-white"
+                    : "border-gray-700 bg-[#1a1640] text-gray-400 hover:border-gray-600"
+                }`}
+              >
+                <Send className="w-4 h-4" />
+                Send Now
+              </button>
+              <button
+                type="button"
+                onClick={() => setSendMode("schedule")}
+                className={`flex-1 py-2 px-4 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
+                  sendMode === "schedule"
+                    ? "border-purple-500 bg-purple-500/10 text-white"
+                    : "border-gray-700 bg-[#1a1640] text-gray-400 hover:border-gray-600"
+                }`}
+              >
+                <Clock className="w-4 h-4" />
+                Schedule
+              </button>
+            </div>
+
+            {sendMode === "schedule" && (
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Scheduled Date &amp; Time <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(e) => setScheduledFor(e.target.value)}
+                  required
+                  min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                  className="w-full px-4 py-3 bg-[#1a1640] border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  The announcement will be sent automatically at the scheduled time.
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Actions */}
           <div className="flex gap-3 pt-4">
             <Link
@@ -277,17 +427,20 @@ export default function NewAnnouncementPage() {
             </Link>
             <button
               type="submit"
-              disabled={
-                isSending ||
-                !title ||
-                !message ||
-                (targetType === "SPECIFIC_TEAMS" && selectedTeams.length === 0) ||
-                (targetType === "EVENT_DAY" && !eventDate)
-              }
+              disabled={isDisabled}
               className="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
             >
-              <Send className="w-4 h-4" />
-              {isSending ? "Sending..." : "Send Announcement"}
+              {sendMode === "schedule" ? (
+                <>
+                  <Clock className="w-4 h-4" />
+                  {isSending ? "Scheduling..." : "Schedule Announcement"}
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  {isSending ? "Sending..." : "Send Announcement"}
+                </>
+              )}
             </button>
           </div>
         </form>

@@ -355,6 +355,8 @@ enum Platform {
 enum AnnouncementTarget {
   ALL_TEAMS
   SPECIFIC_TEAMS
+  SPECIFIC_USERS
+  CUSTOM
   EVENT_DAY
 }
 
@@ -433,7 +435,9 @@ model Announcement {
   creator        User               @relation(fields: [createdBy], references: [id])
   targetType     AnnouncementTarget @default(ALL_TEAMS)
   teamIds        String[]
+  userIds        String[]
   eventDate      DateTime?
+  scheduledFor   DateTime?
   sentAt         DateTime?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt

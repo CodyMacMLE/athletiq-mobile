@@ -2731,7 +2731,9 @@ export const resolvers = {
           createdBy: context.userId,
           targetType: input.targetType || "ALL_TEAMS",
           teamIds: input.teamIds || [],
+          userIds: input.userIds || [],
           eventDate: input.eventDate ? new Date(input.eventDate) : null,
+          scheduledFor: input.scheduledFor ? new Date(input.scheduledFor) : null,
         },
         include: {
           organization: true,
@@ -2772,6 +2774,12 @@ export const resolvers = {
         if (!membership || !["OWNER", "ADMIN", "MANAGER", "COACH"].includes(membership.role)) {
           throw new Error("Insufficient permissions");
         }
+      }
+
+      // If the announcement has a future scheduledFor, skip immediate broadcast — cron will handle it
+      const now = new Date();
+      if (announcement.scheduledFor && announcement.scheduledFor > now) {
+        return true;
       }
 
       // Broadcast announcement in background (non-blocking)

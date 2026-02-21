@@ -53,6 +53,21 @@ export async function broadcastAnnouncement(announcementId: string): Promise<voi
       });
 
       targetUserIds = teamMembers.map((m) => m.userId);
+    } else if (announcement.targetType === "SPECIFIC_USERS") {
+      // Use the explicit user IDs stored on the announcement
+      targetUserIds = announcement.userIds;
+    } else if (announcement.targetType === "CUSTOM") {
+      // Union of members from specified teams + explicit user IDs
+      const teamUserIds: string[] = [];
+      if (announcement.teamIds.length > 0) {
+        const teamMembers = await prisma.teamMember.findMany({
+          where: { teamId: { in: announcement.teamIds } },
+          select: { userId: true },
+          distinct: ["userId"],
+        });
+        teamUserIds.push(...teamMembers.map((m) => m.userId));
+      }
+      targetUserIds = [...teamUserIds, ...announcement.userIds];
     } else if (announcement.targetType === "EVENT_DAY") {
       // Get members of teams with events on the specified date
       if (!announcement.eventDate) {

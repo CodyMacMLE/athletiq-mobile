@@ -9,6 +9,7 @@ import { prisma } from "./db.js";
 import { startAbsentMarkerCron, stopAbsentMarkerCron } from "./cron/absentMarker.js";
 import { startEventReminderCron, stopEventReminderCron } from "./cron/eventReminders.js";
 import { startEmailReportCron, stopEmailReportCron } from "./cron/emailReportScheduler.js";
+import { startScheduledAnnouncementCron, stopScheduledAnnouncementCron } from "./cron/scheduledAnnouncements.js";
 
 interface Context {
   userId?: string;
@@ -134,6 +135,7 @@ async function main() {
     startAbsentMarkerCron();
     startEventReminderCron();
     startEmailReportCron();
+    startScheduledAnnouncementCron();
   });
 }
 
@@ -142,6 +144,7 @@ process.on("SIGINT", async () => {
   stopAbsentMarkerCron();
   stopEventReminderCron();
   stopEmailReportCron();
+  stopScheduledAnnouncementCron();
   await prisma.$disconnect();
   process.exit(0);
 });
@@ -150,6 +153,7 @@ process.on("SIGTERM", async () => {
   stopAbsentMarkerCron();
   stopEventReminderCron();
   stopEmailReportCron();
+  stopScheduledAnnouncementCron();
   await prisma.$disconnect();
   process.exit(0);
 });
