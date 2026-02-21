@@ -3,11 +3,41 @@
 import { useQuery } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { GET_ORGANIZATION, GET_ORGANIZATION_STATS, GET_PENDING_EXCUSE_REQUESTS, GET_PENDING_AD_HOC_CHECK_INS } from "@/lib/graphql";
-import { Users, Calendar, TrendingUp, AlertCircle, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Users, Calendar, TrendingUp, AlertCircle, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+
+const PAGE_SIZE = 5;
+
+function Pagination({ page, totalPages, onPrev, onNext }: { page: number; totalPages: number; onPrev: () => void; onNext: () => void }) {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between pt-3 border-t border-white/8 mt-3">
+      <span className="text-white/40 text-xs">Page {page} of {totalPages}</span>
+      <div className="flex gap-1">
+        <button
+          onClick={onPrev}
+          disabled={page === 1}
+          className="p-1 rounded text-white/40 hover:text-white disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <button
+          onClick={onNext}
+          disabled={page === totalPages}
+          className="p-1 rounded text-white/40 hover:text-white disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { selectedOrganizationId, canEdit } = useAuth();
+  const [rankingsPage, setRankingsPage] = useState(1);
+  const [excusesPage, setExcusesPage] = useState(1);
 
   const { data: orgData, loading: orgLoading } = useQuery<any>(GET_ORGANIZATION, {
     variables: { id: selectedOrganizationId },
@@ -33,6 +63,11 @@ export default function Dashboard() {
   const teamRankings = statsData?.teamRankings || [];
   const pendingExcuses = excusesData?.pendingExcuseRequests || [];
   const pendingAdHocCheckIns = adHocData?.pendingAdHocCheckIns || [];
+
+  const rankingsTotalPages = Math.max(1, Math.ceil(teamRankings.length / PAGE_SIZE));
+  const excusesTotalPages = Math.max(1, Math.ceil(pendingExcuses.length / PAGE_SIZE));
+  const pagedRankings = teamRankings.slice((rankingsPage - 1) * PAGE_SIZE, rankingsPage * PAGE_SIZE);
+  const pagedExcuses = pendingExcuses.slice((excusesPage - 1) * PAGE_SIZE, excusesPage * PAGE_SIZE);
 
   if (orgLoading || statsLoading) {
     return (
@@ -142,42 +177,50 @@ export default function Dashboard() {
             {teamRankings.length === 0 ? (
               <p className="text-white/55 text-center py-4">No data available</p>
             ) : (
-              <div className="space-y-4">
-                {teamRankings.map((ranking: any) => (
-                  <div key={ranking.team.id} className="flex items-center">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                        ranking.rank === 1
-                          ? "bg-yellow-500"
-                          : ranking.rank === 2
-                          ? "bg-white/20"
-                          : ranking.rank === 3
-                          ? "bg-amber-700"
-                          : "bg-white/8"
-                      }`}
-                    >
-                      {ranking.rank}
-                    </div>
-                    <div className="ml-4 flex-1">
-                      <p className="text-white font-medium">{ranking.team.name}</p>
-                      <p className="text-white/55 text-sm">{ranking.team.memberCount} members</p>
-                    </div>
-                    <div className="text-right">
-                      <p
-                        className={`font-bold ${
-                          ranking.attendancePercent >= 90
-                            ? "text-green-500"
-                            : ranking.attendancePercent >= 75
-                            ? "text-yellow-500"
-                            : "text-red-500"
+              <>
+                <div className="space-y-4">
+                  {pagedRankings.map((ranking: any) => (
+                    <div key={ranking.team.id} className="flex items-center">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                          ranking.rank === 1
+                            ? "bg-yellow-500"
+                            : ranking.rank === 2
+                            ? "bg-white/20"
+                            : ranking.rank === 3
+                            ? "bg-amber-700"
+                            : "bg-white/8"
                         }`}
                       >
-                        {Math.round(ranking.attendancePercent)}%
-                      </p>
+                        {ranking.rank}
+                      </div>
+                      <div className="ml-4 flex-1">
+                        <p className="text-white font-medium">{ranking.team.name}</p>
+                        <p className="text-white/55 text-sm">{ranking.team.memberCount} members</p>
+                      </div>
+                      <div className="text-right">
+                        <p
+                          className={`font-bold ${
+                            ranking.attendancePercent >= 90
+                              ? "text-green-500"
+                              : ranking.attendancePercent >= 75
+                              ? "text-yellow-500"
+                              : "text-red-500"
+                          }`}
+                        >
+                          {Math.round(ranking.attendancePercent)}%
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+                <Pagination
+                  page={rankingsPage}
+                  totalPages={rankingsTotalPages}
+                  onPrev={() => setRankingsPage((p) => p - 1)}
+                  onNext={() => setRankingsPage((p) => p + 1)}
+                />
+              </>
             )}
           </div>
         </div>
@@ -192,35 +235,57 @@ export default function Dashboard() {
             {pendingExcuses.length === 0 ? (
               <p className="text-white/55 text-center py-4">No pending requests</p>
             ) : (
-              <div className="space-y-4">
-                {pendingExcuses.slice(0, 5).map((excuse: any) => (
-                  <div key={excuse.id} className="flex items-start justify-between">
-                    <div className="flex items-start">
-                      <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white font-medium text-sm">
-                        {excuse.user.firstName[0]}
-                        {excuse.user.lastName[0]}
+              <>
+                <div className="space-y-4">
+                  {pagedExcuses.map((excuse: any) => {
+                    const eventDate = excuse.event?.date
+                      ? new Date(
+                          isNaN(Number(excuse.event.date))
+                            ? excuse.event.date
+                            : Number(excuse.event.date)
+                        ).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      : null;
+                    return (
+                      <div key={excuse.id} className="flex items-start justify-between">
+                        <div className="flex items-start">
+                          <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white font-medium text-sm shrink-0">
+                            {excuse.user.firstName[0]}
+                            {excuse.user.lastName[0]}
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-white font-medium">
+                              {excuse.user.firstName} {excuse.user.lastName}
+                            </p>
+                            <p className="text-white/55 text-sm">
+                              {excuse.event.title}
+                              {eventDate && (
+                                <span className="text-white/35 ml-1.5">· {eventDate}</span>
+                              )}
+                            </p>
+                            <p className="text-white/40 text-xs mt-1 truncate max-w-xs">{excuse.reason}</p>
+                          </div>
+                        </div>
+                        {canEdit && (
+                          <div className="flex space-x-2 shrink-0 ml-2">
+                            <button className="p-1.5 bg-green-600/20 text-green-500 rounded hover:bg-green-600/30 transition-colors">
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button className="p-1.5 bg-red-600/20 text-red-500 rounded hover:bg-red-600/30 transition-colors">
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <div className="ml-3">
-                        <p className="text-white font-medium">
-                          {excuse.user.firstName} {excuse.user.lastName}
-                        </p>
-                        <p className="text-white/55 text-sm">{excuse.event.title}</p>
-                        <p className="text-white/40 text-xs mt-1 truncate max-w-xs">{excuse.reason}</p>
-                      </div>
-                    </div>
-                    {canEdit && (
-                      <div className="flex space-x-2">
-                        <button className="p-1.5 bg-green-600/20 text-green-500 rounded hover:bg-green-600/30 transition-colors">
-                          <CheckCircle className="w-4 h-4" />
-                        </button>
-                        <button className="p-1.5 bg-red-600/20 text-red-500 rounded hover:bg-red-600/30 transition-colors">
-                          <XCircle className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+                <Pagination
+                  page={excusesPage}
+                  totalPages={excusesTotalPages}
+                  onPrev={() => setExcusesPage((p) => p - 1)}
+                  onNext={() => setExcusesPage((p) => p + 1)}
+                />
+              </>
             )}
           </div>
         </div>
