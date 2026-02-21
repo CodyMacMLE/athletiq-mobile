@@ -413,7 +413,7 @@ export default function EmailReportsPage() {
 
         {/* Create Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-black/75 flex items-center justify-center p-4 z-50">
             <div className="bg-white/8 border border-white/8 rounded-lg max-w-md w-full p-6">
               <h2 className="text-xl font-bold mb-4">Create Email Report</h2>
               <div className="space-y-4">

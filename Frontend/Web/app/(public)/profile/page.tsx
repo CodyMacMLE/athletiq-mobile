@@ -646,7 +646,7 @@ export default function ProfilePage() {
 
       {/* Delete Account Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 px-4">
           <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">Delete Account</h3>
@@ -683,7 +683,7 @@ export default function ProfilePage() {
 
       {/* Leave Organization Modal */}
       {leaveModalOrg && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 px-4">
           <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Leave Organization</h2>
@@ -729,7 +729,7 @@ export default function ProfilePage() {
 
       {/* Transfer Ownership Modal */}
       {transferModalOrg && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 px-4">
           <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Transfer Ownership</h2>
@@ -815,7 +815,7 @@ export default function ProfilePage() {
 
       {/* Create Organization Modal */}
       {showCreateOrg && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 px-4">
           <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Create Organization</h2>
@@ -883,7 +883,7 @@ export default function ProfilePage() {
 
       {/* Invite Guardian Modal */}
       {guardianModalOrg && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 px-4">
           <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Invite Guardian</h2>

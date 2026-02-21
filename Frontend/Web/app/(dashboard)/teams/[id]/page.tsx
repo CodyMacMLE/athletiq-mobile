@@ -631,7 +631,7 @@ export default function TeamDetail() {
             )
           : coachCandidates;
         return (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 px-4">
             <div className="bg-white/8 rounded-xl border border-white/8 p-6 w-full max-w-md">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white">Assign Coach</h2>
@@ -731,7 +731,7 @@ export default function TeamDetail() {
             )
           : athleteCandidates;
         return (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 px-4">
             <div className="bg-white/8 rounded-xl border border-white/8 p-6 w-full max-w-md">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white">Add Athlete</h2>
@@ -823,7 +823,7 @@ export default function TeamDetail() {
 
       {/* Delete Recurring Event Dialog */}
       {deleteDialogEvent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
           <div className="bg-white/8 rounded-xl w-full max-w-sm p-6 border border-white/8">
             <h3 className="text-lg font-bold text-white mb-2">Delete Recurring Event</h3>
             <p className="text-white/55 text-sm mb-6">
@@ -1044,7 +1044,7 @@ function CreateEventModal({
   const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
       <div className="bg-white/8 rounded-xl w-full max-w-lg p-6 border border-white/8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">Create Event</h2>

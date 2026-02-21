@@ -612,7 +612,7 @@ function AddToTeamModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
       <div className="bg-white/8 rounded-xl w-full max-w-md p-6 border border-white/8" ref={dropdownRef}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">Add to Team</h2>
