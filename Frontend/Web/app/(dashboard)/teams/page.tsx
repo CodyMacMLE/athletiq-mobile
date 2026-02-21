@@ -503,7 +503,7 @@ export default function Teams() {
 
       {/* Archive / Delete Confirmation Modal */}
       {deletingTeam && (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 px-4">
+        <div className="fixed inset-0 flex items-center justify-center z-50 px-4">
           <div className="bg-white/8 rounded-xl w-full max-w-sm p-6 border border-white/8">
             <h3 className="text-lg font-bold text-white mb-2">Remove Team</h3>
             <p className="text-white/55 text-sm mb-6">
@@ -617,7 +617,7 @@ function TeamModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50">
+    <div className="fixed inset-0 flex items-center justify-center z-50">
       <div className="bg-white/8 rounded-xl w-full max-w-md p-6 border border-white/8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">{title}</h2>
