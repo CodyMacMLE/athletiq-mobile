@@ -69,8 +69,8 @@ export default function Dashboard() {
               <p className="text-white/55 text-sm">Teams</p>
               <p className="text-3xl font-bold text-white mt-1">{teamRankings.length}</p>
             </div>
-            <div className="w-12 h-12 bg-blue-600/20 rounded-lg flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-blue-500" />
+            <div className="w-12 h-12 bg-[#6c5ce7]/40 rounded-lg flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-white" />
             </div>
           </div>
         </div>
@@ -89,8 +89,8 @@ export default function Dashboard() {
                 %
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-600/20 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-green-500" />
+            <div className="w-12 h-12 bg-[#6c5ce7]/40 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-white" />
             </div>
           </div>
         </div>
@@ -101,8 +101,8 @@ export default function Dashboard() {
               <p className="text-white/55 text-sm">Pending Excuses</p>
               <p className="text-3xl font-bold text-white mt-1">{pendingExcuses.length}</p>
             </div>
-            <div className="w-12 h-12 bg-yellow-600/20 rounded-lg flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-yellow-500" />
+            <div className="w-12 h-12 bg-[#6c5ce7]/40 rounded-lg flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-white" />
             </div>
           </div>
         </div>
