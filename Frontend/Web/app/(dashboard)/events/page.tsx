@@ -584,7 +584,7 @@ export default function Events() {
 
       {/* Delete Recurring Event Dialog */}
       {deleteDialogEvent && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white/8 rounded-xl w-full max-w-sm p-6 border border-white/8">
             <h3 className="text-lg font-bold text-white mb-2">Delete Recurring Event</h3>
             <p className="text-white/55 text-sm mb-6">
@@ -922,7 +922,7 @@ function EventModal({
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50">
+    <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white/8 rounded-xl w-full max-w-lg p-6 border border-white/8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">{isEdit ? "Edit Event" : "Create Event"}</h2>
