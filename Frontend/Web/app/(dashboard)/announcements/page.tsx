@@ -182,7 +182,7 @@ export default function AnnouncementsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0118] text-white p-6">
+    <div className="min-h-screen bg-transparent text-white p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -202,7 +202,7 @@ export default function AnnouncementsPage() {
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-white/10">
+        <div className="flex gap-2 mb-6 border-b border-white/[0.08]">
           {(["all", "sent", "scheduled", "draft"] as const).map((tab) => (
             <button
               key={tab}
@@ -244,7 +244,7 @@ export default function AnnouncementsPage() {
             {filteredAnnouncements.map((announcement: Announcement) => (
               <div
                 key={announcement.id}
-                className="bg-[#1a1640] border border-white/10 rounded-lg p-6 hover:border-white/[0.12] transition-colors"
+                className="bg-white/[0.08] border border-white/[0.08] rounded-lg p-6 hover:border-white/[0.10] transition-colors"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
@@ -277,7 +277,7 @@ export default function AnnouncementsPage() {
                     {!announcement.sentAt && !announcement.scheduledFor && canCreate && (
                       <button
                         onClick={() => handleSend(announcement.id)}
-                        className="p-2 hover:bg-[#6c5ce7]/20 text-[#a78bfa] rounded-lg transition-colors"
+                        className="p-2 hover:bg-[#a855f7]/15 text-[#a78bfa] rounded-lg transition-colors"
                         title="Send announcement"
                       >
                         <Send className="w-4 h-4" />

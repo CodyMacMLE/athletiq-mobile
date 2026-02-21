@@ -101,7 +101,7 @@ const STATUS_COLORS: Record<string, string> = {
   ON_TIME: "bg-green-600/20 text-green-400",
   LATE: "bg-yellow-600/20 text-yellow-400",
   ABSENT: "bg-red-600/20 text-red-400",
-  EXCUSED: "bg-[#6c5ce7]/20 text-[#a78bfa]",
+  EXCUSED: "bg-[#a855f7]/15 text-[#a78bfa]",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -350,7 +350,7 @@ export default function EventDetailPage() {
       </Link>
 
       {/* Event Summary */}
-      <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 mb-6">
+      <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-6 mb-6">
         <div className="flex items-start gap-3 mb-3">
           <span
             className={`px-3 py-1 rounded-lg text-xs font-medium ${
@@ -430,7 +430,7 @@ export default function EventDetailPage() {
 
       {/* Coaches Section */}
       {coaches.length > 0 && (
-        <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 mb-6">
+        <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-6 mb-6">
           <h2 className="text-sm font-medium text-white/55 uppercase tracking-wider mb-3">
             Coaches
           </h2>
@@ -459,7 +459,7 @@ export default function EventDetailPage() {
       )}
 
       {/* Attendance Table */}
-      <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6">
+      <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-white font-medium">
             Attendance{" "}
@@ -474,13 +474,13 @@ export default function EventDetailPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search athletes..."
-              className="pl-9 pr-4 py-1.5 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] w-56"
+              className="pl-9 pr-4 py-1.5 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] w-56"
             />
           </div>
         </div>
 
         {/* Table Header */}
-        <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-medium text-white/40 uppercase tracking-wider border-b border-white/10">
+        <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-medium text-white/40 uppercase tracking-wider border-b border-white/[0.08]">
           <div className="col-span-3">Name</div>
           <div className="col-span-2">Status</div>
           <div className="col-span-2">Check In</div>
@@ -490,7 +490,7 @@ export default function EventDetailPage() {
         </div>
 
         {/* Rows */}
-        <div className="divide-y divide-white/10/50">
+        <div className="divide-y divide-white/[0.08]/50">
           {filteredRows.map((row) => (
             <div
               key={row.user.id}
@@ -613,7 +613,7 @@ export default function EventDetailPage() {
       {/* Delete Confirmation Dialog */}
       {deleteDialogOpen && event && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#1a1640] rounded-xl w-full max-w-sm p-6 border border-white/10">
+          <div className="bg-white/[0.08] rounded-xl w-full max-w-sm p-6 border border-white/[0.08]">
             <h3 className="text-lg font-bold text-white mb-2">
               {event.recurringEvent ? "Delete Recurring Event" : "Delete Event"}
             </h3>
@@ -627,7 +627,7 @@ export default function EventDetailPage() {
                 <>
                   <button
                     onClick={handleDeleteThisOnly}
-                    className="w-full px-4 py-2 bg-[#261f55] text-white rounded-lg hover:bg-white/[0.12] transition-colors text-sm"
+                    className="w-full px-4 py-2 bg-white/[0.08] text-white rounded-lg hover:bg-white/[0.12] transition-colors text-sm"
                   >
                     Delete this event only
                   </button>
@@ -732,7 +732,7 @@ function ModifyAttendanceModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 w-full max-w-md">
+      <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-white">Modify Attendance</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -756,7 +756,7 @@ function ModifyAttendanceModal({
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   status === opt.value
                     ? `${opt.color} text-white`
-                    : "bg-[#261f55] text-white/55 hover:text-white"
+                    : "bg-white/[0.08] text-white/55 hover:text-white"
                 }`}
               >
                 {opt.label}
@@ -772,7 +772,7 @@ function ModifyAttendanceModal({
             type="datetime-local"
             value={checkInTimeValue}
             onChange={(e) => setCheckInTimeValue(e.target.value)}
-            className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+            className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
 
@@ -783,7 +783,7 @@ function ModifyAttendanceModal({
             type="datetime-local"
             value={checkOutTimeValue}
             onChange={(e) => setCheckOutTimeValue(e.target.value)}
-            className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+            className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
 
@@ -794,7 +794,7 @@ function ModifyAttendanceModal({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+            className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
             placeholder="Add a note..."
           />
         </div>
@@ -877,7 +877,7 @@ function EditEventModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[#1a1640] rounded-xl w-full max-w-lg p-6 border border-white/10 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white/[0.08] rounded-xl w-full max-w-lg p-6 border border-white/[0.08] max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">Edit Event</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -893,7 +893,7 @@ function EditEventModal({
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Spring Tournament"
             />
           </div>
@@ -903,7 +903,7 @@ function EditEventModal({
             <select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as "PRACTICE" | "EVENT" | "MEETING" })}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             >
               <option value="PRACTICE">Practice</option>
               <option value="EVENT">Tournament</option>
@@ -920,7 +920,7 @@ function EditEventModal({
               required
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             />
           </div>
 
@@ -934,7 +934,7 @@ function EditEventModal({
               type="button"
               onClick={() => setFormData({ ...formData, isMultiDay: !formData.isMultiDay })}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                formData.isMultiDay ? "bg-[#6c5ce7]" : "bg-[#2e2660]"
+                formData.isMultiDay ? "bg-[#6c5ce7]" : "bg-white/[0.12]"
               }`}
             >
               <span
@@ -953,7 +953,7 @@ function EditEventModal({
                 required
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               />
             </div>
           ) : (
@@ -965,7 +965,7 @@ function EditEventModal({
                   required
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                   placeholder="6:00 PM"
                 />
               </div>
@@ -976,7 +976,7 @@ function EditEventModal({
                   required
                   value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                   placeholder="8:00 PM"
                 />
               </div>
@@ -989,7 +989,7 @@ function EditEventModal({
               type="text"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Main Gym"
             />
           </div>
@@ -1002,7 +1002,7 @@ function EditEventModal({
                 {event.participatingTeams.map((team) => (
                   <span
                     key={team.id}
-                    className="px-2.5 py-1 bg-[#6c5ce7]/20 text-[#a78bfa] rounded-lg text-sm"
+                    className="px-2.5 py-1 bg-[#a855f7]/15 text-[#a78bfa] rounded-lg text-sm"
                   >
                     {team.name}
                   </span>
@@ -1017,7 +1017,7 @@ function EditEventModal({
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
               placeholder="Event details..."
             />
           </div>

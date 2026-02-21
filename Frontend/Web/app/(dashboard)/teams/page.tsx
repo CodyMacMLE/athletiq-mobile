@@ -262,7 +262,7 @@ export default function Teams() {
   }
 
   const renderTeamCard = (team: Team) => (
-    <div key={team.id} className={`bg-[#1a1640] rounded-xl border overflow-hidden ${team.archivedAt ? "border-white/10/50 opacity-70" : "border-white/10"}`}>
+    <div key={team.id} className={`bg-white/[0.08] rounded-xl border overflow-hidden ${team.archivedAt ? "border-white/[0.08]/50 opacity-70" : "border-white/[0.08]"}`}>
       <div className="p-6">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -299,7 +299,7 @@ export default function Teams() {
           {canEdit && team.archivedAt && (
             <button
               onClick={() => handleRestoreTeam(team.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7]/20 hover:bg-[#6c5ce7]/30 text-[#a78bfa] text-sm font-medium rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a855f7]/15 hover:bg-[#6c5ce7]/30 text-[#a78bfa] text-sm font-medium rounded-lg transition-colors"
             >
               <ArchiveRestore className="w-4 h-4" />
               Restore
@@ -373,7 +373,7 @@ export default function Teams() {
       {/* Toolbar: Filter tabs, Search, Sort */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
         {/* View filter tabs */}
-        <div className="flex items-center bg-[#1a1640] rounded-lg p-0.5">
+        <div className="flex items-center bg-white/[0.08] rounded-lg p-0.5">
           {([
             { key: "active" as ViewFilter, label: "Active", count: activeCount },
             { key: "archived" as ViewFilter, label: "Archived", count: archivedCount },
@@ -384,7 +384,7 @@ export default function Teams() {
               onClick={() => setViewFilter(tab.key)}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 viewFilter === tab.key
-                  ? "bg-[#261f55] text-white"
+                  ? "bg-white/[0.08] text-white"
                   : "text-white/55 hover:text-white"
               }`}
             >
@@ -401,7 +401,7 @@ export default function Teams() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search teams..."
-            className="w-full pl-10 pr-4 py-2 bg-[#1a1640] border border-white/10 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+            className="w-full pl-10 pr-4 py-2 bg-white/[0.08] border border-white/[0.08] rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
 
@@ -411,7 +411,7 @@ export default function Teams() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="pl-10 pr-8 py-2 bg-[#1a1640] border border-white/10 rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+            className="pl-10 pr-8 py-2 bg-white/[0.08] border border-white/[0.08] rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           >
             <option value="name">Name</option>
             <option value="season">Season</option>
@@ -504,7 +504,7 @@ export default function Teams() {
       {/* Archive / Delete Confirmation Modal */}
       {deletingTeam && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-[#1a1640] rounded-xl w-full max-w-sm p-6 border border-white/10">
+          <div className="bg-white/[0.08] rounded-xl w-full max-w-sm p-6 border border-white/[0.08]">
             <h3 className="text-lg font-bold text-white mb-2">Remove Team</h3>
             <p className="text-white/55 text-sm mb-6">
               What would you like to do with <span className="text-white font-medium">{deletingTeam.name}</span>?
@@ -618,7 +618,7 @@ function TeamModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[#1a1640] rounded-xl w-full max-w-md p-6 border border-white/10">
+      <div className="bg-white/[0.08] rounded-xl w-full max-w-md p-6 border border-white/[0.08]">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">{title}</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -635,7 +635,7 @@ function TeamModal({
               required
               value={form.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Varsity, Junior Elite"
               autoFocus
             />
@@ -649,7 +649,7 @@ function TeamModal({
                   name="orgSeasonId"
                   value={form.orgSeasonId}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 >
                   <option value="">Select season...</option>
                   {orgSeasons.map((s) => (
@@ -663,7 +663,7 @@ function TeamModal({
                   name="seasonYear"
                   value={form.seasonYear}
                   onChange={(e) => setForm(prev => ({ ...prev, seasonYear: Number(e.target.value) }))}
-                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 >
                   {yearOptions.map((y) => (
                     <option key={y} value={y}>{y}</option>
@@ -680,7 +680,7 @@ function TeamModal({
                 required
                 value={form.season}
                 onChange={handleChange}
-                className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="e.g., Spring 2026, Fall 2025"
               />
               <p className="text-xs text-white/40 mt-1">
@@ -696,7 +696,7 @@ function TeamModal({
               name="sport"
               value={form.sport}
               onChange={handleChange}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Basketball, Track & Field"
             />
           </div>
@@ -720,7 +720,7 @@ function TeamModal({
                 name="color"
                 value={form.color}
                 onChange={handleChange}
-                className="w-24 px-2 py-1 bg-[#261f55] border border-white/[0.12] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="w-24 px-2 py-1 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="#hex"
               />
             </div>
@@ -733,7 +733,7 @@ function TeamModal({
               value={form.description}
               onChange={handleChange}
               rows={2}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
               placeholder="Optional notes about this team"
             />
           </div>

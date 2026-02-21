@@ -80,7 +80,7 @@ const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle; color: string; b
   ON_TIME: { icon: CheckCircle, color: "text-green-500", bg: "bg-green-500/20", label: "On Time" },
   LATE: { icon: Clock, color: "text-yellow-500", bg: "bg-yellow-500/20", label: "Late" },
   ABSENT: { icon: XCircle, color: "text-red-500", bg: "bg-red-500/20", label: "Absent" },
-  EXCUSED: { icon: AlertCircle, color: "text-[#6c5ce7]", bg: "bg-[#6c5ce7]/20", label: "Excused" },
+  EXCUSED: { icon: AlertCircle, color: "text-[#6c5ce7]", bg: "bg-[#a855f7]/15", label: "Excused" },
 };
 
 export default function UserDetailPage() {
@@ -183,7 +183,7 @@ export default function UserDetailPage() {
   const roleBadge = (role: string) => {
     const styles: Record<string, string> = {
       OWNER: "bg-yellow-600/20 text-yellow-400",
-      ADMIN: "bg-[#6c5ce7]/20 text-[#a78bfa]",
+      ADMIN: "bg-[#a855f7]/15 text-[#a78bfa]",
       MANAGER: "bg-blue-600/20 text-blue-400",
       COACH: "bg-green-600/20 text-green-400",
       ATHLETE: "bg-green-600/20 text-green-400",
@@ -236,7 +236,7 @@ export default function UserDetailPage() {
       </Link>
 
       {/* Summary Card */}
-      <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 mb-6">
+      <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-6 mb-6">
         <div className="flex items-start justify-between">
           <div className="flex items-center">
             {member.user.image ? (
@@ -273,7 +273,7 @@ export default function UserDetailPage() {
       </div>
 
       {/* Tab Bar */}
-      <div className="flex border-b border-white/10 mb-6">
+      <div className="flex border-b border-white/[0.08] mb-6">
         <button
           onClick={() => setActiveTab("attendance")}
           className={`px-4 py-3 text-sm font-medium transition-colors relative ${
@@ -306,13 +306,13 @@ export default function UserDetailPage() {
       {activeTab === "roles" ? (
         <>
           {/* Organization Role */}
-          <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 mb-6">
+          <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-6 mb-6">
             <h2 className="text-lg font-semibold text-white mb-4">Organization Role</h2>
             {canChangeOrgRole(member) ? (
               <select
                 value={member.role}
                 onChange={(e) => handleOrgRoleChange(e.target.value)}
-                className="px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               >
                 {getAvailableOrgRoles().map((role) => (
                   <option key={role} value={role}>
@@ -328,7 +328,7 @@ export default function UserDetailPage() {
           </div>
 
           {/* Teams */}
-          <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6 mb-6">
+          <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Teams</h2>
               {canEdit && (
@@ -362,7 +362,7 @@ export default function UserDetailPage() {
                         <select
                           value={membership.role}
                           onChange={(e) => handleTeamRoleChange(membership.team.id, e.target.value)}
-                          className="px-3 py-1.5 text-sm bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                          className="px-3 py-1.5 text-sm bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                         >
                           {TEAM_ROLES.map((role) => (
                             <option key={role} value={role}>
@@ -395,7 +395,7 @@ export default function UserDetailPage() {
 
           {/* Remove from Organization */}
           {canEdit && canRemoveMember(member) && (
-            <div className="bg-[#1a1640] rounded-xl border border-red-900/50 p-6">
+            <div className="bg-white/[0.08] rounded-xl border border-red-900/50 p-6">
               <h2 className="text-lg font-semibold text-white mb-2">Danger Zone</h2>
               <p className="text-white/55 text-sm mb-4">
                 Removing this user from the organization will revoke their access to all teams and data.
@@ -420,7 +420,7 @@ export default function UserDetailPage() {
             <>
               {/* Stats Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-[#1a1640] rounded-xl border border-white/10 p-4">
+                <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className="w-4 h-4 text-green-400" />
                     <span className="text-xs text-white/55">Attendance Rate</span>
@@ -430,7 +430,7 @@ export default function UserDetailPage() {
                   </p>
                 </div>
 
-                <div className="bg-[#1a1640] rounded-xl border border-white/10 p-4">
+                <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <BarChart3 className="w-4 h-4 text-blue-400" />
                     <span className="text-xs text-white/55">Hours Logged</span>
@@ -443,7 +443,7 @@ export default function UserDetailPage() {
                   )}
                 </div>
 
-                <div className="bg-[#1a1640] rounded-xl border border-white/10 p-4">
+                <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Flame className="w-4 h-4 text-orange-400" />
                     <span className="text-xs text-white/55">Current Streak</span>
@@ -454,7 +454,7 @@ export default function UserDetailPage() {
                   <p className="text-xs text-white/40 mt-1">events</p>
                 </div>
 
-                <div className="bg-[#1a1640] rounded-xl border border-white/10 p-4">
+                <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Trophy className="w-4 h-4 text-yellow-400" />
                     <span className="text-xs text-white/55">Org Rank</span>
@@ -469,7 +469,7 @@ export default function UserDetailPage() {
               </div>
 
               {/* Recent Activity */}
-              <div className="bg-[#1a1640] rounded-xl border border-white/10 p-6">
+              <div className="bg-white/[0.08] rounded-xl border border-white/[0.08] p-6">
                 <h2 className="text-lg font-semibold text-white mb-4">Recent Activity</h2>
                 {checkInLoading ? (
                   <div className="flex items-center justify-center h-20">
@@ -479,7 +479,7 @@ export default function UserDetailPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="text-left text-xs text-white/55 border-b border-white/10">
+                        <tr className="text-left text-xs text-white/55 border-b border-white/[0.08]">
                           <th className="pb-3 font-medium">Event</th>
                           <th className="pb-3 font-medium">Date</th>
                           <th className="pb-3 font-medium">Status</th>
@@ -488,7 +488,7 @@ export default function UserDetailPage() {
                           <th className="pb-3 font-medium">Hours</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/10/50">
+                      <tbody className="divide-y divide-white/[0.08]/50">
                         {checkIns.map((checkIn) => {
                           const config = STATUS_CONFIG[checkIn.status];
                           const StatusIcon = config?.icon || CheckCircle;
@@ -613,7 +613,7 @@ function AddToTeamModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[#1a1640] rounded-xl w-full max-w-md p-6 border border-white/10" ref={dropdownRef}>
+      <div className="bg-white/[0.08] rounded-xl w-full max-w-md p-6 border border-white/[0.08]" ref={dropdownRef}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">Add to Team</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -627,7 +627,7 @@ function AddToTeamModal({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
+            className="w-full pl-9 pr-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
             placeholder="Search teams..."
             autoFocus
           />

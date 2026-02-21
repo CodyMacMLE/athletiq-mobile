@@ -364,13 +364,13 @@ export default function Events() {
               className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
                 activeTab === key
                   ? "bg-[#6c5ce7] text-white"
-                  : "bg-[#1a1640] text-white/55 hover:text-white"
+                  : "bg-white/[0.08] text-white/55 hover:text-white"
               }`}
             >
               {label}
               <span
                 className={`text-xs rounded-full px-1.5 py-0.5 ${
-                  activeTab === key ? "bg-[#6c5ce7]/50 text-white" : "bg-[#261f55] text-white/40"
+                  activeTab === key ? "bg-[#6c5ce7]/50 text-white" : "bg-white/[0.08] text-white/40"
                 }`}
               >
                 {count}
@@ -388,22 +388,22 @@ export default function Events() {
             onClick={() => setTimeFilter(value)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               timeFilter === value
-                ? "bg-[#2e2660] text-white"
-                : "bg-[#1a1640] text-white/40 border border-white/10 hover:text-white/75"
+                ? "bg-white/[0.12] text-white"
+                : "bg-white/[0.08] text-white/40 border border-white/[0.08] hover:text-white/75"
             }`}
           >
             {label}
           </button>
         ))}
 
-        <div className="h-4 w-px bg-[#261f55] mx-1" />
+        <div className="h-4 w-px bg-white/[0.08] mx-1" />
 
         {/* Team Filter */}
         <div className="relative">
           <select
             value={teamFilter}
             onChange={(e) => setTeamFilter(e.target.value)}
-            className="appearance-none pl-3 pr-7 py-1.5 bg-[#1a1640] border border-white/10 rounded-lg text-xs font-medium text-white/55 hover:text-white/75 focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] cursor-pointer"
+            className="appearance-none pl-3 pr-7 py-1.5 bg-white/[0.08] border border-white/[0.08] rounded-lg text-xs font-medium text-white/55 hover:text-white/75 focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] cursor-pointer"
           >
             <option value="ALL">All Teams</option>
             {allTeams.map((team) => (
@@ -420,8 +420,8 @@ export default function Events() {
           onClick={() => setGroupByTeam((g) => !g)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
             groupByTeam
-              ? "bg-[#6c5ce7]/20 text-[#a78bfa] border border-[#6c5ce7]/30"
-              : "bg-[#1a1640] text-white/40 border border-white/10 hover:text-white/75"
+              ? "bg-[#a855f7]/15 text-[#a78bfa] border border-[#6c5ce7]/30"
+              : "bg-white/[0.08] text-white/40 border border-white/[0.08] hover:text-white/75"
           }`}
         >
           <LayoutList className="w-3.5 h-3.5" />
@@ -454,7 +454,7 @@ export default function Events() {
                   <span className="text-xs text-white/40">
                     {group.events.length} {group.events.length === 1 ? "event" : "events"}
                   </span>
-                  <div className="h-px flex-1 bg-[#261f55]" />
+                  <div className="h-px flex-1 bg-white/[0.08]" />
                 </div>
                 <div className="space-y-2">
                   {groupUpcoming.map((event) => (
@@ -465,9 +465,9 @@ export default function Events() {
 
                   {groupPast.length > 0 && groupUpcoming.length > 0 && (
                     <div className="flex items-center gap-3 py-2">
-                      <div className="h-px flex-1 bg-[#261f55]" />
+                      <div className="h-px flex-1 bg-white/[0.08]" />
                       <span className="text-xs text-white/40 uppercase tracking-wider">Past</span>
-                      <div className="h-px flex-1 bg-[#261f55]" />
+                      <div className="h-px flex-1 bg-white/[0.08]" />
                     </div>
                   )}
 
@@ -498,9 +498,9 @@ export default function Events() {
 
           {past.length > 0 && upcoming.length > 0 && (
             <div className="flex items-center gap-3 py-2">
-              <div className="h-px flex-1 bg-[#261f55]" />
+              <div className="h-px flex-1 bg-white/[0.08]" />
               <span className="text-xs text-white/40 uppercase tracking-wider">Past</span>
-              <div className="h-px flex-1 bg-[#261f55]" />
+              <div className="h-px flex-1 bg-white/[0.08]" />
             </div>
           )}
 
@@ -521,13 +521,13 @@ export default function Events() {
 
       {/* Pagination */}
       {filteredEvents.length > 0 && (
-        <div className="mt-4 bg-[#1a1640] rounded-xl border border-white/10 px-6 py-3 flex items-center justify-between">
+        <div className="mt-4 bg-white/[0.08] rounded-xl border border-white/[0.08] px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-white/40 text-xs">Show</span>
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
-              className="px-2 py-1 bg-[#261f55] border border-white/[0.12] rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] appearance-none"
+              className="px-2 py-1 bg-white/[0.08] border border-white/[0.10] rounded text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] appearance-none"
             >
               <option value={20}>20</option>
               <option value={50}>50</option>
@@ -585,7 +585,7 @@ export default function Events() {
       {/* Delete Recurring Event Dialog */}
       {deleteDialogEvent && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#1a1640] rounded-xl w-full max-w-sm p-6 border border-white/10">
+          <div className="bg-white/[0.08] rounded-xl w-full max-w-sm p-6 border border-white/[0.08]">
             <h3 className="text-lg font-bold text-white mb-2">Delete Recurring Event</h3>
             <p className="text-white/55 text-sm mb-6">
               This event is part of a recurring series. What would you like to do?
@@ -593,7 +593,7 @@ export default function Events() {
             <div className="space-y-3">
               <button
                 onClick={() => handleDeleteThisOnly(deleteDialogEvent.id)}
-                className="w-full px-4 py-2 bg-[#261f55] text-white rounded-lg hover:bg-white/[0.12] transition-colors text-sm"
+                className="w-full px-4 py-2 bg-white/[0.08] text-white rounded-lg hover:bg-white/[0.12] transition-colors text-sm"
               >
                 Delete this event only
               </button>
@@ -653,7 +653,7 @@ function EventCard({
 
   return (
     <div
-      className={`bg-[#1a1640] rounded-xl border border-white/10 p-4 hover:border-white/[0.12] transition-colors cursor-pointer ${
+      className={`bg-white/[0.08] rounded-xl border border-white/[0.08] p-4 hover:border-white/[0.10] transition-colors cursor-pointer ${
         dimmed ? "opacity-60" : ""
       }`}
     >
@@ -923,7 +923,7 @@ function EventModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[#1a1640] rounded-xl w-full max-w-lg p-6 border border-white/10 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white/[0.08] rounded-xl w-full max-w-lg p-6 border border-white/[0.08] max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">{isEdit ? "Edit Event" : "Create Event"}</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -939,7 +939,7 @@ function EventModal({
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Spring Tournament"
             />
           </div>
@@ -949,7 +949,7 @@ function EventModal({
             <select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as "PRACTICE" | "EVENT" | "MEETING" })}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             >
               <option value="PRACTICE">Practice</option>
               <option value="EVENT">Tournament</option>
@@ -966,7 +966,7 @@ function EventModal({
               required
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             />
           </div>
 
@@ -981,7 +981,7 @@ function EventModal({
                 type="button"
                 onClick={() => setFormData({ ...formData, isMultiDay: !formData.isMultiDay })}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  formData.isMultiDay ? "bg-[#6c5ce7]" : "bg-[#2e2660]"
+                  formData.isMultiDay ? "bg-[#6c5ce7]" : "bg-white/[0.12]"
                 }`}
               >
                 <span
@@ -1004,7 +1004,7 @@ function EventModal({
                 type="button"
                 onClick={() => setFormData({ ...formData, isRecurring: !formData.isRecurring })}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  formData.isRecurring ? "bg-[#6c5ce7]" : "bg-[#2e2660]"
+                  formData.isRecurring ? "bg-[#6c5ce7]" : "bg-white/[0.12]"
                 }`}
               >
                 <span
@@ -1018,13 +1018,13 @@ function EventModal({
 
           {/* Recurring Event Options */}
           {formData.isRecurring && !formData.isMultiDay && (
-            <div className="space-y-4 p-4 bg-[#1a1640] rounded-lg border border-white/[0.12]">
+            <div className="space-y-4 p-4 bg-white/[0.08] rounded-lg border border-white/[0.10]">
               <div>
                 <label className="block text-sm font-medium text-white/55 mb-1">Frequency</label>
                 <select
                   value={formData.frequency}
                   onChange={(e) => setFormData({ ...formData, frequency: e.target.value as "WEEKLY" | "BIWEEKLY" | "DAILY" })}
-                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 >
                   <option value="DAILY">Daily</option>
                   <option value="WEEKLY">Weekly</option>
@@ -1049,7 +1049,7 @@ function EventModal({
                         className={`w-10 h-10 rounded-lg text-xs font-medium transition-colors ${
                           formData.daysOfWeek.includes(i)
                             ? "bg-[#6c5ce7] text-white"
-                            : "bg-[#261f55] text-white/55 hover:text-white"
+                            : "bg-white/[0.08] text-white/55 hover:text-white"
                         }`}
                       >
                         {day}
@@ -1066,7 +1066,7 @@ function EventModal({
                   required
                   value={formData.recurringEndDate}
                   onChange={(e) => setFormData({ ...formData, recurringEndDate: e.target.value })}
-                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 />
               </div>
             </div>
@@ -1080,7 +1080,7 @@ function EventModal({
                 required
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               />
             </div>
           ) : (
@@ -1092,7 +1092,7 @@ function EventModal({
                   required
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                   placeholder="6:00 PM"
                 />
               </div>
@@ -1103,7 +1103,7 @@ function EventModal({
                   required
                   value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                   placeholder="8:00 PM"
                 />
               </div>
@@ -1116,7 +1116,7 @@ function EventModal({
               type="text"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Main Gym"
             />
           </div>
@@ -1131,7 +1131,7 @@ function EventModal({
                   {selectedTeams.map((team) => (
                     <span
                       key={team.id}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-[#6c5ce7]/20 text-[#a78bfa] rounded-lg text-sm"
+                      className="flex items-center gap-1 px-2.5 py-1 bg-[#a855f7]/15 text-[#a78bfa] rounded-lg text-sm"
                     >
                       {team.name}
                       <button type="button" onClick={() => removeTeam(team.id)} className="hover:text-white transition-colors">
@@ -1153,13 +1153,13 @@ function EventModal({
                       setShowTeamDropdown(true);
                     }}
                     onFocus={() => setShowTeamDropdown(true)}
-                    className="w-full pl-9 pr-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
+                    className="w-full pl-9 pr-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
                     placeholder="Search teams..."
                   />
                 </div>
 
                 {showTeamDropdown && filteredTeams.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-[#261f55] border border-white/[0.12] rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-white/[0.08] border border-white/[0.10] rounded-lg shadow-lg max-h-40 overflow-y-auto">
                     {filteredTeams.map((team) => (
                       <button
                         key={team.id}
@@ -1174,7 +1174,7 @@ function EventModal({
                 )}
 
                 {showTeamDropdown && teamSearch && filteredTeams.length === 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-[#261f55] border border-white/[0.12] rounded-lg shadow-lg">
+                  <div className="absolute z-10 w-full mt-1 bg-white/[0.08] border border-white/[0.10] rounded-lg shadow-lg">
                     <p className="px-4 py-2 text-sm text-white/55">No teams found</p>
                   </div>
                 )}
@@ -1190,7 +1190,7 @@ function EventModal({
                 {editingEvent.participatingTeams.map((team) => (
                   <span
                     key={team.id}
-                    className="px-2.5 py-1 bg-[#6c5ce7]/20 text-[#a78bfa] rounded-lg text-sm"
+                    className="px-2.5 py-1 bg-[#a855f7]/15 text-[#a78bfa] rounded-lg text-sm"
                   >
                     {team.name}
                   </span>
@@ -1205,7 +1205,7 @@ function EventModal({
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-4 py-2 bg-[#261f55] border border-white/[0.12] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+              className="w-full px-4 py-2 bg-white/[0.08] border border-white/[0.10] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
               placeholder="Event details..."
             />
           </div>

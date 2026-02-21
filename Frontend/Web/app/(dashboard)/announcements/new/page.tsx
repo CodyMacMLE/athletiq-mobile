@@ -142,7 +142,7 @@ export default function NewAnnouncementPage() {
     (sendMode === "schedule" && !scheduledFor);
 
   return (
-    <div className="min-h-screen bg-[#0a0118] text-white p-6">
+    <div className="min-h-screen bg-transparent text-white p-6">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
@@ -168,7 +168,7 @@ export default function NewAnnouncementPage() {
               placeholder="e.g., Practice Cancelled Tomorrow"
               required
               maxLength={100}
-              className="w-full px-4 py-3 bg-[#1a1640] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-3 bg-white/[0.08] border border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             />
           </div>
 
@@ -183,7 +183,7 @@ export default function NewAnnouncementPage() {
               placeholder="Write your announcement message here..."
               required
               rows={6}
-              className="w-full px-4 py-3 bg-[#1a1640] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+              className="w-full px-4 py-3 bg-white/[0.08] border border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
             />
             <p className="text-xs text-white/55 mt-1">{message.length} characters</p>
           </div>
@@ -201,7 +201,7 @@ export default function NewAnnouncementPage() {
                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                   targetType === "ALL_TEAMS"
                     ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
-                    : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
+                    : "border-white/[0.08] bg-white/[0.08] hover:border-white/[0.10]"
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -220,7 +220,7 @@ export default function NewAnnouncementPage() {
                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                   targetType === "SPECIFIC_TEAMS"
                     ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
-                    : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
+                    : "border-white/[0.08] bg-white/[0.08] hover:border-white/[0.10]"
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -239,7 +239,7 @@ export default function NewAnnouncementPage() {
                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                   targetType === "SPECIFIC_USERS"
                     ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
-                    : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
+                    : "border-white/[0.08] bg-white/[0.08] hover:border-white/[0.10]"
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -258,7 +258,7 @@ export default function NewAnnouncementPage() {
                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                   targetType === "CUSTOM"
                     ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
-                    : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
+                    : "border-white/[0.08] bg-white/[0.08] hover:border-white/[0.10]"
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -277,7 +277,7 @@ export default function NewAnnouncementPage() {
                 className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                   targetType === "EVENT_DAY"
                     ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
-                    : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
+                    : "border-white/[0.08] bg-white/[0.08] hover:border-white/[0.10]"
                 }`}
               >
                 <div className="flex items-start gap-3">
@@ -308,7 +308,7 @@ export default function NewAnnouncementPage() {
                     className={`p-3 rounded-lg border-2 transition-all text-left ${
                       selectedTeams.includes(team.id)
                         ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
-                        : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
+                        : "border-white/[0.08] bg-white/[0.08] hover:border-white/[0.10]"
                     }`}
                   >
                     <div className="font-medium text-sm">{team.name}</div>
@@ -336,7 +336,7 @@ export default function NewAnnouncementPage() {
                     className={`w-full p-3 rounded-lg border-2 transition-all text-left ${
                       selectedUsers.includes(member.id)
                         ? "border-[#6c5ce7] bg-[#6c5ce7]/10"
-                        : "border-white/10 bg-[#1a1640] hover:border-white/[0.12]"
+                        : "border-white/[0.08] bg-white/[0.08] hover:border-white/[0.10]"
                     }`}
                   >
                     <div className="font-medium text-sm">
@@ -362,7 +362,7 @@ export default function NewAnnouncementPage() {
                 value={eventDate}
                 onChange={(e) => setEventDate(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-[#1a1640] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="w-full px-4 py-3 bg-white/[0.08] border border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               />
             </div>
           )}
@@ -377,7 +377,7 @@ export default function NewAnnouncementPage() {
                 className={`flex-1 py-2 px-4 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
                   sendMode === "now"
                     ? "border-[#6c5ce7] bg-[#6c5ce7]/10 text-white"
-                    : "border-white/10 bg-[#1a1640] text-white/55 hover:border-white/[0.12]"
+                    : "border-white/[0.08] bg-white/[0.08] text-white/55 hover:border-white/[0.10]"
                 }`}
               >
                 <Send className="w-4 h-4" />
@@ -389,7 +389,7 @@ export default function NewAnnouncementPage() {
                 className={`flex-1 py-2 px-4 rounded-lg border-2 font-medium transition-all flex items-center justify-center gap-2 ${
                   sendMode === "schedule"
                     ? "border-[#6c5ce7] bg-[#6c5ce7]/10 text-white"
-                    : "border-white/10 bg-[#1a1640] text-white/55 hover:border-white/[0.12]"
+                    : "border-white/[0.08] bg-white/[0.08] text-white/55 hover:border-white/[0.10]"
                 }`}
               >
                 <Clock className="w-4 h-4" />
@@ -408,7 +408,7 @@ export default function NewAnnouncementPage() {
                   onChange={(e) => setScheduledFor(e.target.value)}
                   required
                   min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-                  className="w-full px-4 py-3 bg-[#1a1640] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-3 bg-white/[0.08] border border-white/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 />
                 <p className="text-xs text-white/55 mt-1">
                   The announcement will be sent automatically at the scheduled time.
@@ -421,14 +421,14 @@ export default function NewAnnouncementPage() {
           <div className="flex gap-3 pt-4">
             <Link
               href="/announcements"
-              className="flex-1 px-6 py-3 bg-[#261f55] hover:bg-white/[0.12] rounded-lg font-medium transition-colors text-center"
+              className="flex-1 px-6 py-3 bg-white/[0.08] hover:bg-white/[0.12] rounded-lg font-medium transition-colors text-center"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={isDisabled}
-              className="flex-1 px-6 py-3 bg-[#6c5ce7] hover:bg-[#5a4dd4] disabled:bg-[#261f55] disabled:cursor-not-allowed rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+              className="flex-1 px-6 py-3 bg-[#6c5ce7] hover:bg-[#5a4dd4] disabled:bg-white/[0.08] disabled:cursor-not-allowed rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
             >
               {sendMode === "schedule" ? (
                 <>

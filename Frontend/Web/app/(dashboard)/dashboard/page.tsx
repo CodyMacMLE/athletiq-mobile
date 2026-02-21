@@ -51,19 +51,19 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-[#1a1640] rounded-xl p-6 border border-white/10">
+        <div className="bg-white/[0.08] rounded-xl p-6 border border-white/[0.08]">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/55 text-sm">Total Athletes</p>
               <p className="text-3xl font-bold text-white mt-1">{org?.memberCount || 0}</p>
             </div>
-            <div className="w-12 h-12 bg-[#6c5ce7]/20 rounded-lg flex items-center justify-center">
+            <div className="w-12 h-12 bg-[#a855f7]/15 rounded-lg flex items-center justify-center">
               <Users className="w-6 h-6 text-[#6c5ce7]" />
             </div>
           </div>
         </div>
 
-        <div className="bg-[#1a1640] rounded-xl p-6 border border-white/10">
+        <div className="bg-white/[0.08] rounded-xl p-6 border border-white/[0.08]">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/55 text-sm">Teams</p>
@@ -75,7 +75,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-[#1a1640] rounded-xl p-6 border border-white/10">
+        <div className="bg-white/[0.08] rounded-xl p-6 border border-white/[0.08]">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/55 text-sm">Avg Attendance</p>
@@ -95,7 +95,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-[#1a1640] rounded-xl p-6 border border-white/10">
+        <div className="bg-white/[0.08] rounded-xl p-6 border border-white/[0.08]">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-white/55 text-sm">Pending Excuses</p>
@@ -133,8 +133,8 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Team Rankings */}
-        <div className="bg-[#1a1640] rounded-xl border border-white/10">
-          <div className="px-6 py-4 border-b border-white/10">
+        <div className="bg-white/[0.08] rounded-xl border border-white/[0.08]">
+          <div className="px-6 py-4 border-b border-white/[0.08]">
             <h2 className="text-lg font-semibold text-white">Team Rankings</h2>
             <p className="text-white/55 text-sm">Current season attendance</p>
           </div>
@@ -145,7 +145,7 @@ export default function Dashboard() {
               <div className="space-y-4">
                 {teamRankings.map((ranking: any) => (
                   <div key={ranking.team.id} className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-[#261f55] flex items-center justify-center text-white font-bold text-sm">
+                    <div className="w-8 h-8 rounded-full bg-white/[0.08] flex items-center justify-center text-white font-bold text-sm">
                       {ranking.rank}
                     </div>
                     <div className="ml-4 flex-1">
@@ -173,8 +173,8 @@ export default function Dashboard() {
         </div>
 
         {/* Pending Excuse Requests */}
-        <div className="bg-[#1a1640] rounded-xl border border-white/10">
-          <div className="px-6 py-4 border-b border-white/10">
+        <div className="bg-white/[0.08] rounded-xl border border-white/[0.08]">
+          <div className="px-6 py-4 border-b border-white/[0.08]">
             <h2 className="text-lg font-semibold text-white">Pending Excuse Requests</h2>
             <p className="text-white/55 text-sm">Requires approval</p>
           </div>
