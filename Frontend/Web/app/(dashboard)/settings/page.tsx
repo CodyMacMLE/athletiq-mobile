@@ -321,10 +321,10 @@ export default function SettingsPage() {
             Need help or have feedback? Reach out to us.
           </p>
           <a
-            href="mailto:support@athletiq.app"
+            href="mailto:admin@athletiq.fitness"
             className="inline-block text-sm text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
           >
-            support@athletiq.app
+            admin@athletiq.fitness
           </a>
         </div>
       </section>
