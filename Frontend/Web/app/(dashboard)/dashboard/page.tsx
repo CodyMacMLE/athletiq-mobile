@@ -57,8 +57,8 @@ export default function Dashboard() {
               <p className="text-white/55 text-sm">Total Athletes</p>
               <p className="text-3xl font-bold text-white mt-1">{org?.memberCount || 0}</p>
             </div>
-            <div className="w-12 h-12 bg-[#a855f7]/15 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6 text-[#6c5ce7]" />
+            <div className="w-12 h-12 bg-[#6c5ce7]/40 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-white" />
             </div>
           </div>
         </div>
