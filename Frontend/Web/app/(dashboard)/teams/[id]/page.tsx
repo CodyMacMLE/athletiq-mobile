@@ -1494,7 +1494,7 @@ function DayColumn({
           >
             <span
               className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
-                day.active ? "translate-x-4" : "translate-x-1"
+                day.active ? "translate-x-5" : "translate-x-1"
               }`}
             />
           </button>
