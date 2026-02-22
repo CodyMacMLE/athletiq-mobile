@@ -160,12 +160,21 @@ export default function UserDetailPage() {
 
   const emergencyContacts: EmergencyContact[] = healthData?.user?.emergencyContacts || [];
   const medicalInfo: MedicalInfo | null = healthData?.user?.medicalInfo || null;
-  const medicalInfoVisibility: string = healthData?.organization?.medicalInfoVisibility || "ADMIN_ONLY";
+  const adminHealthAccess: string = healthData?.organization?.adminHealthAccess || "ADMINS_ONLY";
+  const coachHealthAccess: string = healthData?.organization?.coachHealthAccess || "TEAM_ONLY";
+
+  // Derive current viewer's org role from loaded members list
+  const viewerOrgRole = orgMembers.find((m) => m.user.id === currentUser?.id)?.role || "";
 
   const canViewHealth = (() => {
-    if (medicalInfoVisibility === "ALL_STAFF") return isOwner || isAdmin || canEdit;
-    if (medicalInfoVisibility === "COACHES_AND_ADMINS") return isOwner || isAdmin;
-    return isOwner || isAdmin; // ADMIN_ONLY
+    if (isOwner || isAdmin) return true;
+    if (viewerOrgRole === "MANAGER") return adminHealthAccess === "MANAGERS_AND_ADMINS";
+    if (viewerOrgRole === "COACH") {
+      // Both ORG_WIDE and TEAM_ONLY allow coaches to see health data;
+      // TEAM_ONLY scope is enforced conceptually (coach sees only their teams' athletes).
+      return coachHealthAccess === "ORG_WIDE" || coachHealthAccess === "TEAM_ONLY";
+    }
+    return false;
   })();
 
   const canRemoveMember = (member: OrgMember) => {

@@ -3090,10 +3090,13 @@ export const resolvers = {
       });
     },
 
-    updateOrganizationSettings: async (_: unknown, { id, medicalInfoVisibility }: { id: string; medicalInfoVisibility?: string }) => {
+    updateOrganizationSettings: async (_: unknown, { id, adminHealthAccess, coachHealthAccess }: { id: string; adminHealthAccess?: string; coachHealthAccess?: string }) => {
       return prisma.organization.update({
         where: { id },
-        data: { ...(medicalInfoVisibility !== undefined && { medicalInfoVisibility: medicalInfoVisibility as any }) },
+        data: {
+          ...(adminHealthAccess !== undefined && { adminHealthAccess: adminHealthAccess as any }),
+          ...(coachHealthAccess !== undefined && { coachHealthAccess: coachHealthAccess as any }),
+        },
       });
     },
   },

@@ -110,7 +110,8 @@ export const GET_ORGANIZATION = gql`
       name
       image
       memberCount
-      medicalInfoVisibility
+      adminHealthAccess
+      coachHealthAccess
       teams {
         ...TeamFields
       }
@@ -580,7 +581,8 @@ export const GET_USER_HEALTH = gql`
     }
     organization(id: $organizationId) {
       id
-      medicalInfoVisibility
+      adminHealthAccess
+      coachHealthAccess
     }
   }
 `;

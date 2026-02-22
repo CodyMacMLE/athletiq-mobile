@@ -45,10 +45,14 @@ model User {
 // Health & Safety
 // ============================================
 
-enum MedicalInfoVisibility {
-  ADMIN_ONLY
-  COACHES_AND_ADMINS
-  ALL_STAFF
+enum AdminHealthAccess {
+  ADMINS_ONLY
+  MANAGERS_AND_ADMINS
+}
+
+enum CoachHealthAccess {
+  ORG_WIDE
+  TEAM_ONLY
 }
 
 // ============================================
@@ -62,7 +66,8 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  medicalInfoVisibility MedicalInfoVisibility @default(ADMIN_ONLY)
+  adminHealthAccess AdminHealthAccess @default(ADMINS_ONLY)
+  coachHealthAccess CoachHealthAccess @default(TEAM_ONLY)
 
   // Relations
   teams              Team[]

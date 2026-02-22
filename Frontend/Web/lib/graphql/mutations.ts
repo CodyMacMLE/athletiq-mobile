@@ -474,10 +474,11 @@ export const UPSERT_MEDICAL_INFO = gql`
 `;
 
 export const UPDATE_ORGANIZATION_SETTINGS = gql`
-  mutation UpdateOrganizationSettings($id: ID!, $medicalInfoVisibility: MedicalInfoVisibility) {
-    updateOrganizationSettings(id: $id, medicalInfoVisibility: $medicalInfoVisibility) {
+  mutation UpdateOrganizationSettings($id: ID!, $adminHealthAccess: AdminHealthAccess, $coachHealthAccess: CoachHealthAccess) {
+    updateOrganizationSettings(id: $id, adminHealthAccess: $adminHealthAccess, coachHealthAccess: $coachHealthAccess) {
       id
-      medicalInfoVisibility
+      adminHealthAccess
+      coachHealthAccess
     }
   }
 `;

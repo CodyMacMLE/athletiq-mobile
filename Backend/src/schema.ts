@@ -118,10 +118,14 @@ export const typeDefs = `#graphql
     SKIPPED
   }
 
-  enum MedicalInfoVisibility {
-    ADMIN_ONLY
-    COACHES_AND_ADMINS
-    ALL_STAFF
+  enum AdminHealthAccess {
+    ADMINS_ONLY
+    MANAGERS_AND_ADMINS
+  }
+
+  enum CoachHealthAccess {
+    ORG_WIDE
+    TEAM_ONLY
   }
 
   # ============================================
@@ -187,7 +191,8 @@ export const typeDefs = `#graphql
     nfcTags: [NfcTag!]!
     seasons: [OrgSeason!]!
     memberCount: Int!
-    medicalInfoVisibility: MedicalInfoVisibility!
+    adminHealthAccess: AdminHealthAccess!
+    coachHealthAccess: CoachHealthAccess!
   }
 
   type OrgSeason {
@@ -882,6 +887,6 @@ export const typeDefs = `#graphql
     updateEmergencyContact(id: ID!, input: UpdateEmergencyContactInput!): EmergencyContact!
     deleteEmergencyContact(id: ID!): Boolean!
     upsertMedicalInfo(input: UpsertMedicalInfoInput!): MedicalInfo!
-    updateOrganizationSettings(id: ID!, medicalInfoVisibility: MedicalInfoVisibility): Organization!
+    updateOrganizationSettings(id: ID!, adminHealthAccess: AdminHealthAccess, coachHealthAccess: CoachHealthAccess): Organization!
   }
 `;

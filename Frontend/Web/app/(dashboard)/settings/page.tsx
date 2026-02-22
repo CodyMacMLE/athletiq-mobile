@@ -32,7 +32,8 @@ export default function SettingsPage() {
   const [formStartMonth, setFormStartMonth] = useState(1);
   const [formEndMonth, setFormEndMonth] = useState(12);
   const [error, setError] = useState("");
-  const [healthVisibility, setHealthVisibility] = useState<string>("ADMIN_ONLY");
+  const [adminHealthAccess, setAdminHealthAccess] = useState<string>("ADMINS_ONLY");
+  const [coachHealthAccess, setCoachHealthAccess] = useState<string>("TEAM_ONLY");
   const [healthSaving, setHealthSaving] = useState(false);
   const [healthSaved, setHealthSaved] = useState(false);
 
@@ -47,8 +48,9 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    if (orgData?.organization?.medicalInfoVisibility) {
-      setHealthVisibility(orgData.organization.medicalInfoVisibility);
+    if (orgData?.organization) {
+      if (orgData.organization.adminHealthAccess) setAdminHealthAccess(orgData.organization.adminHealthAccess);
+      if (orgData.organization.coachHealthAccess) setCoachHealthAccess(orgData.organization.coachHealthAccess);
     }
   }, [orgData]);
 
@@ -122,7 +124,7 @@ export default function SettingsPage() {
     setHealthSaving(true);
     try {
       await updateOrganizationSettings({
-        variables: { id: selectedOrganizationId, medicalInfoVisibility: healthVisibility },
+        variables: { id: selectedOrganizationId, adminHealthAccess, coachHealthAccess },
       });
       setHealthSaved(true);
       setTimeout(() => setHealthSaved(false), 2000);
@@ -348,32 +350,66 @@ export default function SettingsPage() {
             <Heart className="w-5 h-5 text-[#a78bfa]" />
             <h2 className="text-lg font-semibold text-white">Health &amp; Safety</h2>
           </div>
-          <div className="bg-white/8 rounded-lg border border-white/8 p-4">
-            <p className="text-sm text-white/55 mb-4">
-              Control who on your staff can view athlete health information, emergency contacts, and medical details.
+          <div className="bg-white/8 rounded-lg border border-white/8 p-4 space-y-6">
+            <p className="text-sm text-white/55">
+              Control who can view athlete health information, emergency contacts, and medical details.
             </p>
-            <div className="space-y-3 mb-4">
-              {[
-                { value: "ADMIN_ONLY", label: "Admins Only", description: "Only Owners and Admins can view health information" },
-                { value: "COACHES_AND_ADMINS", label: "Coaches & Admins", description: "Owners, Admins, and Coaches can view health information" },
-                { value: "ALL_STAFF", label: "All Staff", description: "All staff roles (Owners, Admins, Managers, Coaches) can view health information" },
-              ].map((option) => (
-                <label key={option.value} className="flex items-start gap-3 cursor-pointer group">
-                  <input
-                    type="radio"
-                    name="healthVisibility"
-                    value={option.value}
-                    checked={healthVisibility === option.value}
-                    onChange={(e) => setHealthVisibility(e.target.value)}
-                    className="mt-0.5 accent-[#6c5ce7]"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-white">{option.label}</p>
-                    <p className="text-xs text-white/40">{option.description}</p>
-                  </div>
-                </label>
-              ))}
+
+            {/* Admin access */}
+            <div>
+              <p className="text-sm font-semibold text-white mb-3">Admins</p>
+              <div className="space-y-3">
+                {[
+                  { value: "ADMINS_ONLY", label: "Admins Only", description: "Only Owners and Admins can view health information" },
+                  { value: "MANAGERS_AND_ADMINS", label: "Managers & Admins", description: "Owners, Admins, and Managers can view health information" },
+                ].map((option) => (
+                  <label key={option.value} className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="adminHealthAccess"
+                      value={option.value}
+                      checked={adminHealthAccess === option.value}
+                      onChange={(e) => setAdminHealthAccess(e.target.value)}
+                      className="mt-0.5 accent-[#6c5ce7]"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-white">{option.label}</p>
+                      <p className="text-xs text-white/40">{option.description}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
             </div>
+
+            {/* Divider */}
+            <div className="border-t border-white/8" />
+
+            {/* Coach access */}
+            <div>
+              <p className="text-sm font-semibold text-white mb-3">Coaches</p>
+              <div className="space-y-3">
+                {[
+                  { value: "ORG_WIDE", label: "Org Wide", description: "Coaches can view health information for any athlete in the organization" },
+                  { value: "TEAM_ONLY", label: "Team Only", description: "Coaches can only view health information for athletes on their own teams" },
+                ].map((option) => (
+                  <label key={option.value} className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="coachHealthAccess"
+                      value={option.value}
+                      checked={coachHealthAccess === option.value}
+                      onChange={(e) => setCoachHealthAccess(e.target.value)}
+                      className="mt-0.5 accent-[#6c5ce7]"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-white">{option.label}</p>
+                      <p className="text-xs text-white/40">{option.description}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <button
               onClick={handleSaveHealthVisibility}
               disabled={healthSaving}
