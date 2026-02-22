@@ -7,6 +7,7 @@ import {
   GET_EVENTS,
   GET_TEAMS,
   GET_ORGANIZATION_VENUES,
+  GET_ORGANIZATION_USERS,
   EXPORT_CALENDAR,
   CREATE_EVENT,
   CREATE_RECURRING_EVENT,
@@ -14,6 +15,10 @@ import {
   DELETE_EVENT,
   DELETE_RECURRING_EVENT,
   CREATE_VENUE,
+  ADD_ATHLETE_TO_EVENT,
+  REMOVE_ATHLETE_FROM_EVENT,
+  EXCLUDE_ATHLETE_FROM_EVENT,
+  UNEXCLUDE_ATHLETE_FROM_EVENT,
 } from "@/lib/graphql";
 import {
   Plus,
@@ -28,10 +33,13 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   LayoutList,
   ChevronDown,
   Download,
   Building2,
+  UserMinus,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -49,6 +57,19 @@ type Venue = {
   notes?: string;
 };
 
+type AthleteUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  image?: string;
+};
+
+type TeamMemberBasic = {
+  id: string;
+  role: string;
+  user: AthleteUser;
+};
+
 type Event = {
   id: string;
   title: string;
@@ -60,10 +81,12 @@ type Event = {
   location?: string;
   description?: string;
   venue?: Venue | null;
-  team?: { id: string; name: string };
-  participatingTeams: { id: string; name: string }[];
+  team?: { id: string; name: string; members: TeamMemberBasic[] };
+  participatingTeams: { id: string; name: string; members: TeamMemberBasic[] }[];
   checkIns: { id: string; status: string }[];
   recurringEvent?: { id: string } | null;
+  includedAthletes: AthleteUser[];
+  excludedAthletes: AthleteUser[];
 };
 
 type TabKey = "PRACTICE" | "MEETING" | "EVENT";
@@ -962,12 +985,27 @@ function EventModal({
   const { data: venuesData } = useQuery<any>(GET_ORGANIZATION_VENUES, {
     variables: { organizationId },
   });
+  const { data: orgUsersData, refetch: refetchOrgUsers } = useQuery<any>(GET_ORGANIZATION_USERS, {
+    variables: { id: organizationId },
+    skip: !isEdit,
+  });
   const [createVenue] = useMutation<any>(CREATE_VENUE);
+  const [addAthlete] = useMutation<any>(ADD_ATHLETE_TO_EVENT);
+  const [removeAthlete] = useMutation<any>(REMOVE_ATHLETE_FROM_EVENT);
+  const [excludeAthlete] = useMutation<any>(EXCLUDE_ATHLETE_FROM_EVENT);
+  const [unexcludeAthlete] = useMutation<any>(UNEXCLUDE_ATHLETE_FROM_EVENT);
   const [showNewVenueForm, setShowNewVenueForm] = useState(false);
   const [newVenueName, setNewVenueName] = useState("");
   const [newVenueCity, setNewVenueCity] = useState("");
   const [newVenueAddress, setNewVenueAddress] = useState("");
   const [creatingVenue, setCreatingVenue] = useState(false);
+  const [overridesOpen, setOverridesOpen] = useState(false);
+  const [showAddIncludeModal, setShowAddIncludeModal] = useState(false);
+  const [showAddExcludeModal, setShowAddExcludeModal] = useState(false);
+  const [includeSearch, setIncludeSearch] = useState("");
+  const [excludeSearch, setExcludeSearch] = useState("");
+  const [localIncluded, setLocalIncluded] = useState<AthleteUser[]>(editingEvent?.includedAthletes || []);
+  const [localExcluded, setLocalExcluded] = useState<AthleteUser[]>(editingEvent?.excludedAthletes || []);
 
   const venues: Venue[] = venuesData?.organizationVenues || [];
 
@@ -1013,6 +1051,27 @@ function EventModal({
   const [createRecurringEvent] = useMutation<any>(CREATE_RECURRING_EVENT);
 
   const allTeams: { id: string; name: string }[] = teamsData?.teams || [];
+
+  // Compute sets for include/exclude pickers (only relevant in edit mode)
+  const allOrgAthletes: AthleteUser[] = (orgUsersData?.organization?.members || [])
+    .filter((m: any) => m.role === "ATHLETE")
+    .map((m: any) => m.user);
+  const currentAthleteIds = new Set([
+    ...localIncluded.map(u => u.id),
+    // Also include team member IDs from the editing event
+    ...(editingEvent?.team?.members.filter(m => m.role === "MEMBER" || m.role === "CAPTAIN").map(m => m.user.id) || []),
+    ...(editingEvent?.participatingTeams.flatMap(t => t.members.filter(m => m.role === "MEMBER" || m.role === "CAPTAIN").map(m => m.user.id)) || []),
+  ]);
+  const currentExcludedIds = new Set(localExcluded.map(u => u.id));
+  // Candidates for "Add (include)": org athletes not already in event and not excluded
+  const includeCandidates = allOrgAthletes.filter(u => !currentAthleteIds.has(u.id) && !currentExcludedIds.has(u.id));
+  // Candidates for "Exclude": current team members not already excluded
+  const teamAthletes: AthleteUser[] = [
+    ...(editingEvent?.team?.members.filter(m => m.role === "MEMBER" || m.role === "CAPTAIN").map(m => m.user) || []),
+    ...(editingEvent?.participatingTeams.flatMap(t => t.members.filter(m => m.role === "MEMBER" || m.role === "CAPTAIN").map(m => m.user)) || []),
+  ].filter((u, i, arr) => arr.findIndex(x => x.id === u.id) === i);
+  const excludeCandidates = teamAthletes.filter(u => !currentExcludedIds.has(u.id));
+
   const filteredTeams = allTeams.filter(
     (team) =>
       !selectedTeams.some((s) => s.id === team.id) &&
@@ -1433,6 +1492,114 @@ function EventModal({
             </div>
           )}
 
+          {/* Athlete Overrides (edit mode only) */}
+          {isEdit && editingEvent && (
+            <div className="border border-white/10 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setOverridesOpen(!overridesOpen)}
+                className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                <span>Athlete Overrides</span>
+                {overridesOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {overridesOpen && (
+                <div className="px-4 pb-4 space-y-4 border-t border-white/10">
+                  {/* Include athletes */}
+                  <div className="pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-white/55 uppercase tracking-wider">Added (Guests)</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddIncludeModal(true)}
+                        className="flex items-center gap-1 text-xs text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        Add
+                      </button>
+                    </div>
+                    {localIncluded.length === 0 ? (
+                      <p className="text-white/30 text-xs">No athletes added</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {localIncluded.map((u) => (
+                          <div key={u.id} className="flex items-center justify-between px-2.5 py-1.5 bg-white/5 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              {u.image ? (
+                                <img src={u.image} alt="" className="w-6 h-6 rounded-full object-cover" />
+                              ) : (
+                                <div className="w-6 h-6 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs">
+                                  {u.firstName[0]}{u.lastName[0]}
+                                </div>
+                              )}
+                              <span className="text-white text-sm">{u.firstName} {u.lastName}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                removeAthlete({ variables: { eventId: editingEvent.id, userId: u.id } });
+                                setLocalIncluded(prev => prev.filter(x => x.id !== u.id));
+                              }}
+                              className="text-white/30 hover:text-red-400 transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Exclude athletes */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-white/55 uppercase tracking-wider">Excluded</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddExcludeModal(true)}
+                        className="flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                      >
+                        <UserMinus className="w-3.5 h-3.5" />
+                        Exclude
+                      </button>
+                    </div>
+                    {localExcluded.length === 0 ? (
+                      <p className="text-white/30 text-xs">No athletes excluded</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {localExcluded.map((u) => (
+                          <div key={u.id} className="flex items-center justify-between px-2.5 py-1.5 bg-orange-500/5 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              {u.image ? (
+                                <img src={u.image} alt="" className="w-6 h-6 rounded-full object-cover opacity-50" />
+                              ) : (
+                                <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/40 text-xs">
+                                  {u.firstName[0]}{u.lastName[0]}
+                                </div>
+                              )}
+                              <span className="text-white/50 text-sm">{u.firstName} {u.lastName}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                unexcludeAthlete({ variables: { eventId: editingEvent.id, userId: u.id } });
+                                setLocalExcluded(prev => prev.filter(x => x.id !== u.id));
+                              }}
+                              className="text-xs text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
+                            >
+                              Unexclude
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-white/70 mb-1">Description</label>
             <textarea
@@ -1454,6 +1621,118 @@ function EventModal({
           </div>
         </form>
       </div>
+
+      {/* Add (include) athlete picker */}
+      {showAddIncludeModal && editingEvent && (
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-[60] px-4">
+          <div className="bg-[#1e1a3a] border border-white/15 rounded-xl shadow-2xl p-5 w-full max-w-sm max-h-[70vh] flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-medium text-sm">Add Guest Athlete</h3>
+              <button onClick={() => setShowAddIncludeModal(false)} className="text-white/55 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
+              <input
+                autoFocus
+                type="text"
+                value={includeSearch}
+                onChange={(e) => setIncludeSearch(e.target.value)}
+                placeholder="Search athletes..."
+                className="w-full pl-9 pr-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7]"
+              />
+            </div>
+            <div className="overflow-y-auto flex-1 space-y-1">
+              {includeCandidates.filter(u => `${u.firstName} ${u.lastName}`.toLowerCase().includes(includeSearch.toLowerCase())).length === 0 ? (
+                <p className="text-white/40 text-sm text-center py-4">No athletes available</p>
+              ) : (
+                includeCandidates
+                  .filter(u => `${u.firstName} ${u.lastName}`.toLowerCase().includes(includeSearch.toLowerCase()))
+                  .map(u => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => {
+                        addAthlete({ variables: { eventId: editingEvent.id, userId: u.id } });
+                        setLocalIncluded(prev => [...prev, u]);
+                        setLocalExcluded(prev => prev.filter(x => x.id !== u.id));
+                        setShowAddIncludeModal(false);
+                        setIncludeSearch("");
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/8 transition-colors text-left"
+                    >
+                      {u.image ? (
+                        <img src={u.image} alt="" className="w-7 h-7 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs">
+                          {u.firstName[0]}{u.lastName[0]}
+                        </div>
+                      )}
+                      <span className="text-white text-sm">{u.firstName} {u.lastName}</span>
+                    </button>
+                  ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exclude athlete picker */}
+      {showAddExcludeModal && editingEvent && (
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-[60] px-4">
+          <div className="bg-[#1e1a3a] border border-white/15 rounded-xl shadow-2xl p-5 w-full max-w-sm max-h-[70vh] flex flex-col">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-medium text-sm">Exclude Athlete</h3>
+              <button onClick={() => setShowAddExcludeModal(false)} className="text-white/55 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="relative mb-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
+              <input
+                autoFocus
+                type="text"
+                value={excludeSearch}
+                onChange={(e) => setExcludeSearch(e.target.value)}
+                placeholder="Search team members..."
+                className="w-full pl-9 pr-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7]"
+              />
+            </div>
+            <div className="overflow-y-auto flex-1 space-y-1">
+              {excludeCandidates.filter(u => `${u.firstName} ${u.lastName}`.toLowerCase().includes(excludeSearch.toLowerCase())).length === 0 ? (
+                <p className="text-white/40 text-sm text-center py-4">No team members available</p>
+              ) : (
+                excludeCandidates
+                  .filter(u => `${u.firstName} ${u.lastName}`.toLowerCase().includes(excludeSearch.toLowerCase()))
+                  .map(u => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => {
+                        excludeAthlete({ variables: { eventId: editingEvent.id, userId: u.id } });
+                        setLocalExcluded(prev => [...prev, u]);
+                        setLocalIncluded(prev => prev.filter(x => x.id !== u.id));
+                        setShowAddExcludeModal(false);
+                        setExcludeSearch("");
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/8 transition-colors text-left"
+                    >
+                      {u.image ? (
+                        <img src={u.image} alt="" className="w-7 h-7 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs">
+                          {u.firstName[0]}{u.lastName[0]}
+                        </div>
+                      )}
+                      <span className="text-white text-sm">{u.firstName} {u.lastName}</span>
+                    </button>
+                  ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

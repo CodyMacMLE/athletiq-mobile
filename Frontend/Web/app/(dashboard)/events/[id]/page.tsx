@@ -9,22 +9,31 @@ import {
   GET_EVENTS,
   GET_TEAMS,
   GET_ORGANIZATION_VENUES,
+  GET_ORGANIZATION_USERS,
   CREATE_EVENT,
   UPDATE_EVENT,
   DELETE_EVENT,
   DELETE_RECURRING_EVENT,
   ADMIN_CHECK_IN,
   CHECK_OUT,
+  ADD_ATHLETE_TO_EVENT,
+  REMOVE_ATHLETE_FROM_EVENT,
+  EXCLUDE_ATHLETE_FROM_EVENT,
+  UNEXCLUDE_ATHLETE_FROM_EVENT,
 } from "@/lib/graphql";
 import {
   ArrowLeft,
   Calendar,
+  ChevronDown,
+  ChevronRight,
   Clock,
   Edit2,
   MapPin,
   Repeat,
   Search,
   Trash2,
+  UserMinus,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -79,6 +88,13 @@ type EventRsvp = {
   };
 };
 
+type AthleteUser = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  image?: string;
+};
+
 type EventDetail = {
   id: string;
   title: string;
@@ -95,6 +111,8 @@ type EventDetail = {
   participatingTeams: Team[];
   checkIns: CheckIn[];
   rsvps: EventRsvp[];
+  includedAthletes: AthleteUser[];
+  excludedAthletes: AthleteUser[];
 };
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
@@ -142,6 +160,8 @@ export default function EventDetailPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [showAddAthleteModal, setShowAddAthleteModal] = useState(false);
+  const [excludedOpen, setExcludedOpen] = useState(false);
   const [modifyAthlete, setModifyAthlete] = useState<{
     userId: string;
     name: string;
@@ -158,6 +178,10 @@ export default function EventDetailPage() {
   const [updateEvent] = useMutation<any>(UPDATE_EVENT);
   const [deleteEvent] = useMutation<any>(DELETE_EVENT);
   const [deleteRecurringEvent] = useMutation<any>(DELETE_RECURRING_EVENT);
+  const [addAthleteToEvent] = useMutation<any>(ADD_ATHLETE_TO_EVENT);
+  const [removeAthleteFromEvent] = useMutation<any>(REMOVE_ATHLETE_FROM_EVENT);
+  const [excludeAthleteFromEvent] = useMutation<any>(EXCLUDE_ATHLETE_FROM_EVENT);
+  const [unexcludeAthleteFromEvent] = useMutation<any>(UNEXCLUDE_ATHLETE_FROM_EVENT);
 
   // Determine if the event has ended (past its end time)
   const eventHasEnded = useMemo(() => {
@@ -259,11 +283,13 @@ export default function EventDetailPage() {
   }, [event]);
 
   // Extract coaches (COACH or ADMIN role) and athletes, filtering out members who joined after the event
-  const { coaches, athletes } = useMemo(() => {
-    if (!event) return { coaches: [], athletes: [] };
+  // Also applies include/exclude overrides
+  const { coaches, athletes, includedAthleteIds } = useMemo(() => {
+    if (!event) return { coaches: [], athletes: [], includedAthleteIds: new Set<string>() };
     const eventDate = parseDate(event.date);
-    const coachMap = new Map<string, TeamMember["user"]>();
-    const athleteMap = new Map<string, TeamMember["user"]>();
+    const coachMap = new Map<string, AthleteUser>();
+    const athleteMap = new Map<string, AthleteUser>();
+    const excludedIds = new Set((event.excludedAthletes || []).map(u => u.id));
 
     for (const team of allTeams) {
       for (const member of team.members) {
@@ -274,15 +300,25 @@ export default function EventDetailPage() {
         }
         if (member.role === "COACH" || member.role === "ADMIN") {
           coachMap.set(member.user.id, member.user);
-        } else {
+        } else if (!excludedIds.has(member.user.id)) {
           athleteMap.set(member.user.id, member.user);
         }
+      }
+    }
+
+    // Add individually included athletes (not already in a team)
+    const includedAthleteIds = new Set<string>();
+    for (const u of (event.includedAthletes || [])) {
+      if (!athleteMap.has(u.id) && !coachMap.has(u.id)) {
+        athleteMap.set(u.id, u);
+        includedAthleteIds.add(u.id);
       }
     }
 
     return {
       coaches: Array.from(coachMap.values()),
       athletes: Array.from(athleteMap.values()),
+      includedAthleteIds,
     };
   }, [allTeams, event]);
 
@@ -541,20 +577,31 @@ export default function EventDetailPage() {
               ({checkedInCount}/{athletes.length})
             </span>
           </h2>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search athletes..."
-              className="pl-9 pr-4 py-1.5 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] w-56"
-            />
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <button
+                onClick={() => setShowAddAthleteModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7]/20 text-[#a78bfa] rounded-lg hover:bg-[#6c5ce7]/30 transition-colors text-sm"
+              >
+                <UserPlus className="w-4 h-4" />
+                Add Athlete
+              </button>
+            )}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search athletes..."
+                className="pl-9 pr-4 py-1.5 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] w-56"
+              />
+            </div>
           </div>
         </div>
 
         {/* Table Header */}
-        <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-medium text-white/40 uppercase tracking-wider border-b border-white/8">
+        <div className="grid grid-cols-13 gap-2 px-3 py-2 text-xs font-medium text-white/40 uppercase tracking-wider border-b border-white/8" style={{ gridTemplateColumns: "repeat(13, minmax(0, 1fr))" }}>
           <div className="col-span-3">Name</div>
           <div className="col-span-2">Status</div>
           <div className="col-span-1">RSVP</div>
@@ -562,12 +609,14 @@ export default function EventDetailPage() {
           <div className="col-span-2">Check Out</div>
           <div className="col-span-1">Hours</div>
           <div className="col-span-1">Note</div>
+          <div className="col-span-1"></div>
         </div>
 
         {/* Rows */}
         <div className="divide-y divide-white/8/50">
           {filteredRows.map((row) => {
             const rsvp = rsvpByUser.get(row.user.id);
+            const isIncludedAthlete = includedAthleteIds.has(row.user.id);
             return (
               <div
                 key={row.user.id}
@@ -580,9 +629,10 @@ export default function EventDetailPage() {
                       })
                     : undefined
                 }
-                className={`grid grid-cols-12 gap-2 px-3 py-3 items-center text-sm ${
+                className={`grid gap-2 px-3 py-3 items-center text-sm ${
                   canEdit ? "cursor-pointer hover:bg-white/5 transition-colors" : ""
                 }`}
+                style={{ gridTemplateColumns: "repeat(13, minmax(0, 1fr))" }}
               >
                 {/* Name */}
                 <div className="col-span-3 flex items-center gap-2">
@@ -598,9 +648,14 @@ export default function EventDetailPage() {
                       {row.user.lastName[0]}
                     </div>
                   )}
-                  <span className="text-white truncate">
-                    {row.user.firstName} {row.user.lastName}
-                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-white truncate">
+                      {row.user.firstName} {row.user.lastName}
+                    </span>
+                    {isIncludedAthlete && (
+                      <span className="text-[#a78bfa] text-xs">Guest</span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Status */}
@@ -668,6 +723,37 @@ export default function EventDetailPage() {
                 <div className="col-span-1 text-white/40 truncate">
                   {row.checkIn?.note || "—"}
                 </div>
+
+                {/* Actions */}
+                <div className="col-span-1 flex justify-end">
+                  {canEdit && (
+                    isIncludedAthlete ? (
+                      <button
+                        title="Remove from this event"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeAthleteFromEvent({ variables: { eventId, userId: row.user.id } })
+                            .then(() => refetch());
+                        }}
+                        className="p-1 text-white/30 hover:text-red-400 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <button
+                        title="Exclude from this event"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          excludeAthleteFromEvent({ variables: { eventId, userId: row.user.id } })
+                            .then(() => refetch());
+                        }}
+                        className="p-1 text-white/30 hover:text-orange-400 transition-colors"
+                      >
+                        <UserMinus className="w-3.5 h-3.5" />
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
             );
           })}
@@ -680,6 +766,48 @@ export default function EventDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Excluded Athletes Section */}
+        {(event.excludedAthletes || []).length > 0 && (
+          <div className="mt-4 border-t border-white/8 pt-4">
+            <button
+              onClick={() => setExcludedOpen(!excludedOpen)}
+              className="flex items-center gap-2 text-sm text-white/40 hover:text-white/70 transition-colors"
+            >
+              {excludedOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              Excluded ({event.excludedAthletes.length})
+            </button>
+            {excludedOpen && (
+              <div className="mt-3 space-y-2">
+                {event.excludedAthletes.map((u) => (
+                  <div key={u.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/4">
+                    <div className="flex items-center gap-2">
+                      {u.image ? (
+                        <img src={u.image} alt="" className="w-7 h-7 rounded-full object-cover opacity-50" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/40 text-xs font-medium">
+                          {u.firstName[0]}{u.lastName[0]}
+                        </div>
+                      )}
+                      <span className="text-white/40 text-sm">{u.firstName} {u.lastName}</span>
+                    </div>
+                    {canEdit && (
+                      <button
+                        onClick={() =>
+                          unexcludeAthleteFromEvent({ variables: { eventId, userId: u.id } })
+                            .then(() => refetch())
+                        }
+                        className="text-xs text-[#a78bfa] hover:text-[#c4b5fd] transition-colors px-2 py-1 rounded hover:bg-[#6c5ce7]/15"
+                      >
+                        Unexclude
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Modify Attendance Modal */}
@@ -694,6 +822,20 @@ export default function EventDetailPage() {
             setModifyAthlete(null);
             refetch();
           }}
+        />
+      )}
+
+      {/* Add Athlete Modal */}
+      {showAddAthleteModal && event && selectedOrganizationId && (
+        <AddAthleteModal
+          eventId={eventId}
+          organizationId={selectedOrganizationId}
+          existingAthleteIds={new Set(athletes.map(a => a.id))}
+          onClose={() => setShowAddAthleteModal(false)}
+          onAdd={(userId) =>
+            addAthleteToEvent({ variables: { eventId, userId } })
+              .then(() => { refetch(); setShowAddAthleteModal(false); })
+          }
         />
       )}
 
@@ -911,6 +1053,97 @@ function ModifyAttendanceModal({
           >
             {saving ? "Saving..." : "Save"}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// AddAthleteModal
+// ============================================
+
+function AddAthleteModal({
+  eventId,
+  organizationId,
+  existingAthleteIds,
+  onClose,
+  onAdd,
+}: {
+  eventId: string;
+  organizationId: string;
+  existingAthleteIds: Set<string>;
+  onClose: () => void;
+  onAdd: (userId: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const { data } = useQuery<any>(GET_ORGANIZATION_USERS, {
+    variables: { id: organizationId },
+  });
+
+  const orgMembers: { id: string; role: string; user: AthleteUser }[] =
+    data?.organization?.members || [];
+
+  const candidates = orgMembers
+    .filter(
+      (m) =>
+        m.role === "ATHLETE" &&
+        !existingAthleteIds.has(m.user.id)
+    )
+    .map((m) => m.user);
+
+  const filtered = candidates.filter((u) => {
+    const name = `${u.firstName} ${u.lastName}`.toLowerCase();
+    return name.includes(search.toLowerCase());
+  });
+
+  return (
+    <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 shadow-2xl p-6 w-full max-w-md max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Add Athlete to Event</h2>
+          <button onClick={onClose} className="text-white/55 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search athletes..."
+            autoFocus
+            className="w-full pl-9 pr-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7]"
+          />
+        </div>
+
+        <div className="overflow-y-auto flex-1 space-y-1">
+          {filtered.length === 0 ? (
+            <p className="text-white/40 text-sm text-center py-6">
+              {search ? "No athletes match your search" : "All org athletes are already in this event"}
+            </p>
+          ) : (
+            filtered.map((u) => (
+              <button
+                key={u.id}
+                onClick={() => onAdd(u.id)}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/8 transition-colors text-left"
+              >
+                {u.image ? (
+                  <img src={u.image} alt="" className="w-8 h-8 rounded-full object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs font-medium">
+                    {u.firstName[0]}{u.lastName[0]}
+                  </div>
+                )}
+                <span className="text-white text-sm">
+                  {u.firstName} {u.lastName}
+                </span>
+              </button>
+            ))
+          )}
         </div>
       </div>
     </div>

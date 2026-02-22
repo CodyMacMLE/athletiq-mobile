@@ -206,14 +206,46 @@ export const GET_EVENTS = gql`
       team {
         id
         name
+        members {
+          id
+          role
+          user {
+            id
+            firstName
+            lastName
+            image
+          }
+        }
       }
       participatingTeams {
         id
         name
+        members {
+          id
+          role
+          user {
+            id
+            firstName
+            lastName
+            image
+          }
+        }
       }
       checkIns {
         id
         status
+      }
+      includedAthletes {
+        id
+        firstName
+        lastName
+        image
+      }
+      excludedAthletes {
+        id
+        firstName
+        lastName
+        image
       }
     }
   }
@@ -481,6 +513,18 @@ export const GET_EVENT_DETAIL = gql`
           firstName
           lastName
         }
+      }
+      includedAthletes {
+        id
+        firstName
+        lastName
+        image
+      }
+      excludedAthletes {
+        id
+        firstName
+        lastName
+        image
       }
     }
   }

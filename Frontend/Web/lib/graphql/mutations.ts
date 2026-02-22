@@ -549,3 +549,47 @@ export const DELETE_VENUE = gql`
     deleteVenue(id: $id)
   }
 `;
+
+// ============================================
+// Athlete Include / Exclude Mutations
+// ============================================
+
+export const ADD_ATHLETE_TO_EVENT = gql`
+  mutation AddAthleteToEvent($eventId: ID!, $userId: ID!) {
+    addAthleteToEvent(eventId: $eventId, userId: $userId) {
+      id
+      includedAthletes { id firstName lastName image }
+      excludedAthletes { id firstName lastName image }
+    }
+  }
+`;
+
+export const REMOVE_ATHLETE_FROM_EVENT = gql`
+  mutation RemoveAthleteFromEvent($eventId: ID!, $userId: ID!) {
+    removeAthleteFromEvent(eventId: $eventId, userId: $userId) {
+      id
+      includedAthletes { id firstName lastName image }
+      excludedAthletes { id firstName lastName image }
+    }
+  }
+`;
+
+export const EXCLUDE_ATHLETE_FROM_EVENT = gql`
+  mutation ExcludeAthleteFromEvent($eventId: ID!, $userId: ID!) {
+    excludeAthleteFromEvent(eventId: $eventId, userId: $userId) {
+      id
+      includedAthletes { id firstName lastName image }
+      excludedAthletes { id firstName lastName image }
+    }
+  }
+`;
+
+export const UNEXCLUDE_ATHLETE_FROM_EVENT = gql`
+  mutation UnexcludeAthleteFromEvent($eventId: ID!, $userId: ID!) {
+    unexcludeAthleteFromEvent(eventId: $eventId, userId: $userId) {
+      id
+      includedAthletes { id firstName lastName image }
+      excludedAthletes { id firstName lastName image }
+    }
+  }
+`;

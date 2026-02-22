@@ -39,6 +39,8 @@ model User {
   createdAnnouncements     Announcement[]
   emergencyContacts        EmergencyContact[]
   medicalInfos             MedicalInfo[]
+  eventIncludes            EventAthleteInclude[]
+  eventExcludes            EventAthleteExclude[]
 }
 
 // ============================================
@@ -223,6 +225,8 @@ model Event {
   recurringEventId   String?
   recurringEvent     RecurringEvent? @relation(fields: [recurringEventId], references: [id])
   participatingTeams Team[]          @relation("EventParticipatingTeams")
+  includedAthletes   EventAthleteInclude[]
+  excludedAthletes   EventAthleteExclude[]
 
   @@index([organizationId])
   @@index([teamId])
@@ -266,6 +270,30 @@ enum AttendanceStatus {
   LATE
   ABSENT
   EXCUSED
+}
+
+model EventAthleteInclude {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+}
+
+model EventAthleteExclude {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([eventId, userId])
+  @@index([eventId])
 }
 
 model ExcuseRequest {

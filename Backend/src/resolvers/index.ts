@@ -623,8 +623,24 @@ export const resolvers = {
       });
       const checkedInIds = new Set(existingCheckIns.map((c) => c.userId));
 
+      // Apply include/exclude overrides
+      const excludeRows = await prisma.eventAthleteExclude.findMany({ where: { eventId: event.id } });
+      const excludedIds = new Set(excludeRows.map(r => r.userId));
+      const includeRows = await prisma.eventAthleteInclude.findMany({
+        where: { eventId: event.id },
+        include: { user: true },
+      });
+      const includedUsers = includeRows.map(r => r.user);
+
+      // Filter out excluded, add included, deduplicate
+      const filteredAthletes = Array.from(userMap.values()).filter(u => !excludedIds.has(u.id));
+      const allIds = new Set(filteredAthletes.map(u => u.id));
+      for (const u of includedUsers) {
+        if (!allIds.has(u.id)) filteredAthletes.push(u as any);
+      }
+
       // Return users not yet checked in
-      return Array.from(userMap.values()).filter((u) => !checkedInIds.has(u.id));
+      return filteredAthletes.filter((u) => !checkedInIds.has(u.id));
     },
 
     // Excuse queries
@@ -3389,6 +3405,37 @@ export const resolvers = {
         },
       });
     },
+
+    // Athlete include/exclude mutations
+    addAthleteToEvent: async (_: unknown, { eventId, userId }: { eventId: string; userId: string }) => {
+      await prisma.eventAthleteInclude.upsert({
+        where: { eventId_userId: { eventId, userId } },
+        create: { eventId, userId },
+        update: {},
+      });
+      await prisma.eventAthleteExclude.deleteMany({ where: { eventId, userId } });
+      return prisma.event.findUnique({ where: { id: eventId } });
+    },
+
+    removeAthleteFromEvent: async (_: unknown, { eventId, userId }: { eventId: string; userId: string }) => {
+      await prisma.eventAthleteInclude.deleteMany({ where: { eventId, userId } });
+      return prisma.event.findUnique({ where: { id: eventId } });
+    },
+
+    excludeAthleteFromEvent: async (_: unknown, { eventId, userId }: { eventId: string; userId: string }) => {
+      await prisma.eventAthleteExclude.upsert({
+        where: { eventId_userId: { eventId, userId } },
+        create: { eventId, userId },
+        update: {},
+      });
+      await prisma.eventAthleteInclude.deleteMany({ where: { eventId, userId } });
+      return prisma.event.findUnique({ where: { id: eventId } });
+    },
+
+    unexcludeAthleteFromEvent: async (_: unknown, { eventId, userId }: { eventId: string; userId: string }) => {
+      await prisma.eventAthleteExclude.deleteMany({ where: { eventId, userId } });
+      return prisma.event.findUnique({ where: { id: eventId } });
+    },
   },
 
   // Field resolvers
@@ -3565,6 +3612,16 @@ export const resolvers = {
       prisma.team.findMany({
         where: { participatingEvents: { some: { id: parent.id } } },
       }),
+    includedAthletes: (parent: { id: string }) =>
+      prisma.eventAthleteInclude.findMany({
+        where: { eventId: parent.id },
+        include: { user: true },
+      }).then(rows => rows.map(r => r.user)),
+    excludedAthletes: (parent: { id: string }) =>
+      prisma.eventAthleteExclude.findMany({
+        where: { eventId: parent.id },
+        include: { user: true },
+      }).then(rows => rows.map(r => r.user)),
     date: (parent: any) => toISO(parent.date),
     endDate: (parent: any) => parent.endDate ? toISO(parent.endDate) : null,
     createdAt: (parent: any) => toISO(parent.createdAt),

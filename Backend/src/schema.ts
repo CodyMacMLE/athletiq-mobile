@@ -274,6 +274,8 @@ export const typeDefs = `#graphql
     checkIns: [CheckIn!]!
     rsvps: [EventRsvp!]!
     recurringEvent: RecurringEvent
+    includedAthletes: [User!]!
+    excludedAthletes: [User!]!
     createdAt: String!
     updatedAt: String!
   }
@@ -869,6 +871,10 @@ export const typeDefs = `#graphql
     createEvent(input: CreateEventInput!): Event!
     updateEvent(id: ID!, title: String, type: EventType, date: String, endDate: String, startTime: String, endTime: String, location: String, description: String, venueId: ID): Event!
     deleteEvent(id: ID!): Boolean!
+    addAthleteToEvent(eventId: ID!, userId: ID!): Event!
+    removeAthleteFromEvent(eventId: ID!, userId: ID!): Event!
+    excludeAthleteFromEvent(eventId: ID!, userId: ID!): Event!
+    unexcludeAthleteFromEvent(eventId: ID!, userId: ID!): Event!
 
     # Recurring event mutations
     createRecurringEvent(input: CreateRecurringEventInput!): RecurringEvent!
