@@ -1451,12 +1451,20 @@ export const resolvers = {
         }
 
         if (hardDelete) {
-          // Nullify teamId on events so check-ins are preserved without team reference
-          await tx.event.updateMany({
-            where: { teamId: id },
-            data: { teamId: null },
-          });
-          // Delete recurring events tied to this team
+          // Collect all event IDs owned by this team
+          const teamEventIds = (
+            await tx.event.findMany({ where: { teamId: id }, select: { id: true } })
+          ).map((e) => e.id);
+
+          if (teamEventIds.length > 0) {
+            // Delete child records in dependency order before deleting events
+            await tx.checkIn.deleteMany({ where: { eventId: { in: teamEventIds } } });
+            await tx.excuseRequest.deleteMany({ where: { eventId: { in: teamEventIds } } });
+            await tx.eventRsvp.deleteMany({ where: { eventId: { in: teamEventIds } } });
+            await tx.event.deleteMany({ where: { id: { in: teamEventIds } } });
+          }
+
+          // Delete recurring event templates tied to this team
           await tx.recurringEvent.deleteMany({ where: { teamId: id } });
           // Hard delete the team
           await tx.team.delete({ where: { id } });
