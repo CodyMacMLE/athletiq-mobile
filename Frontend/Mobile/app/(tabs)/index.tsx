@@ -100,9 +100,8 @@ export default function Index() {
     skip: !targetUserId,
   });
 
-  // Fetch scheduled events for this week so we can distinguish real events from ad-hoc days.
-  // End date is set to the day AFTER Saturday because events are stored at noon UTC —
-  // using Saturday midnight as lte would exclude same-day events.
+  // Fetch scheduled events for this week (today + future) so we can show "scheduled" dots.
+  // Use local date formatting to avoid UTC timezone shift from toISOString().
   const { weekStartStr, weekEndStr } = useMemo(() => {
     const now = new Date();
     const sun = new Date(now);
@@ -110,10 +109,13 @@ export default function Index() {
     sun.setHours(0, 0, 0, 0);
     const nextSun = new Date(sun);
     nextSun.setDate(sun.getDate() + 7); // exclusive upper bound
-    return {
-      weekStartStr: sun.toISOString().split("T")[0],
-      weekEndStr: nextSun.toISOString().split("T")[0],
+    const fmt = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
     };
+    return { weekStartStr: fmt(sun), weekEndStr: fmt(nextSun) };
   }, []);
 
   const { data: weekEventsData } = useQuery(GET_EVENTS, {
@@ -156,65 +158,92 @@ export default function Index() {
   const stats = statsData?.userStats;
   const recentActivity = activityData?.recentActivity || [];
 
-  // Build weekly check-in dots: Sun–Sat with 6 states per day
+  // Build weekly check-in dots: Sun–Sat with 6 states per day.
+  //
+  // Strategy:
+  //   Past days  → derive state from check-in records ONLY.
+  //                No check-in record = no tracked event for this athlete = "off".
+  //                This prevents false "absent" from cross-team events in the events query.
+  //                ABSENT records may have null checkInTime; use event.date as fallback.
+  //   Today      → check-in record first, then fall back to events query for "scheduled".
+  //   Future     → events query only → "scheduled" or "off".
   const weekDots = useMemo(() => {
     const checkIns = checkinData?.checkInHistory || [];
     const scheduledEvents = weekEventsData?.events || [];
     const excuses = weekExcuseData?.myExcuseRequests || [];
     const now = new Date();
 
-    // Normalize a raw event/checkin date string or number into a "YYYY-M-D" key (local calendar day)
-    const toDateKey = (raw: string | number): string => {
+    // Normalize a date value to a local "YYYY-M-D" key (month is 0-indexed intentionally)
+    const toDateKey = (raw: string | number | null | undefined): string | null => {
+      if (raw == null) return null;
       let d: Date;
       const num = Number(raw);
-      if (!isNaN(num) && String(raw).length > 8) {
-        // unix timestamp (ms or s)
+      if (!isNaN(num) && num > 0 && String(raw).length > 8) {
         d = new Date(num > 9999999999 ? num : num * 1000);
       } else {
         const s = String(raw);
         const datePart = s.includes("T") ? s.split("T")[0] : s;
-        const [y, m, day] = datePart.split("-").map(Number);
-        d = new Date(y, m - 1, day); // local date, avoids UTC shift
+        const parts = datePart.split("-").map(Number);
+        if (parts.length !== 3 || parts.some(isNaN)) return null;
+        d = new Date(parts[0], parts[1] - 1, parts[2]);
       }
       return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
     };
 
-    // Sunday of this week (local)
     const sunday = new Date(now);
     sunday.setDate(now.getDate() - now.getDay());
     sunday.setHours(0, 0, 0, 0);
 
-    return WEEK_DAYS.map((_, i) => {
+    type DotState = "off" | "scheduled" | "checkedIn" | "excuseApproved" | "excusePending" | "absent";
+
+    const stateFromCheckIn = (ci: any): DotState => {
+      const s = ci.status;
+      if (s === "ON_TIME" || s === "LATE") return "checkedIn";
+      if (s === "EXCUSED") return "excuseApproved";
+      if (s === "ABSENT") {
+        const excuse = excuses.find((ex: any) => ex.event?.id === ci.event?.id);
+        if (excuse?.status === "PENDING") return "excusePending";
+        if (excuse?.status === "APPROVED") return "excuseApproved";
+        return "absent";
+      }
+      return "off";
+    };
+
+    return WEEK_DAYS.map((_, i): DotState => {
       const date = new Date(sunday);
       date.setDate(sunday.getDate() + i);
       const dateKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 
-      const isPast = date.getFullYear() < now.getFullYear()
-        || (date.getFullYear() === now.getFullYear() && date.getMonth() < now.getMonth())
-        || (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() < now.getDate());
-      const isToday = date.getFullYear() === now.getFullYear()
-        && date.getMonth() === now.getMonth()
-        && date.getDate() === now.getDate();
-      const isFuture = !isPast && !isToday;
+      const isToday =
+        date.getFullYear() === now.getFullYear() &&
+        date.getMonth() === now.getMonth() &&
+        date.getDate() === now.getDate();
+      const isPast =
+        !isToday &&
+        (date.getFullYear() < now.getFullYear() ||
+          (date.getFullYear() === now.getFullYear() && date.getMonth() < now.getMonth()) ||
+          (date.getFullYear() === now.getFullYear() &&
+            date.getMonth() === now.getMonth() &&
+            date.getDate() < now.getDate()));
 
-      // Scheduled event on this day?
-      const hasScheduledEvent = scheduledEvents.some(
-        (ev: any) => toDateKey(ev.date) === dateKey
-      );
+      if (isPast || isToday) {
+        // Match check-in to day via event.date (handles ABSENT with null checkInTime)
+        // or via checkInTime as fallback.
+        const checkIn = checkIns.find((ci: any) => {
+          if (ci.isAdHoc) return false;
+          const dateSource = ci.event?.date ?? ci.checkInTime;
+          return toDateKey(dateSource) === dateKey;
+        });
 
-      // Regular (non-ad-hoc) check-in on this day
-      const hasCheckIn = checkIns.some(
-        (ci: any) => !ci.isAdHoc && toDateKey(ci.checkInTime) === dateKey
-      );
+        if (checkIn) return stateFromCheckIn(checkIn);
 
-      // Excuse request whose event falls on this day
-      const excuse = excuses.find(
-        (ex: any) => toDateKey(ex.event.date) === dateKey
-      );
-      const excuseStatus: "PENDING" | "APPROVED" | "DENIED" | null =
-        excuse?.status ?? null;
+        // Past day with no check-in record → no tracked event for this athlete
+        if (isPast) return "off";
+      }
 
-      return { isFuture, isToday, isPast, hasScheduledEvent, hasCheckIn, excuseStatus };
+      // Today (no check-in yet) or future: show "scheduled" if event exists in org this day
+      const hasEvent = scheduledEvents.some((ev: any) => toDateKey(ev.date) === dateKey);
+      return hasEvent ? "scheduled" : "off";
     });
   }, [checkinData, weekEventsData, weekExcuseData]);
 
@@ -354,49 +383,45 @@ export default function Index() {
           <Text style={styles.sectionTitle}>This Week</Text>
           <View style={styles.weekRow}>
             {WEEK_DAYS.map((day, i) => {
-              const { isFuture, isToday, hasScheduledEvent, hasCheckIn, excuseStatus } = weekDots[i];
+              const state = weekDots[i];
 
-              // Derive display state (priority order)
               let dotStyle = styles.dayDotOff;
               let icon: string | null = "minus";
               let iconColor = "rgba(255,255,255,0.3)";
               let labelStyle = styles.dayLabelOff;
 
-              if (!hasScheduledEvent) {
-                // No event — always show off regardless of any check-in
-                dotStyle = styles.dayDotOff;
-                icon = "minus";
-                iconColor = "rgba(255,255,255,0.3)";
-                labelStyle = styles.dayLabelOff;
-              } else if (isFuture || (isToday && !hasCheckIn && excuseStatus !== "APPROVED")) {
-                // Scheduled event but not yet happened / today with no action yet
-                dotStyle = styles.dayDotScheduled;
-                icon = null;
-                labelStyle = styles.dayLabel;
-              } else if (hasCheckIn) {
-                // Checked in ✓
-                dotStyle = styles.dayDotCheckedIn;
-                icon = "check";
-                iconColor = "white";
-                labelStyle = styles.dayLabelActive;
-              } else if (excuseStatus === "APPROVED") {
-                // Absence approved (orange)
-                dotStyle = styles.dayDotExcuseApproved;
-                icon = "check";
-                iconColor = "white";
-                labelStyle = styles.dayLabelExcuseApproved;
-              } else if (excuseStatus === "PENDING") {
-                // Absence request pending (yellow)
-                dotStyle = styles.dayDotExcusePending;
-                icon = "clock";
-                iconColor = "white";
-                labelStyle = styles.dayLabelExcusePending;
-              } else {
-                // Absent — past event, no check-in, no valid excuse (or excuse denied)
-                dotStyle = styles.dayDotAbsent;
-                icon = "x";
-                iconColor = "white";
-                labelStyle = styles.dayLabelAbsent;
+              switch (state) {
+                case "scheduled":
+                  dotStyle = styles.dayDotScheduled;
+                  icon = null;
+                  labelStyle = styles.dayLabel;
+                  break;
+                case "checkedIn":
+                  dotStyle = styles.dayDotCheckedIn;
+                  icon = "check";
+                  iconColor = "white";
+                  labelStyle = styles.dayLabelActive;
+                  break;
+                case "excuseApproved":
+                  dotStyle = styles.dayDotExcuseApproved;
+                  icon = "check";
+                  iconColor = "white";
+                  labelStyle = styles.dayLabelExcuseApproved;
+                  break;
+                case "excusePending":
+                  dotStyle = styles.dayDotExcusePending;
+                  icon = "clock";
+                  iconColor = "white";
+                  labelStyle = styles.dayLabelExcusePending;
+                  break;
+                case "absent":
+                  dotStyle = styles.dayDotAbsent;
+                  icon = "x";
+                  iconColor = "white";
+                  labelStyle = styles.dayLabelAbsent;
+                  break;
+                default: // "off"
+                  break;
               }
 
               return (
