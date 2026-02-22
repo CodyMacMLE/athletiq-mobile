@@ -81,6 +81,7 @@ export async function markAbsentForEndedEvents(options?: MarkAbsentOptions): Pro
         userId,
         eventId: event.id,
         status: "ABSENT" as const,
+        hoursLogged: 0,
       })),
       skipDuplicates: true,
     });
