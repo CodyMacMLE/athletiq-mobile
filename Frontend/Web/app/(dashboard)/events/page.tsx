@@ -981,7 +981,7 @@ function EventModal({
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-[#13102a] rounded-xl w-full max-w-lg p-6 border border-white/15 max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="bg-[#13102a] rounded-xl w-full max-w-2xl p-6 border border-white/15 max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">{isEdit ? "Edit Event" : "Create Event"}</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -1217,13 +1217,13 @@ function EventModal({
                 </div>
 
                 {showTeamDropdown && filteredTeams.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white/8 border border-white/10 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-[#1e1a3a] border border-white/20 rounded-lg shadow-xl max-h-40 overflow-y-auto">
                     {filteredTeams.map((team) => (
                       <button
                         key={team.id}
                         type="button"
                         onClick={() => addTeam(team)}
-                        className="w-full px-4 py-2 text-left text-sm text-white/75 hover:bg-white/12 hover:text-white transition-colors"
+                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
                       >
                         {team.name}
                       </button>
@@ -1232,7 +1232,7 @@ function EventModal({
                 )}
 
                 {showTeamDropdown && teamSearch && filteredTeams.length === 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white/8 border border-white/10 rounded-lg shadow-lg">
+                  <div className="absolute z-10 w-full mt-1 bg-[#1e1a3a] border border-white/20 rounded-lg shadow-xl">
                     <p className="px-4 py-2 text-sm text-white/55">No teams found</p>
                   </div>
                 )}
