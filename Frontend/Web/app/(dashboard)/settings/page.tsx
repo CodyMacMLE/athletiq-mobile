@@ -310,89 +310,6 @@ export default function SettingsPage() {
     </div>
   );
 
-  const VenueForm = ({ isEditing }: { isEditing: boolean }) => (
-    <div className="bg-white/5 rounded-lg p-4 space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-white/55 mb-1">Venue Name *</label>
-          <input
-            type="text"
-            value={venueForm.name}
-            onChange={(e) => setVenueForm(f => ({ ...f, name: e.target.value }))}
-            placeholder="Main Gym"
-            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-white/55 mb-1">Address</label>
-          <input
-            type="text"
-            value={venueForm.address}
-            onChange={(e) => setVenueForm(f => ({ ...f, address: e.target.value }))}
-            placeholder="123 Main St."
-            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-white/55 mb-1">City</label>
-          <input
-            type="text"
-            value={venueForm.city}
-            onChange={(e) => setVenueForm(f => ({ ...f, city: e.target.value }))}
-            placeholder="Toronto"
-            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-white/55 mb-1">State / Province</label>
-          <input
-            type="text"
-            value={venueForm.state}
-            onChange={(e) => setVenueForm(f => ({ ...f, state: e.target.value }))}
-            placeholder="ON"
-            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-white/55 mb-1">Country</label>
-          <input
-            type="text"
-            value={venueForm.country}
-            onChange={(e) => setVenueForm(f => ({ ...f, country: e.target.value }))}
-            placeholder="Canada"
-            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-          />
-        </div>
-        <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-white/55 mb-1">Notes</label>
-          <input
-            type="text"
-            value={venueForm.notes}
-            onChange={(e) => setVenueForm(f => ({ ...f, notes: e.target.value }))}
-            placeholder="Parking info, entrance details, etc."
-            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-          />
-        </div>
-      </div>
-      <div className="flex items-center justify-end gap-2 pt-1">
-        <button
-          onClick={resetVenueForm}
-          className="px-3 py-1.5 text-sm text-white/55 hover:text-white transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={isEditing ? handleUpdateVenue : handleCreateVenue}
-          disabled={!venueForm.name.trim()}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Check className="w-4 h-4" />
-          {isEditing ? "Save" : "Add Venue"}
-        </button>
-      </div>
-    </div>
-  );
-
   return (
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold text-white mb-8">Settings</h1>
@@ -645,7 +562,7 @@ export default function SettingsPage() {
                 {venues.map((venue) => (
                   <div key={venue.id}>
                     {editingVenue?.id === venue.id ? (
-                      <VenueForm isEditing />
+                      <VenueForm isEditing values={venueForm} onChange={setVenueForm} onCancel={resetVenueForm} onSubmit={handleUpdateVenue} />
                     ) : (
                       <div className="flex items-center justify-between px-3 py-2.5 bg-white/5 rounded-lg">
                         <div>
@@ -686,7 +603,7 @@ export default function SettingsPage() {
               </p>
             )}
 
-            {showVenueForm && <VenueForm isEditing={false} />}
+            {showVenueForm && <VenueForm isEditing={false} values={venueForm} onChange={setVenueForm} onCancel={resetVenueForm} onSubmit={handleCreateVenue} />}
           </div>
         </section>
       )}
@@ -709,6 +626,127 @@ export default function SettingsPage() {
           </a>
         </div>
       </section>
+    </div>
+  );
+}
+
+type VenueFormValues = { name: string; address: string; city: string; state: string; country: string; notes: string };
+
+function VenueForm({
+  isEditing,
+  values,
+  onChange,
+  onCancel,
+  onSubmit,
+}: {
+  isEditing: boolean;
+  values: VenueFormValues;
+  onChange: (updater: (prev: VenueFormValues) => VenueFormValues) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  const inputClass = "w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]";
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, nextId?: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (nextId) {
+        document.getElementById(nextId)?.focus();
+      } else {
+        onSubmit();
+      }
+    }
+  };
+
+  return (
+    <div className="bg-white/5 rounded-lg p-4 space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-white/55 mb-1">Venue Name *</label>
+          <input
+            id="vf-name"
+            type="text"
+            value={values.name}
+            onChange={(e) => onChange(f => ({ ...f, name: e.target.value }))}
+            onKeyDown={(e) => handleKeyDown(e, "vf-address")}
+            placeholder="Main Gym"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white/55 mb-1">Address</label>
+          <input
+            id="vf-address"
+            type="text"
+            value={values.address}
+            onChange={(e) => onChange(f => ({ ...f, address: e.target.value }))}
+            onKeyDown={(e) => handleKeyDown(e, "vf-city")}
+            placeholder="123 Main St."
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white/55 mb-1">City</label>
+          <input
+            id="vf-city"
+            type="text"
+            value={values.city}
+            onChange={(e) => onChange(f => ({ ...f, city: e.target.value }))}
+            onKeyDown={(e) => handleKeyDown(e, "vf-state")}
+            placeholder="Toronto"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white/55 mb-1">State / Province</label>
+          <input
+            id="vf-state"
+            type="text"
+            value={values.state}
+            onChange={(e) => onChange(f => ({ ...f, state: e.target.value }))}
+            onKeyDown={(e) => handleKeyDown(e, "vf-country")}
+            placeholder="ON"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white/55 mb-1">Country</label>
+          <input
+            id="vf-country"
+            type="text"
+            value={values.country}
+            onChange={(e) => onChange(f => ({ ...f, country: e.target.value }))}
+            onKeyDown={(e) => handleKeyDown(e, "vf-notes")}
+            placeholder="Canada"
+            className={inputClass}
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-white/55 mb-1">Notes</label>
+          <input
+            id="vf-notes"
+            type="text"
+            value={values.notes}
+            onChange={(e) => onChange(f => ({ ...f, notes: e.target.value }))}
+            onKeyDown={(e) => handleKeyDown(e)}
+            placeholder="Parking info, entrance details, etc."
+            className={inputClass}
+          />
+        </div>
+      </div>
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <button onClick={onCancel} className="px-3 py-1.5 text-sm text-white/55 hover:text-white transition-colors">
+          Cancel
+        </button>
+        <button
+          onClick={onSubmit}
+          disabled={!values.name.trim()}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Check className="w-4 h-4" />
+          {isEditing ? "Save" : "Add Venue"}
+        </button>
+      </div>
     </div>
   );
 }
