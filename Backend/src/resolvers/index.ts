@@ -2309,6 +2309,29 @@ export const resolvers = {
       }
       const checkOutTime = input.checkOutTime ? new Date(input.checkOutTime) : null;
 
+      // Absent status: zero out hours and clear times
+      if (input.status === "ABSENT") {
+        return prisma.checkIn.upsert({
+          where: { userId_eventId: { userId: input.userId, eventId: input.eventId } },
+          create: {
+            userId: input.userId,
+            eventId: input.eventId,
+            status: "ABSENT",
+            checkInTime: null,
+            checkOutTime: null,
+            hoursLogged: 0,
+            note: input.note,
+          },
+          update: {
+            status: "ABSENT",
+            checkInTime: null,
+            checkOutTime: null,
+            hoursLogged: 0,
+            note: input.note,
+          },
+        });
+      }
+
       // Calculate hoursLogged when both times are provided
       let hoursLogged: number | null = null;
       if (checkInTime && checkOutTime) {
@@ -2360,9 +2383,15 @@ export const resolvers = {
           userId,
           eventId,
           status: "ABSENT",
+          checkInTime: null,
+          checkOutTime: null,
+          hoursLogged: 0,
         },
         update: {
           status: "ABSENT",
+          checkInTime: null,
+          checkOutTime: null,
+          hoursLogged: 0,
         },
       });
     },
