@@ -551,3 +551,28 @@ export const GET_MY_RSVPS = gql`
     }
   }
 `;
+
+export const GET_MY_HEALTH_DATA = gql`
+  query GetMyHealthData($userId: ID!, $organizationId: ID!) {
+    user(id: $userId) {
+      emergencyContacts(organizationId: $organizationId) {
+        id
+        name
+        relationship
+        phone
+        email
+        isPrimary
+      }
+      medicalInfo(organizationId: $organizationId) {
+        id
+        conditions
+        allergies
+        medications
+        insuranceProvider
+        insurancePolicyNumber
+        insuranceGroupNumber
+        notes
+      }
+    }
+  }
+`;

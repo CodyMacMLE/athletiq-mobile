@@ -420,3 +420,64 @@ export const UPDATE_EXCUSE_REQUEST = gql`
     }
   }
 `;
+
+// ============================================
+// Health & Safety Mutations
+// ============================================
+
+export const CREATE_EMERGENCY_CONTACT = gql`
+  mutation CreateEmergencyContact($input: CreateEmergencyContactInput!) {
+    createEmergencyContact(input: $input) {
+      id
+      name
+      relationship
+      phone
+      email
+      isPrimary
+    }
+  }
+`;
+
+export const UPDATE_EMERGENCY_CONTACT = gql`
+  mutation UpdateEmergencyContact($id: ID!, $input: UpdateEmergencyContactInput!) {
+    updateEmergencyContact(id: $id, input: $input) {
+      id
+      name
+      relationship
+      phone
+      email
+      isPrimary
+    }
+  }
+`;
+
+export const DELETE_EMERGENCY_CONTACT = gql`
+  mutation DeleteEmergencyContact($id: ID!) {
+    deleteEmergencyContact(id: $id)
+  }
+`;
+
+export const UPSERT_MEDICAL_INFO = gql`
+  mutation UpsertMedicalInfo($input: UpsertMedicalInfoInput!) {
+    upsertMedicalInfo(input: $input) {
+      id
+      conditions
+      allergies
+      medications
+      insuranceProvider
+      insurancePolicyNumber
+      insuranceGroupNumber
+      notes
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_ORGANIZATION_SETTINGS = gql`
+  mutation UpdateOrganizationSettings($id: ID!, $medicalInfoVisibility: MedicalInfoVisibility) {
+    updateOrganizationSettings(id: $id, medicalInfoVisibility: $medicalInfoVisibility) {
+      id
+      medicalInfoVisibility
+    }
+  }
+`;

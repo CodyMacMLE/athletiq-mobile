@@ -118,9 +118,42 @@ export const typeDefs = `#graphql
     SKIPPED
   }
 
+  enum MedicalInfoVisibility {
+    ADMIN_ONLY
+    COACHES_AND_ADMINS
+    ALL_STAFF
+  }
+
   # ============================================
   # Types
   # ============================================
+
+  type EmergencyContact {
+    id: ID!
+    userId: String!
+    organizationId: String!
+    name: String!
+    relationship: String!
+    phone: String!
+    email: String
+    isPrimary: Boolean!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type MedicalInfo {
+    id: ID!
+    userId: String!
+    organizationId: String!
+    conditions: String
+    allergies: String
+    medications: String
+    insuranceProvider: String
+    insurancePolicyNumber: String
+    insuranceGroupNumber: String
+    notes: String
+    updatedAt: String!
+  }
 
   type User {
     id: ID!
@@ -137,6 +170,8 @@ export const typeDefs = `#graphql
     memberships: [TeamMember!]!
     organizationMemberships: [OrganizationMember!]!
     checkIns: [CheckIn!]!
+    emergencyContacts(organizationId: ID!): [EmergencyContact!]!
+    medicalInfo(organizationId: ID!): MedicalInfo
   }
 
   type Organization {
@@ -152,6 +187,7 @@ export const typeDefs = `#graphql
     nfcTags: [NfcTag!]!
     seasons: [OrgSeason!]!
     memberCount: Int!
+    medicalInfoVisibility: MedicalInfoVisibility!
   }
 
   type OrgSeason {
@@ -627,6 +663,36 @@ export const typeDefs = `#graphql
     note: String
   }
 
+  input CreateEmergencyContactInput {
+    userId: ID!
+    organizationId: ID!
+    name: String!
+    relationship: String!
+    phone: String!
+    email: String
+    isPrimary: Boolean
+  }
+
+  input UpdateEmergencyContactInput {
+    name: String
+    relationship: String
+    phone: String
+    email: String
+    isPrimary: Boolean
+  }
+
+  input UpsertMedicalInfoInput {
+    userId: ID!
+    organizationId: ID!
+    conditions: String
+    allergies: String
+    medications: String
+    insuranceProvider: String
+    insurancePolicyNumber: String
+    insuranceGroupNumber: String
+    notes: String
+  }
+
   # ============================================
   # Queries
   # ============================================
@@ -810,5 +876,12 @@ export const typeDefs = `#graphql
     updateEmailReportConfig(id: ID!, frequency: ReportFrequency, enabled: Boolean): EmailReportConfig!
     deleteEmailReportConfig(id: ID!): Boolean!
     sendTestReport(configId: ID!): Boolean!
+
+    # Health & Safety mutations
+    createEmergencyContact(input: CreateEmergencyContactInput!): EmergencyContact!
+    updateEmergencyContact(id: ID!, input: UpdateEmergencyContactInput!): EmergencyContact!
+    deleteEmergencyContact(id: ID!): Boolean!
+    upsertMedicalInfo(input: UpsertMedicalInfoInput!): MedicalInfo!
+    updateOrganizationSettings(id: ID!, medicalInfoVisibility: MedicalInfoVisibility): Organization!
   }
 `;

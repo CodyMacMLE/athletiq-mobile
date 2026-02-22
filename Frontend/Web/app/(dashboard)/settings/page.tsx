@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
-import { GET_ORG_SEASONS, CREATE_ORG_SEASON, UPDATE_ORG_SEASON, DELETE_ORG_SEASON } from "@/lib/graphql";
-import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield } from "lucide-react";
+import { GET_ORG_SEASONS, CREATE_ORG_SEASON, UPDATE_ORG_SEASON, DELETE_ORG_SEASON, GET_ORGANIZATION, UPDATE_ORGANIZATION_SETTINGS } from "@/lib/graphql";
+import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield, Heart } from "lucide-react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -32,15 +32,30 @@ export default function SettingsPage() {
   const [formStartMonth, setFormStartMonth] = useState(1);
   const [formEndMonth, setFormEndMonth] = useState(12);
   const [error, setError] = useState("");
+  const [healthVisibility, setHealthVisibility] = useState<string>("ADMIN_ONLY");
+  const [healthSaving, setHealthSaving] = useState(false);
+  const [healthSaved, setHealthSaved] = useState(false);
 
   const { data, refetch } = useQuery<any>(GET_ORG_SEASONS, {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
 
+  const { data: orgData } = useQuery<any>(GET_ORGANIZATION, {
+    variables: { id: selectedOrganizationId },
+    skip: !selectedOrganizationId,
+  });
+
+  useEffect(() => {
+    if (orgData?.organization?.medicalInfoVisibility) {
+      setHealthVisibility(orgData.organization.medicalInfoVisibility);
+    }
+  }, [orgData]);
+
   const [createOrgSeason] = useMutation<any>(CREATE_ORG_SEASON);
   const [updateOrgSeason] = useMutation<any>(UPDATE_ORG_SEASON);
   const [deleteOrgSeason] = useMutation<any>(DELETE_ORG_SEASON);
+  const [updateOrganizationSettings] = useMutation<any>(UPDATE_ORGANIZATION_SETTINGS);
 
   const seasons: OrgSeason[] = data?.orgSeasons || [];
 
@@ -99,6 +114,22 @@ export default function SettingsPage() {
       refetch();
     } catch (err: any) {
       setError(err.message || "Failed to update season");
+    }
+  };
+
+  const handleSaveHealthVisibility = async () => {
+    if (!selectedOrganizationId) return;
+    setHealthSaving(true);
+    try {
+      await updateOrganizationSettings({
+        variables: { id: selectedOrganizationId, medicalInfoVisibility: healthVisibility },
+      });
+      setHealthSaved(true);
+      setTimeout(() => setHealthSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save health settings:", err);
+    } finally {
+      setHealthSaving(false);
     }
   };
 
@@ -306,6 +337,50 @@ export default function SettingsPage() {
                 </ul>
               </div>
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* Health & Safety */}
+      {canManageOrg && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Heart className="w-5 h-5 text-[#a78bfa]" />
+            <h2 className="text-lg font-semibold text-white">Health &amp; Safety</h2>
+          </div>
+          <div className="bg-white/8 rounded-lg border border-white/8 p-4">
+            <p className="text-sm text-white/55 mb-4">
+              Control who on your staff can view athlete health information, emergency contacts, and medical details.
+            </p>
+            <div className="space-y-3 mb-4">
+              {[
+                { value: "ADMIN_ONLY", label: "Admins Only", description: "Only Owners and Admins can view health information" },
+                { value: "COACHES_AND_ADMINS", label: "Coaches & Admins", description: "Owners, Admins, and Coaches can view health information" },
+                { value: "ALL_STAFF", label: "All Staff", description: "All staff roles (Owners, Admins, Managers, Coaches) can view health information" },
+              ].map((option) => (
+                <label key={option.value} className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="radio"
+                    name="healthVisibility"
+                    value={option.value}
+                    checked={healthVisibility === option.value}
+                    onChange={(e) => setHealthVisibility(e.target.value)}
+                    className="mt-0.5 accent-[#6c5ce7]"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-white">{option.label}</p>
+                    <p className="text-xs text-white/40">{option.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            <button
+              onClick={handleSaveHealthVisibility}
+              disabled={healthSaving}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50"
+            >
+              {healthSaved ? <><Check className="w-4 h-4" /> Saved</> : healthSaving ? "Saving..." : <><Check className="w-4 h-4" /> Save</>}
+            </button>
           </div>
         </section>
       )}

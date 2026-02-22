@@ -110,6 +110,7 @@ export const GET_ORGANIZATION = gql`
       name
       image
       memberCount
+      medicalInfoVisibility
       teams {
         ...TeamFields
       }
@@ -552,6 +553,37 @@ export const GET_ORG_SEASONS = gql`
 // ============================================
 // Ad-Hoc Check-In Queries
 // ============================================
+
+export const GET_USER_HEALTH = gql`
+  query GetUserHealth($userId: ID!, $organizationId: ID!) {
+    user(id: $userId) {
+      id
+      emergencyContacts(organizationId: $organizationId) {
+        id
+        name
+        relationship
+        phone
+        email
+        isPrimary
+      }
+      medicalInfo(organizationId: $organizationId) {
+        id
+        conditions
+        allergies
+        medications
+        insuranceProvider
+        insurancePolicyNumber
+        insuranceGroupNumber
+        notes
+        updatedAt
+      }
+    }
+    organization(id: $organizationId) {
+      id
+      medicalInfoVisibility
+    }
+  }
+`;
 
 export const GET_PENDING_AD_HOC_CHECK_INS = gql`
   query GetPendingAdHocCheckIns($organizationId: ID!) {

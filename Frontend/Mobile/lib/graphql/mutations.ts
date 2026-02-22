@@ -245,3 +245,54 @@ export const DELETE_RSVP = gql`
     deleteRsvp(userId: $userId, eventId: $eventId)
   }
 `;
+
+// ============================================
+// Health & Safety Mutations
+// ============================================
+
+export const CREATE_EMERGENCY_CONTACT = gql`
+  mutation CreateEmergencyContact($input: CreateEmergencyContactInput!) {
+    createEmergencyContact(input: $input) {
+      id
+      name
+      relationship
+      phone
+      email
+      isPrimary
+    }
+  }
+`;
+
+export const UPDATE_EMERGENCY_CONTACT = gql`
+  mutation UpdateEmergencyContact($id: ID!, $input: UpdateEmergencyContactInput!) {
+    updateEmergencyContact(id: $id, input: $input) {
+      id
+      name
+      relationship
+      phone
+      email
+      isPrimary
+    }
+  }
+`;
+
+export const DELETE_EMERGENCY_CONTACT = gql`
+  mutation DeleteEmergencyContact($id: ID!) {
+    deleteEmergencyContact(id: $id)
+  }
+`;
+
+export const UPSERT_MEDICAL_INFO = gql`
+  mutation UpsertMedicalInfo($input: UpsertMedicalInfoInput!) {
+    upsertMedicalInfo(input: $input) {
+      id
+      conditions
+      allergies
+      medications
+      insuranceProvider
+      insurancePolicyNumber
+      insuranceGroupNumber
+      notes
+    }
+  }
+`;

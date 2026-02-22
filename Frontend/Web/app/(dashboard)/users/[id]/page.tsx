@@ -10,11 +10,16 @@ import {
   GET_TEAMS,
   GET_USER_STATS,
   GET_CHECK_IN_HISTORY,
+  GET_USER_HEALTH,
   UPDATE_ORG_MEMBER_ROLE,
   UPDATE_TEAM_MEMBER_ROLE,
   ADD_TEAM_MEMBER,
   REMOVE_TEAM_MEMBER,
   REMOVE_ORG_MEMBER,
+  CREATE_EMERGENCY_CONTACT,
+  UPDATE_EMERGENCY_CONTACT,
+  DELETE_EMERGENCY_CONTACT,
+  UPSERT_MEDICAL_INFO,
 } from "@/lib/graphql";
 import {
   ArrowLeft,
@@ -30,6 +35,10 @@ import {
   Trophy,
   Flame,
   BarChart3,
+  Edit2,
+  Lock,
+  Phone,
+  Heart,
 } from "lucide-react";
 
 type TeamAssignment = {
@@ -73,6 +82,27 @@ type CheckInRecord = {
   };
 };
 
+type EmergencyContact = {
+  id: string;
+  name: string;
+  relationship: string;
+  phone: string;
+  email?: string;
+  isPrimary: boolean;
+};
+
+type MedicalInfo = {
+  id: string;
+  conditions?: string;
+  allergies?: string;
+  medications?: string;
+  insuranceProvider?: string;
+  insurancePolicyNumber?: string;
+  insuranceGroupNumber?: string;
+  notes?: string;
+  updatedAt: string;
+};
+
 const ORG_ROLES = ["ATHLETE", "COACH", "MANAGER", "ADMIN", "GUARDIAN"] as const;
 const TEAM_ROLES = ["MEMBER", "CAPTAIN", "COACH"] as const;
 
@@ -89,8 +119,11 @@ export default function UserDetailPage() {
   const userId = params.id as string;
   const { selectedOrganizationId, canEdit, isOwner, isAdmin, user: currentUser } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"roles" | "attendance">("attendance");
+  const [activeTab, setActiveTab] = useState<"roles" | "attendance" | "health">("attendance");
   const [showAddTeamModal, setShowAddTeamModal] = useState(false);
+  const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<EmergencyContact | null>(null);
+  const [showMedicalModal, setShowMedicalModal] = useState(false);
 
   const { data, loading, refetch } = useQuery<any>(GET_ORGANIZATION_USERS, {
     variables: { id: selectedOrganizationId },
@@ -107,14 +140,33 @@ export default function UserDetailPage() {
     skip: activeTab !== "attendance",
   });
 
+  const { data: healthData, loading: healthLoading, refetch: refetchHealth } = useQuery<any>(GET_USER_HEALTH, {
+    variables: { userId, organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId || activeTab !== "health",
+  });
+
   const [updateOrgMemberRole] = useMutation<any>(UPDATE_ORG_MEMBER_ROLE);
   const [updateTeamMemberRole] = useMutation<any>(UPDATE_TEAM_MEMBER_ROLE);
   const [addTeamMember] = useMutation<any>(ADD_TEAM_MEMBER);
   const [removeTeamMember] = useMutation<any>(REMOVE_TEAM_MEMBER);
   const [removeOrgMember] = useMutation<any>(REMOVE_ORG_MEMBER);
+  const [createEmergencyContact] = useMutation<any>(CREATE_EMERGENCY_CONTACT);
+  const [updateEmergencyContact] = useMutation<any>(UPDATE_EMERGENCY_CONTACT);
+  const [deleteEmergencyContact] = useMutation<any>(DELETE_EMERGENCY_CONTACT);
+  const [upsertMedicalInfo] = useMutation<any>(UPSERT_MEDICAL_INFO);
 
   const orgMembers: OrgMember[] = data?.organization?.members || [];
   const member = orgMembers.find((m) => m.user.id === userId);
+
+  const emergencyContacts: EmergencyContact[] = healthData?.user?.emergencyContacts || [];
+  const medicalInfo: MedicalInfo | null = healthData?.user?.medicalInfo || null;
+  const medicalInfoVisibility: string = healthData?.organization?.medicalInfoVisibility || "ADMIN_ONLY";
+
+  const canViewHealth = (() => {
+    if (medicalInfoVisibility === "ALL_STAFF") return isOwner || isAdmin || canEdit;
+    if (medicalInfoVisibility === "COACHES_AND_ADMINS") return isOwner || isAdmin;
+    return isOwner || isAdmin; // ADMIN_ONLY
+  })();
 
   const canRemoveMember = (member: OrgMember) => {
     if (member.role === "OWNER") return false;
@@ -300,10 +352,143 @@ export default function UserDetailPage() {
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6c5ce7]" />
           )}
         </button>
+        <button
+          onClick={() => setActiveTab("health")}
+          className={`px-4 py-3 text-sm font-medium transition-colors relative ${
+            activeTab === "health"
+              ? "text-[#a78bfa]"
+              : "text-white/55 hover:text-white"
+          }`}
+        >
+          Health & Safety
+          {activeTab === "health" && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6c5ce7]" />
+          )}
+        </button>
       </div>
 
       {/* Tab Content */}
-      {activeTab === "roles" ? (
+      {activeTab === "health" ? (
+        <>
+          {healthLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6c5ce7]"></div>
+            </div>
+          ) : !canViewHealth ? (
+            <div className="bg-white/8 rounded-xl border border-white/8 p-8 text-center">
+              <Lock className="w-10 h-10 text-white/30 mx-auto mb-3" />
+              <p className="text-white font-medium mb-1">Access Restricted</p>
+              <p className="text-white/55 text-sm">Your role doesn&apos;t have access to health information. An admin can update this in Settings.</p>
+            </div>
+          ) : (
+            <>
+              {/* Emergency Contacts */}
+              <div className="bg-white/8 rounded-xl border border-white/8 p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-5 h-5 text-[#a78bfa]" />
+                    <h2 className="text-lg font-semibold text-white">Emergency Contacts</h2>
+                  </div>
+                  {canEdit && (
+                    <button
+                      onClick={() => { setEditingContact(null); setShowAddContactModal(true); }}
+                      className="flex items-center text-sm text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Contact
+                    </button>
+                  )}
+                </div>
+                {emergencyContacts.length > 0 ? (
+                  <div className="space-y-3">
+                    {emergencyContacts.map((contact) => (
+                      <div key={contact.id} className="flex items-center justify-between bg-white/5 rounded-lg px-4 py-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-white font-medium">{contact.name}</span>
+                            {contact.isPrimary && (
+                              <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-[#6c5ce7]/30 text-[#a78bfa]">PRIMARY</span>
+                            )}
+                          </div>
+                          <p className="text-white/55 text-sm">{contact.relationship} · {contact.phone}</p>
+                          {contact.email && <p className="text-white/40 text-sm">{contact.email}</p>}
+                        </div>
+                        {canEdit && (
+                          <div className="flex items-center gap-1 ml-4">
+                            <button
+                              onClick={() => { setEditingContact(contact); setShowAddContactModal(true); }}
+                              className="p-1.5 text-white/55 hover:text-white transition-colors"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!confirm("Delete this emergency contact?")) return;
+                                await deleteEmergencyContact({ variables: { id: contact.id } });
+                                refetchHealth();
+                              }}
+                              className="p-1.5 text-white/55 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-white/40 text-sm text-center py-4">No emergency contacts added yet</p>
+                )}
+              </div>
+
+              {/* Medical Information */}
+              <div className="bg-white/8 rounded-xl border border-white/8 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Heart className="w-5 h-5 text-[#a78bfa]" />
+                    <h2 className="text-lg font-semibold text-white">Medical Information</h2>
+                  </div>
+                  {canEdit && (
+                    <button
+                      onClick={() => setShowMedicalModal(true)}
+                      className="flex items-center text-sm text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4 mr-1" />
+                      Edit
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    { label: "Allergies", value: medicalInfo?.allergies },
+                    { label: "Conditions", value: medicalInfo?.conditions },
+                    { label: "Medications", value: medicalInfo?.medications },
+                    { label: "Insurance Provider", value: medicalInfo?.insuranceProvider },
+                    { label: "Policy Number", value: medicalInfo?.insurancePolicyNumber },
+                    { label: "Group Number", value: medicalInfo?.insuranceGroupNumber },
+                  ].map(({ label, value }) => (
+                    <div key={label}>
+                      <p className="text-xs text-white/40 mb-0.5">{label}</p>
+                      <p className="text-sm text-white">{value || "—"}</p>
+                    </div>
+                  ))}
+                  {(medicalInfo?.notes) && (
+                    <div className="sm:col-span-2">
+                      <p className="text-xs text-white/40 mb-0.5">Notes</p>
+                      <p className="text-sm text-white">{medicalInfo.notes}</p>
+                    </div>
+                  )}
+                </div>
+                {medicalInfo?.updatedAt && (
+                  <p className="text-xs text-white/30 mt-4">
+                    Last updated {new Date(isNaN(Number(medicalInfo.updatedAt)) ? medicalInfo.updatedAt : Number(medicalInfo.updatedAt)).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </>
+      ) : activeTab === "roles" ? (
         <>
           {/* Organization Role */}
           <div className="bg-white/8 rounded-xl border border-white/8 p-6 mb-6">
@@ -561,6 +746,41 @@ export default function UserDetailPage() {
           }}
         />
       )}
+
+      {/* Emergency Contact Modal */}
+      {showAddContactModal && selectedOrganizationId && (
+        <EmergencyContactModal
+          contact={editingContact}
+          userId={userId}
+          organizationId={selectedOrganizationId}
+          onClose={() => { setShowAddContactModal(false); setEditingContact(null); }}
+          onSave={async (data) => {
+            if (editingContact) {
+              await updateEmergencyContact({ variables: { id: editingContact.id, input: data } });
+            } else {
+              await createEmergencyContact({ variables: { input: { userId, organizationId: selectedOrganizationId, ...data } } });
+            }
+            refetchHealth();
+            setShowAddContactModal(false);
+            setEditingContact(null);
+          }}
+        />
+      )}
+
+      {/* Medical Info Modal */}
+      {showMedicalModal && selectedOrganizationId && (
+        <MedicalInfoModal
+          medicalInfo={medicalInfo}
+          userId={userId}
+          organizationId={selectedOrganizationId}
+          onClose={() => setShowMedicalModal(false)}
+          onSave={async (data) => {
+            await upsertMedicalInfo({ variables: { input: { userId, organizationId: selectedOrganizationId, ...data } } });
+            refetchHealth();
+            setShowMedicalModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -651,6 +871,143 @@ function AddToTeamModal({
               {search ? "No matching teams" : "Already on all teams"}
             </p>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EmergencyContactModal({
+  contact,
+  onClose,
+  onSave,
+}: {
+  contact: EmergencyContact | null;
+  userId: string;
+  organizationId: string;
+  onClose: () => void;
+  onSave: (data: { name: string; relationship: string; phone: string; email?: string; isPrimary: boolean }) => Promise<void>;
+}) {
+  const [name, setName] = useState(contact?.name || "");
+  const [relationship, setRelationship] = useState(contact?.relationship || "");
+  const [phone, setPhone] = useState(contact?.phone || "");
+  const [email, setEmail] = useState(contact?.email || "");
+  const [isPrimary, setIsPrimary] = useState(contact?.isPrimary || false);
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!name.trim() || !relationship.trim() || !phone.trim()) return;
+    setSaving(true);
+    try {
+      await onSave({ name: name.trim(), relationship: relationship.trim(), phone: phone.trim(), email: email.trim() || undefined, isPrimary });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-md p-6 border border-white/15 shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-white">{contact ? "Edit Contact" : "Add Emergency Contact"}</h2>
+          <button onClick={onClose} className="text-white/55 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-white/55 mb-1">Name *</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" placeholder="Full name" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white/55 mb-1">Relationship *</label>
+            <input value={relationship} onChange={(e) => setRelationship(e.target.value)} className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" placeholder="e.g. Mother, Father, Coach" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white/55 mb-1">Phone *</label>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" placeholder="(555) 123-4567" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-white/55 mb-1">Email</label>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" placeholder="Optional" />
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={isPrimary} onChange={(e) => setIsPrimary(e.target.checked)} className="w-4 h-4 rounded accent-[#6c5ce7]" />
+            <span className="text-sm text-white/70">Primary contact</span>
+          </label>
+        </div>
+        <div className="flex items-center justify-end gap-2 mt-5">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-white/55 hover:text-white transition-colors">Cancel</button>
+          <button onClick={handleSave} disabled={saving || !name.trim() || !relationship.trim() || !phone.trim()} className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50">
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MedicalInfoModal({
+  medicalInfo,
+  onClose,
+  onSave,
+}: {
+  medicalInfo: MedicalInfo | null;
+  userId: string;
+  organizationId: string;
+  onClose: () => void;
+  onSave: (data: Partial<MedicalInfo>) => Promise<void>;
+}) {
+  const [conditions, setConditions] = useState(medicalInfo?.conditions || "");
+  const [allergies, setAllergies] = useState(medicalInfo?.allergies || "");
+  const [medications, setMedications] = useState(medicalInfo?.medications || "");
+  const [insuranceProvider, setInsuranceProvider] = useState(medicalInfo?.insuranceProvider || "");
+  const [insurancePolicyNumber, setInsurancePolicyNumber] = useState(medicalInfo?.insurancePolicyNumber || "");
+  const [insuranceGroupNumber, setInsuranceGroupNumber] = useState(medicalInfo?.insuranceGroupNumber || "");
+  const [notes, setNotes] = useState(medicalInfo?.notes || "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave({ conditions: conditions || undefined, allergies: allergies || undefined, medications: medications || undefined, insuranceProvider: insuranceProvider || undefined, insurancePolicyNumber: insurancePolicyNumber || undefined, insuranceGroupNumber: insuranceGroupNumber || undefined, notes: notes || undefined });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const field = (label: string, value: string, setter: (v: string) => void, multiline?: boolean) => (
+    <div key={label}>
+      <label className="block text-sm font-medium text-white/55 mb-1">{label}</label>
+      {multiline ? (
+        <textarea value={value} onChange={(e) => setter(e.target.value)} rows={2} className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none" />
+      ) : (
+        <input value={value} onChange={(e) => setter(e.target.value)} className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" />
+      )}
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-lg p-6 border border-white/15 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-white">Medical Information</h2>
+          <button onClick={onClose} className="text-white/55 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="space-y-3">
+          {field("Allergies", allergies, setAllergies, true)}
+          {field("Conditions", conditions, setConditions, true)}
+          {field("Medications", medications, setMedications, true)}
+          {field("Insurance Provider", insuranceProvider, setInsuranceProvider)}
+          <div className="grid grid-cols-2 gap-3">
+            {field("Policy Number", insurancePolicyNumber, setInsurancePolicyNumber)}
+            {field("Group Number", insuranceGroupNumber, setInsuranceGroupNumber)}
+          </div>
+          {field("Notes", notes, setNotes, true)}
+        </div>
+        <div className="flex items-center justify-end gap-2 mt-5">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-white/55 hover:text-white transition-colors">Cancel</button>
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50">
+            {saving ? "Saving..." : "Save"}
+          </button>
         </div>
       </div>
     </div>

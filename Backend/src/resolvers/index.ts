@@ -1120,6 +1120,9 @@ export const resolvers = {
         await tx.teamMember.deleteMany({ where: { userId: id } });
         // Delete org memberships
         await tx.organizationMember.deleteMany({ where: { userId: id } });
+        // Delete emergency contacts and medical info
+        await tx.emergencyContact.deleteMany({ where: { userId: id } });
+        await tx.medicalInfo.deleteMany({ where: { userId: id } });
         // Delete user
         await tx.user.delete({ where: { id } });
       });
@@ -3048,6 +3051,51 @@ export const resolvers = {
 
       return true;
     },
+
+    // Health & Safety mutations
+    createEmergencyContact: async (_: unknown, { input }: { input: { userId: string; organizationId: string; name: string; relationship: string; phone: string; email?: string; isPrimary?: boolean } }) => {
+      if (input.isPrimary) {
+        await prisma.emergencyContact.updateMany({
+          where: { userId: input.userId, organizationId: input.organizationId },
+          data: { isPrimary: false },
+        });
+      }
+      return prisma.emergencyContact.create({ data: input });
+    },
+
+    updateEmergencyContact: async (_: unknown, { id, input }: { id: string; input: { name?: string; relationship?: string; phone?: string; email?: string; isPrimary?: boolean } }) => {
+      if (input.isPrimary) {
+        const existing = await prisma.emergencyContact.findUnique({ where: { id } });
+        if (existing) {
+          await prisma.emergencyContact.updateMany({
+            where: { userId: existing.userId, organizationId: existing.organizationId, id: { not: id } },
+            data: { isPrimary: false },
+          });
+        }
+      }
+      return prisma.emergencyContact.update({ where: { id }, data: input });
+    },
+
+    deleteEmergencyContact: async (_: unknown, { id }: { id: string }) => {
+      await prisma.emergencyContact.delete({ where: { id } });
+      return true;
+    },
+
+    upsertMedicalInfo: async (_: unknown, { input }: { input: { userId: string; organizationId: string; conditions?: string; allergies?: string; medications?: string; insuranceProvider?: string; insurancePolicyNumber?: string; insuranceGroupNumber?: string; notes?: string } }) => {
+      const { userId, organizationId, ...data } = input;
+      return prisma.medicalInfo.upsert({
+        where: { userId_organizationId: { userId, organizationId } },
+        create: { userId, organizationId, ...data },
+        update: data,
+      });
+    },
+
+    updateOrganizationSettings: async (_: unknown, { id, medicalInfoVisibility }: { id: string; medicalInfoVisibility?: string }) => {
+      return prisma.organization.update({
+        where: { id },
+        data: { ...(medicalInfoVisibility !== undefined && { medicalInfoVisibility: medicalInfoVisibility as any }) },
+      });
+    },
   },
 
   // Field resolvers
@@ -3056,6 +3104,15 @@ export const resolvers = {
     organizationMemberships: (parent: { id: string }) =>
       prisma.organizationMember.findMany({ where: { userId: parent.id } }),
     checkIns: (parent: { id: string }) => prisma.checkIn.findMany({ where: { userId: parent.id } }),
+    emergencyContacts: (parent: { id: string }, { organizationId }: { organizationId: string }) =>
+      prisma.emergencyContact.findMany({
+        where: { userId: parent.id, organizationId },
+        orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+      }),
+    medicalInfo: (parent: { id: string }, { organizationId }: { organizationId: string }) =>
+      prisma.medicalInfo.findUnique({
+        where: { userId_organizationId: { userId: parent.id, organizationId } },
+      }),
     createdAt: (parent: any) => toISO(parent.createdAt),
     updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
@@ -3082,6 +3139,15 @@ export const resolvers = {
 
   OrgSeason: {
     createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
+  },
+
+  EmergencyContact: {
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
+  },
+
+  MedicalInfo: {
     updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
