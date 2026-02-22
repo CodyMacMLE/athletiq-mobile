@@ -503,8 +503,8 @@ export default function Events() {
         })}
       </div>
 
-      {/* Time Range Filters + Team Filter + Group Toggle */}
-      <div className="flex items-center gap-2 mb-6 flex-wrap">
+      {/* Row 1: Time filter pills | Custom date inputs */}
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
         {TIME_FILTERS.map(({ value, label }) => (
           <button
             key={value}
@@ -519,29 +519,30 @@ export default function Events() {
           </button>
         ))}
 
-        {timeFilter === "CUSTOM" && (
-          <>
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              placeholder="Start date"
-              className="px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark]"
-            />
-            <span className="text-white/30 text-xs">—</span>
-            <input
-              type="date"
-              value={customEnd}
-              min={customStart || undefined}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              placeholder="End date"
-              className="px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark]"
-            />
-          </>
-        )}
-
         <div className="h-4 w-px bg-white/8 mx-1" />
 
+        <input
+          type="date"
+          value={customStart}
+          onChange={(e) => { setCustomStart(e.target.value); setTimeFilter("CUSTOM"); }}
+          className={`px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark] transition-colors ${
+            timeFilter === "CUSTOM" ? "text-white/80" : "text-white/30"
+          }`}
+        />
+        <span className="text-white/30 text-xs">—</span>
+        <input
+          type="date"
+          value={customEnd}
+          min={customStart || undefined}
+          onChange={(e) => { setCustomEnd(e.target.value); setTimeFilter("CUSTOM"); }}
+          className={`px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark] transition-colors ${
+            timeFilter === "CUSTOM" ? "text-white/80" : "text-white/30"
+          }`}
+        />
+      </div>
+
+      {/* Row 2: Team filter + Group toggle + count */}
+      <div className="flex items-center gap-2 mb-6 flex-wrap">
         {/* Team Filter */}
         <div className="relative">
           <select
