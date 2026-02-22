@@ -1867,6 +1867,7 @@ export const resolvers = {
             endDate: end,
             organizationId: input.organizationId,
             teamId: input.teamId,
+            venueId: input.venueId,
           },
         });
 
