@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
@@ -12,7 +12,7 @@ import {
   CANCEL_INVITE,
   RESEND_INVITE,
 } from "@/lib/graphql";
-import { Search, Trash2, X, UserPlus, Mail, RefreshCw, Clock } from "lucide-react";
+import { Search, Trash2, X, UserPlus, Mail, RefreshCw, Clock, ChevronDown } from "lucide-react";
 
 type TeamAssignment = {
   id: string;
@@ -51,6 +51,8 @@ type Invite = {
 export default function UsersPage() {
   const { selectedOrganizationId, canEdit, isOwner, isAdmin, user: currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("ALL");
+  const [teamFilter, setTeamFilter] = useState<string>("ALL");
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   const { data, loading, refetch } = useQuery<any>(GET_ORGANIZATION_USERS, {
@@ -73,14 +75,33 @@ export default function UsersPage() {
     return true;
   };
 
-  const filteredMembers = orgMembers.filter((member) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      `${member.user.firstName} ${member.user.lastName}`.toLowerCase().includes(q) ||
-      member.user.email.toLowerCase().includes(q)
-    );
-  });
+  // Derive unique team list from existing member data — no extra query needed
+  const teamOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const teams: { id: string; name: string }[] = [];
+    for (const m of orgMembers) {
+      for (const t of m.user.memberships) {
+        if (!seen.has(t.team.id)) {
+          seen.add(t.team.id);
+          teams.push(t.team);
+        }
+      }
+    }
+    return teams.sort((a, b) => a.name.localeCompare(b.name));
+  }, [orgMembers]);
+
+  const filteredMembers = useMemo(() => orgMembers.filter((member) => {
+    if (roleFilter !== "ALL" && member.role !== roleFilter) return false;
+    if (teamFilter !== "ALL" && !member.user.memberships.some((m) => m.team.id === teamFilter)) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (
+        !`${member.user.firstName} ${member.user.lastName}`.toLowerCase().includes(q) &&
+        !member.user.email.toLowerCase().includes(q)
+      ) return false;
+    }
+    return true;
+  }), [orgMembers, roleFilter, teamFilter, searchQuery]);
 
   const handleDeleteUser = async (e: React.MouseEvent, userId: string) => {
     e.preventDefault();
@@ -152,18 +173,54 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Search */}
-      <div className="flex items-center space-x-4 mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/55" />
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="relative flex-1 min-w-48">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/55" />
           <input
             type="text"
-            placeholder="Search users..."
+            placeholder="Search by name or email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white/8 border border-white/8 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+            className="w-full pl-10 pr-4 py-2 bg-white/8 border border-white/8 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
           />
         </div>
+        {/* Role filter */}
+        <div className="relative">
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="appearance-none pl-3 pr-8 py-2 bg-white/8 border border-white/8 rounded-lg text-sm text-white/80 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] cursor-pointer"
+          >
+            <option value="ALL">All Roles</option>
+            <option value="OWNER">Owner</option>
+            <option value="ADMIN">Admin</option>
+            <option value="MANAGER">Manager</option>
+            <option value="COACH">Coach</option>
+            <option value="ATHLETE">Athlete</option>
+            <option value="GUARDIAN">Guardian</option>
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
+        </div>
+        {/* Team filter */}
+        {teamOptions.length > 0 && (
+          <div className="relative">
+            <select
+              value={teamFilter}
+              onChange={(e) => setTeamFilter(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 bg-white/8 border border-white/8 rounded-lg text-sm text-white/80 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] cursor-pointer"
+            >
+              <option value="ALL">All Teams</option>
+              {teamOptions.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
+          </div>
+        )}
+        <span className="text-white/30 text-xs ml-1">
+          {filteredMembers.length} {filteredMembers.length === 1 ? "user" : "users"}
+        </span>
       </div>
 
       {/* Users Table */}
