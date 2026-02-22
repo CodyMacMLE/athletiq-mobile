@@ -165,6 +165,7 @@ export const typeDefs = `#graphql
     email: String!
     firstName: String!
     lastName: String!
+    dateOfBirth: String
     phone: String
     address: String
     city: String
@@ -557,6 +558,7 @@ export const typeDefs = `#graphql
   input UpdateUserInput {
     firstName: String
     lastName: String
+    dateOfBirth: String
     phone: String
     address: String
     city: String

@@ -14,13 +14,14 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
-  firstName String
-  lastName  String
-  phone     String?
-  address   String?
-  city      String?
-  country   String?
-  image     String?
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime?
+  phone       String?
+  address     String?
+  city        String?
+  country     String?
+  image       String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

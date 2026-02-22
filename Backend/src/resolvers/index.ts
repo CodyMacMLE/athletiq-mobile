@@ -1397,8 +1397,12 @@ export const resolvers = {
       });
     },
 
-    updateUser: async (_: unknown, { id, input }: { id: string; input: { firstName?: string; lastName?: string; phone?: string; address?: string; city?: string; country?: string; image?: string } }) => {
-      return prisma.user.update({ where: { id }, data: input });
+    updateUser: async (_: unknown, { id, input }: { id: string; input: { firstName?: string; lastName?: string; dateOfBirth?: string; phone?: string; address?: string; city?: string; country?: string; image?: string } }) => {
+      const { dateOfBirth, ...rest } = input;
+      return prisma.user.update({
+        where: { id },
+        data: { ...rest, ...(dateOfBirth !== undefined ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null } : {}) },
+      });
     },
 
     deleteUser: async (_: unknown, { id }: { id: string }) => {
@@ -3707,6 +3711,7 @@ export const resolvers = {
       prisma.medicalInfo.findUnique({
         where: { userId_organizationId: { userId: parent.id, organizationId } },
       }),
+    dateOfBirth: (parent: any) => parent.dateOfBirth ? toISO(parent.dateOfBirth) : null,
     createdAt: (parent: any) => toISO(parent.createdAt),
     updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
