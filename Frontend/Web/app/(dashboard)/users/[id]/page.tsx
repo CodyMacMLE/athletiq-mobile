@@ -236,12 +236,12 @@ export default function UserDetailPage() {
 
   const { data: statusHistoryData, loading: statusHistoryLoading, refetch: refetchStatusHistory } = useQuery<any>(GET_ATHLETE_STATUS_HISTORY, {
     variables: { userId, organizationId: selectedOrganizationId },
-    skip: !selectedOrganizationId || activeTab !== "roles",
+    skip: !selectedOrganizationId || activeTab !== "user-info",
   });
 
   const { data: gymnProfileData, loading: gymnProfileLoading, refetch: refetchGymnProfile } = useQuery<any>(GET_GYMNASTICS_PROFILE, {
     variables: { userId, organizationId: selectedOrganizationId },
-    skip: !selectedOrganizationId || activeTab !== "roles",
+    skip: !selectedOrganizationId || activeTab !== "user-info",
   });
 
   const [updateAthleteStatus] = useMutation<any>(UPDATE_ATHLETE_STATUS);
@@ -552,6 +552,256 @@ export default function UserDetailPage() {
             </div>
           </div>
 
+          {/* Athlete Status (only for athletes) */}
+          {member.role === "ATHLETE" && (
+            <div className="bg-white/8 rounded-xl border border-white/8 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-[#a78bfa]" />
+                  <h2 className="text-lg font-semibold text-white">Athlete Status</h2>
+                </div>
+                {canChangeAthleteStatus && !showStatusChangeForm && (
+                  <button
+                    onClick={() => { setPendingStatus(member.athleteStatus || "ACTIVE"); setShowStatusChangeForm(true); }}
+                    className="flex items-center text-sm text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4 mr-1" />
+                    Change
+                  </button>
+                )}
+              </div>
+
+              {/* Current Status */}
+              {(() => {
+                const sc = ATHLETE_STATUS_CONFIG[member.athleteStatus || "ACTIVE"] || ATHLETE_STATUS_CONFIG.ACTIVE;
+                return (
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${sc.bg} mb-4`}>
+                    <span className={`w-2 h-2 rounded-full ${sc.dot}`} />
+                    <span className={`text-sm font-medium ${sc.color}`}>{sc.label}</span>
+                  </div>
+                );
+              })()}
+
+              {/* Change Form */}
+              {showStatusChangeForm && (
+                <div className="bg-white/5 rounded-lg p-4 mb-4 space-y-3">
+                  <div>
+                    <label className="text-xs text-white/55 mb-1 block">New Status</label>
+                    <select
+                      value={pendingStatus}
+                      onChange={(e) => setPendingStatus(e.target.value)}
+                      className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                    >
+                      {Object.entries(ATHLETE_STATUS_CONFIG).map(([key, cfg]) => (
+                        <option key={key} value={key}>{cfg.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-white/55 mb-1 block">Note (optional)</label>
+                    <input
+                      type="text"
+                      value={statusNote}
+                      onChange={(e) => setStatusNote(e.target.value)}
+                      placeholder="Reason for status change..."
+                      className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-lg text-white text-sm placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleStatusChange}
+                      disabled={!pendingStatus}
+                      className="px-4 py-2 bg-[#6c5ce7] text-white text-sm rounded-lg hover:bg-[#5b4dd0] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => { setShowStatusChangeForm(false); setPendingStatus(""); setStatusNote(""); }}
+                      className="px-4 py-2 text-white/55 text-sm hover:text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Status History */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <History className="w-4 h-4 text-white/40" />
+                  <span className="text-xs text-white/40 uppercase tracking-wider">Status History</span>
+                </div>
+                {statusHistoryLoading ? (
+                  <div className="flex items-center justify-center h-12">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#6c5ce7]" />
+                  </div>
+                ) : statusHistory.length > 0 ? (
+                  <div className="space-y-2">
+                    {statusHistory.map((record) => {
+                      const sc = ATHLETE_STATUS_CONFIG[record.status] || ATHLETE_STATUS_CONFIG.ACTIVE;
+                      const date = new Date(isNaN(Number(record.createdAt)) ? record.createdAt : Number(record.createdAt));
+                      return (
+                        <div key={record.id} className="flex items-start gap-3 text-sm">
+                          <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${sc.dot}`} />
+                          <div className="flex-1 min-w-0">
+                            <span className={`font-medium ${sc.color}`}>{sc.label}</span>
+                            {record.note && <span className="text-white/55 ml-2">— {record.note}</span>}
+                            <p className="text-white/35 text-xs mt-0.5">
+                              {date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              {" · "}by {record.changedByUser.firstName} {record.changedByUser.lastName}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-white/35 text-xs">No status changes recorded</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Gymnastics Profile (only for athletes) */}
+          {member.role === "ATHLETE" && (
+            <div className="bg-white/8 rounded-xl border border-white/8 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-white">Gymnastics Profile</h2>
+                {canEditGymnasticsProfile && !showGymnasticsForm && (
+                  <button
+                    onClick={openGymnasticsForm}
+                    className="flex items-center text-sm text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
+                  >
+                    <Edit2 className="w-4 h-4 mr-1" />
+                    {gymnProfile ? "Edit" : "Set Up"}
+                  </button>
+                )}
+              </div>
+
+              {gymnProfileLoading ? (
+                <div className="flex items-center justify-center h-12">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#6c5ce7]" />
+                </div>
+              ) : showGymnasticsForm ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs text-white/55 mb-1 block">Level</label>
+                      <select
+                        value={gymLevel}
+                        onChange={(e) => setGymLevel(e.target.value)}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                      >
+                        <option value="">Select level</option>
+                        {GYMNASTICS_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-white/55 mb-1 block">Discipline</label>
+                      <select
+                        value={gymDiscipline}
+                        onChange={(e) => { setGymDiscipline(e.target.value); setGymApparatus([]); }}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                      >
+                        <option value="">Select discipline</option>
+                        {GYMNASTICS_DISCIPLINES.map((d) => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  {gymDiscipline && (
+                    <div>
+                      <label className="text-xs text-white/55 mb-2 block">Apparatus</label>
+                      <div className="flex flex-wrap gap-2">
+                        {(APPARATUS_BY_DISCIPLINE[gymDiscipline] || []).map((ap) => {
+                          const selected = gymApparatus.includes(ap);
+                          return (
+                            <button
+                              key={ap}
+                              type="button"
+                              onClick={() => setGymApparatus((prev) =>
+                                selected ? prev.filter((a) => a !== ap) : [...prev, ap]
+                              )}
+                              className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                                selected
+                                  ? "bg-[#6c5ce7]/30 border-[#6c5ce7] text-[#a78bfa]"
+                                  : "bg-white/5 border-white/15 text-white/55 hover:border-white/30"
+                              }`}
+                            >
+                              {ap}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="text-xs text-white/55 mb-1 block">Notes</label>
+                    <textarea
+                      value={gymNotes}
+                      onChange={(e) => setGymNotes(e.target.value)}
+                      rows={2}
+                      placeholder="Any additional notes..."
+                      className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-lg text-white text-sm placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveGymnasticsProfile}
+                      className="px-4 py-2 bg-[#6c5ce7] text-white text-sm rounded-lg hover:bg-[#5b4dd0] transition-colors"
+                    >
+                      Save Profile
+                    </button>
+                    <button
+                      onClick={() => setShowGymnasticsForm(false)}
+                      className="px-4 py-2 text-white/55 text-sm hover:text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : gymnProfile ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-white/40 mb-0.5">Level</p>
+                      <p className="text-sm text-white">{gymnProfile.level || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/40 mb-0.5">Discipline</p>
+                      <p className="text-sm text-white">{gymnProfile.discipline || "—"}</p>
+                    </div>
+                  </div>
+                  {gymnProfile.apparatus.length > 0 && (
+                    <div>
+                      <p className="text-xs text-white/40 mb-1.5">Apparatus</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {gymnProfile.apparatus.map((ap) => (
+                          <span key={ap} className="px-2.5 py-1 text-xs rounded-full bg-[#6c5ce7]/20 text-[#a78bfa] border border-[#6c5ce7]/30">
+                            {ap}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {gymnProfile.notes && (
+                    <div>
+                      <p className="text-xs text-white/40 mb-0.5">Notes</p>
+                      <p className="text-sm text-white/80">{gymnProfile.notes}</p>
+                    </div>
+                  )}
+                  <p className="text-xs text-white/30 pt-1">
+                    Updated {new Date(isNaN(Number(gymnProfile.updatedAt)) ? gymnProfile.updatedAt : Number(gymnProfile.updatedAt)).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-white/40 text-sm">No gymnastics profile set up yet</p>
+              )}
+            </div>
+          )}
+
           {/* Guardian Contact Info (if athlete has guardians) */}
           {(guardiansLoading || guardianLinks.length > 0) && (
             <div className="bg-white/8 rounded-xl border border-white/8 p-6">
@@ -781,256 +1031,6 @@ export default function UserDetailPage() {
       ) : activeTab === "roles" ? (
         // Roles & Settings tab
         <>
-          {/* Athlete Status (only for athletes) */}
-          {member.role === "ATHLETE" && (
-            <div className="bg-white/8 rounded-xl border border-white/8 p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-[#a78bfa]" />
-                  <h2 className="text-lg font-semibold text-white">Athlete Status</h2>
-                </div>
-                {canChangeAthleteStatus && !showStatusChangeForm && (
-                  <button
-                    onClick={() => { setPendingStatus(member.athleteStatus || "ACTIVE"); setShowStatusChangeForm(true); }}
-                    className="flex items-center text-sm text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4 mr-1" />
-                    Change
-                  </button>
-                )}
-              </div>
-
-              {/* Current Status */}
-              {(() => {
-                const sc = ATHLETE_STATUS_CONFIG[member.athleteStatus || "ACTIVE"] || ATHLETE_STATUS_CONFIG.ACTIVE;
-                return (
-                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${sc.bg} mb-4`}>
-                    <span className={`w-2 h-2 rounded-full ${sc.dot}`} />
-                    <span className={`text-sm font-medium ${sc.color}`}>{sc.label}</span>
-                  </div>
-                );
-              })()}
-
-              {/* Change Form */}
-              {showStatusChangeForm && (
-                <div className="bg-white/5 rounded-lg p-4 mb-4 space-y-3">
-                  <div>
-                    <label className="text-xs text-white/55 mb-1 block">New Status</label>
-                    <select
-                      value={pendingStatus}
-                      onChange={(e) => setPendingStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-                    >
-                      {Object.entries(ATHLETE_STATUS_CONFIG).map(([key, cfg]) => (
-                        <option key={key} value={key}>{cfg.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-white/55 mb-1 block">Note (optional)</label>
-                    <input
-                      type="text"
-                      value={statusNote}
-                      onChange={(e) => setStatusNote(e.target.value)}
-                      placeholder="Reason for status change..."
-                      className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-lg text-white text-sm placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleStatusChange}
-                      disabled={!pendingStatus}
-                      className="px-4 py-2 bg-[#6c5ce7] text-white text-sm rounded-lg hover:bg-[#5b4dd0] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => { setShowStatusChangeForm(false); setPendingStatus(""); setStatusNote(""); }}
-                      className="px-4 py-2 text-white/55 text-sm hover:text-white transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Status History */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <History className="w-4 h-4 text-white/40" />
-                  <span className="text-xs text-white/40 uppercase tracking-wider">Status History</span>
-                </div>
-                {statusHistoryLoading ? (
-                  <div className="flex items-center justify-center h-12">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#6c5ce7]" />
-                  </div>
-                ) : statusHistory.length > 0 ? (
-                  <div className="space-y-2">
-                    {statusHistory.map((record) => {
-                      const sc = ATHLETE_STATUS_CONFIG[record.status] || ATHLETE_STATUS_CONFIG.ACTIVE;
-                      const date = new Date(isNaN(Number(record.createdAt)) ? record.createdAt : Number(record.createdAt));
-                      return (
-                        <div key={record.id} className="flex items-start gap-3 text-sm">
-                          <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${sc.dot}`} />
-                          <div className="flex-1 min-w-0">
-                            <span className={`font-medium ${sc.color}`}>{sc.label}</span>
-                            {record.note && <span className="text-white/55 ml-2">— {record.note}</span>}
-                            <p className="text-white/35 text-xs mt-0.5">
-                              {date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                              {" · "}by {record.changedByUser.firstName} {record.changedByUser.lastName}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-white/35 text-xs">No status changes recorded</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Gymnastics Profile (only for athletes) */}
-          {member.role === "ATHLETE" && (
-            <div className="bg-white/8 rounded-xl border border-white/8 p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white">Gymnastics Profile</h2>
-                {canEditGymnasticsProfile && !showGymnasticsForm && (
-                  <button
-                    onClick={openGymnasticsForm}
-                    className="flex items-center text-sm text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4 mr-1" />
-                    {gymnProfile ? "Edit" : "Set Up"}
-                  </button>
-                )}
-              </div>
-
-              {gymnProfileLoading ? (
-                <div className="flex items-center justify-center h-12">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#6c5ce7]" />
-                </div>
-              ) : showGymnasticsForm ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs text-white/55 mb-1 block">Level</label>
-                      <select
-                        value={gymLevel}
-                        onChange={(e) => setGymLevel(e.target.value)}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-                      >
-                        <option value="">Select level</option>
-                        {GYMNASTICS_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs text-white/55 mb-1 block">Discipline</label>
-                      <select
-                        value={gymDiscipline}
-                        onChange={(e) => { setGymDiscipline(e.target.value); setGymApparatus([]); }}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-                      >
-                        <option value="">Select discipline</option>
-                        {GYMNASTICS_DISCIPLINES.map((d) => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  {gymDiscipline && (
-                    <div>
-                      <label className="text-xs text-white/55 mb-2 block">Apparatus</label>
-                      <div className="flex flex-wrap gap-2">
-                        {(APPARATUS_BY_DISCIPLINE[gymDiscipline] || []).map((ap) => {
-                          const selected = gymApparatus.includes(ap);
-                          return (
-                            <button
-                              key={ap}
-                              type="button"
-                              onClick={() => setGymApparatus((prev) =>
-                                selected ? prev.filter((a) => a !== ap) : [...prev, ap]
-                              )}
-                              className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                                selected
-                                  ? "bg-[#6c5ce7]/30 border-[#6c5ce7] text-[#a78bfa]"
-                                  : "bg-white/5 border-white/15 text-white/55 hover:border-white/30"
-                              }`}
-                            >
-                              {ap}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="text-xs text-white/55 mb-1 block">Notes</label>
-                    <textarea
-                      value={gymNotes}
-                      onChange={(e) => setGymNotes(e.target.value)}
-                      rows={2}
-                      placeholder="Any additional notes..."
-                      className="w-full px-3 py-2 bg-white/10 border border-white/15 rounded-lg text-white text-sm placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSaveGymnasticsProfile}
-                      className="px-4 py-2 bg-[#6c5ce7] text-white text-sm rounded-lg hover:bg-[#5b4dd0] transition-colors"
-                    >
-                      Save Profile
-                    </button>
-                    <button
-                      onClick={() => setShowGymnasticsForm(false)}
-                      className="px-4 py-2 text-white/55 text-sm hover:text-white transition-colors"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : gymnProfile ? (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-white/40 mb-0.5">Level</p>
-                      <p className="text-sm text-white">{gymnProfile.level || "—"}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-white/40 mb-0.5">Discipline</p>
-                      <p className="text-sm text-white">{gymnProfile.discipline || "—"}</p>
-                    </div>
-                  </div>
-                  {gymnProfile.apparatus.length > 0 && (
-                    <div>
-                      <p className="text-xs text-white/40 mb-1.5">Apparatus</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {gymnProfile.apparatus.map((ap) => (
-                          <span key={ap} className="px-2.5 py-1 text-xs rounded-full bg-[#6c5ce7]/20 text-[#a78bfa] border border-[#6c5ce7]/30">
-                            {ap}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {gymnProfile.notes && (
-                    <div>
-                      <p className="text-xs text-white/40 mb-0.5">Notes</p>
-                      <p className="text-sm text-white/80">{gymnProfile.notes}</p>
-                    </div>
-                  )}
-                  <p className="text-xs text-white/30 pt-1">
-                    Updated {new Date(isNaN(Number(gymnProfile.updatedAt)) ? gymnProfile.updatedAt : Number(gymnProfile.updatedAt)).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-white/40 text-sm">No gymnastics profile set up yet</p>
-              )}
-            </div>
-          )}
-
           {/* Organization Role */}
           <div className="bg-white/8 rounded-xl border border-white/8 p-6 mb-6">
             <h2 className="text-lg font-semibold text-white mb-4">Organization Role</h2>
