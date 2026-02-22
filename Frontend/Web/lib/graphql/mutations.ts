@@ -249,6 +249,8 @@ export const CREATE_RECURRING_EVENT = gql`
       daysOfWeek
       startDate
       endDate
+      includedAthletes { id firstName lastName image }
+      excludedAthletes { id firstName lastName image }
       events {
         ...EventFields
       }
@@ -547,6 +549,50 @@ export const UPDATE_VENUE = gql`
 export const DELETE_VENUE = gql`
   mutation DeleteVenue($id: ID!) {
     deleteVenue(id: $id)
+  }
+`;
+
+// ============================================
+// Recurring Event Athlete Include / Exclude Mutations
+// ============================================
+
+export const ADD_ATHLETE_TO_RECURRING_EVENT = gql`
+  mutation AddAthleteToRecurringEvent($recurringEventId: ID!, $userId: ID!) {
+    addAthleteToRecurringEvent(recurringEventId: $recurringEventId, userId: $userId) {
+      id
+      includedAthletes { id firstName lastName image }
+      excludedAthletes { id firstName lastName image }
+    }
+  }
+`;
+
+export const REMOVE_ATHLETE_FROM_RECURRING_EVENT = gql`
+  mutation RemoveAthleteFromRecurringEvent($recurringEventId: ID!, $userId: ID!) {
+    removeAthleteFromRecurringEvent(recurringEventId: $recurringEventId, userId: $userId) {
+      id
+      includedAthletes { id firstName lastName image }
+      excludedAthletes { id firstName lastName image }
+    }
+  }
+`;
+
+export const EXCLUDE_ATHLETE_FROM_RECURRING_EVENT = gql`
+  mutation ExcludeAthleteFromRecurringEvent($recurringEventId: ID!, $userId: ID!) {
+    excludeAthleteFromRecurringEvent(recurringEventId: $recurringEventId, userId: $userId) {
+      id
+      includedAthletes { id firstName lastName image }
+      excludedAthletes { id firstName lastName image }
+    }
+  }
+`;
+
+export const UNEXCLUDE_ATHLETE_FROM_RECURRING_EVENT = gql`
+  mutation UnexcludeAthleteFromRecurringEvent($recurringEventId: ID!, $userId: ID!) {
+    unexcludeAthleteFromRecurringEvent(recurringEventId: $recurringEventId, userId: $userId) {
+      id
+      includedAthletes { id firstName lastName image }
+      excludedAthletes { id firstName lastName image }
+    }
   }
 `;
 

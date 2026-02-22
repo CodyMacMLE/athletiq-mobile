@@ -192,6 +192,18 @@ export const GET_TEAM = gql`
           status
         }
       }
+      recurringEvents {
+        id
+        frequency
+        daysOfWeek
+        startTime
+        endTime
+        startDate
+        endDate
+        venue { id name city }
+        includedAthletes { id firstName lastName image }
+        excludedAthletes { id firstName lastName image }
+      }
     }
   }
   ${TEAM_FRAGMENT}

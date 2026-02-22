@@ -41,6 +41,8 @@ model User {
   medicalInfos             MedicalInfo[]
   eventIncludes            EventAthleteInclude[]
   eventExcludes            EventAthleteExclude[]
+  recurringEventIncludes   RecurringEventAthleteInclude[]
+  recurringEventExcludes   RecurringEventAthleteExclude[]
 }
 
 // ============================================
@@ -420,11 +422,37 @@ model RecurringEvent {
   team           Team?               @relation(fields: [teamId], references: [id])
   venueId        String?
   venue          Venue?              @relation(fields: [venueId], references: [id])
-  events         Event[]
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  events           Event[]
+  includedAthletes RecurringEventAthleteInclude[]
+  excludedAthletes RecurringEventAthleteExclude[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
   @@index([organizationId])
+}
+
+model RecurringEventAthleteInclude {
+  id               String         @id @default(cuid())
+  recurringEventId String
+  recurringEvent   RecurringEvent @relation(fields: [recurringEventId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+
+  @@unique([recurringEventId, userId])
+  @@index([recurringEventId])
+}
+
+model RecurringEventAthleteExclude {
+  id               String         @id @default(cuid())
+  recurringEventId String
+  recurringEvent   RecurringEvent @relation(fields: [recurringEventId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+
+  @@unique([recurringEventId, userId])
+  @@index([recurringEventId])
 }
 
 // ============================================

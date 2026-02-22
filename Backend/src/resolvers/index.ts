@@ -639,8 +639,25 @@ export const resolvers = {
         if (!allIds.has(u.id)) filteredAthletes.push(u as any);
       }
 
+      // Apply recurring-event-level overrides
+      if (event.recurringEventId) {
+        const reExcludeRows = await prisma.recurringEventAthleteExclude.findMany({
+          where: { recurringEventId: event.recurringEventId },
+        });
+        for (const r of reExcludeRows) excludedIds.add(r.userId);
+        const reIncludeRows = await prisma.recurringEventAthleteInclude.findMany({
+          where: { recurringEventId: event.recurringEventId },
+          include: { user: true },
+        });
+        for (const r of reIncludeRows) {
+          if (!allIds.has(r.userId) && !excludedIds.has(r.userId)) {
+            filteredAthletes.push(r.user as any);
+          }
+        }
+      }
+
       // Return users not yet checked in
-      return filteredAthletes.filter((u) => !checkedInIds.has(u.id));
+      return filteredAthletes.filter((u) => !excludedIds.has(u.id) && !checkedInIds.has(u.id));
     },
 
     // Excuse queries
@@ -1806,6 +1823,9 @@ export const resolvers = {
           endDate: string;
           organizationId: string;
           teamId?: string;
+          venueId?: string;
+          includedUserIds?: string[];
+          excludedUserIds?: string[];
         };
       }
     ) => {
@@ -1861,9 +1881,23 @@ export const resolvers = {
             description: input.description,
             organizationId: input.organizationId,
             teamId: input.teamId,
+            venueId: input.venueId,
             recurringEventId: re.id,
           })),
         });
+
+        if (input.includedUserIds?.length) {
+          await tx.recurringEventAthleteInclude.createMany({
+            data: input.includedUserIds.map((userId: string) => ({ recurringEventId: re.id, userId })),
+            skipDuplicates: true,
+          });
+        }
+        if (input.excludedUserIds?.length) {
+          await tx.recurringEventAthleteExclude.createMany({
+            data: input.excludedUserIds.map((userId: string) => ({ recurringEventId: re.id, userId })),
+            skipDuplicates: true,
+          });
+        }
 
         return re;
       });
@@ -3436,6 +3470,37 @@ export const resolvers = {
       await prisma.eventAthleteExclude.deleteMany({ where: { eventId, userId } });
       return prisma.event.findUnique({ where: { id: eventId } });
     },
+
+    // Recurring event athlete include/exclude mutations
+    addAthleteToRecurringEvent: async (_: unknown, { recurringEventId, userId }: { recurringEventId: string; userId: string }) => {
+      await prisma.recurringEventAthleteInclude.upsert({
+        where: { recurringEventId_userId: { recurringEventId, userId } },
+        create: { recurringEventId, userId },
+        update: {},
+      });
+      await prisma.recurringEventAthleteExclude.deleteMany({ where: { recurringEventId, userId } });
+      return prisma.recurringEvent.findUnique({ where: { id: recurringEventId } });
+    },
+
+    removeAthleteFromRecurringEvent: async (_: unknown, { recurringEventId, userId }: { recurringEventId: string; userId: string }) => {
+      await prisma.recurringEventAthleteInclude.deleteMany({ where: { recurringEventId, userId } });
+      return prisma.recurringEvent.findUnique({ where: { id: recurringEventId } });
+    },
+
+    excludeAthleteFromRecurringEvent: async (_: unknown, { recurringEventId, userId }: { recurringEventId: string; userId: string }) => {
+      await prisma.recurringEventAthleteExclude.upsert({
+        where: { recurringEventId_userId: { recurringEventId, userId } },
+        create: { recurringEventId, userId },
+        update: {},
+      });
+      await prisma.recurringEventAthleteInclude.deleteMany({ where: { recurringEventId, userId } });
+      return prisma.recurringEvent.findUnique({ where: { id: recurringEventId } });
+    },
+
+    unexcludeAthleteFromRecurringEvent: async (_: unknown, { recurringEventId, userId }: { recurringEventId: string; userId: string }) => {
+      await prisma.recurringEventAthleteExclude.deleteMany({ where: { recurringEventId, userId } });
+      return prisma.recurringEvent.findUnique({ where: { id: recurringEventId } });
+    },
   },
 
   // Field resolvers
@@ -3508,6 +3573,8 @@ export const resolvers = {
         },
         orderBy: { date: "asc" },
       }),
+    recurringEvents: (parent: { id: string }) =>
+      prisma.recurringEvent.findMany({ where: { teamId: parent.id } }),
     memberCount: (parent: { id: string }) => prisma.teamMember.count({ where: { teamId: parent.id, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } } }),
     attendancePercent: async (parent: { id: string; orgSeasonId?: string | null; seasonYear?: number | null }, { timeRange }: { timeRange?: string }) => {
       // Fetch team with season info to use season date range
@@ -3612,16 +3679,38 @@ export const resolvers = {
       prisma.team.findMany({
         where: { participatingEvents: { some: { id: parent.id } } },
       }),
-    includedAthletes: (parent: { id: string }) =>
-      prisma.eventAthleteInclude.findMany({
+    includedAthletes: async (parent: { id: string; recurringEventId?: string | null }) => {
+      const eventRows = await prisma.eventAthleteInclude.findMany({
         where: { eventId: parent.id },
         include: { user: true },
-      }).then(rows => rows.map(r => r.user)),
-    excludedAthletes: (parent: { id: string }) =>
-      prisma.eventAthleteExclude.findMany({
+      });
+      const eventUserIds = new Set(eventRows.map(r => r.userId));
+      let inherited: any[] = [];
+      if (parent.recurringEventId) {
+        const reRows = await prisma.recurringEventAthleteInclude.findMany({
+          where: { recurringEventId: parent.recurringEventId },
+          include: { user: true },
+        });
+        inherited = reRows.filter(r => !eventUserIds.has(r.userId)).map(r => r.user);
+      }
+      return [...eventRows.map(r => r.user), ...inherited];
+    },
+    excludedAthletes: async (parent: { id: string; recurringEventId?: string | null }) => {
+      const eventRows = await prisma.eventAthleteExclude.findMany({
         where: { eventId: parent.id },
         include: { user: true },
-      }).then(rows => rows.map(r => r.user)),
+      });
+      const eventUserIds = new Set(eventRows.map(r => r.userId));
+      let inherited: any[] = [];
+      if (parent.recurringEventId) {
+        const reRows = await prisma.recurringEventAthleteExclude.findMany({
+          where: { recurringEventId: parent.recurringEventId },
+          include: { user: true },
+        });
+        inherited = reRows.filter(r => !eventUserIds.has(r.userId)).map(r => r.user);
+      }
+      return [...eventRows.map(r => r.user), ...inherited];
+    },
     date: (parent: any) => toISO(parent.date),
     endDate: (parent: any) => parent.endDate ? toISO(parent.endDate) : null,
     createdAt: (parent: any) => toISO(parent.createdAt),
@@ -3637,6 +3726,16 @@ export const resolvers = {
       parent.venueId ? prisma.venue.findUnique({ where: { id: parent.venueId } }) : null,
     events: (parent: { id: string }) =>
       prisma.event.findMany({ where: { recurringEventId: parent.id }, orderBy: { date: "asc" } }),
+    includedAthletes: (parent: { id: string }) =>
+      prisma.recurringEventAthleteInclude.findMany({
+        where: { recurringEventId: parent.id },
+        include: { user: true },
+      }).then(rows => rows.map(r => r.user)),
+    excludedAthletes: (parent: { id: string }) =>
+      prisma.recurringEventAthleteExclude.findMany({
+        where: { recurringEventId: parent.id },
+        include: { user: true },
+      }).then(rows => rows.map(r => r.user)),
     startDate: (parent: any) => toISO(parent.startDate),
     endDate: (parent: any) => toISO(parent.endDate),
     createdAt: (parent: any) => toISO(parent.createdAt),

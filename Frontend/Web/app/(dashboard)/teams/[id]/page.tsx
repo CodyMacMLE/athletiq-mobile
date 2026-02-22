@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   GET_TEAM,
   GET_ORGANIZATION_USERS,
+  GET_ORGANIZATION_VENUES,
   CREATE_EVENT,
   DELETE_EVENT,
   CREATE_RECURRING_EVENT,
@@ -14,10 +15,15 @@ import {
   UPDATE_TEAM_MEMBER_ROLE,
   ADD_TEAM_MEMBER,
   REMOVE_TEAM_MEMBER,
+  EXCLUDE_ATHLETE_FROM_RECURRING_EVENT,
+  UNEXCLUDE_ATHLETE_FROM_RECURRING_EVENT,
+  ADD_ATHLETE_TO_RECURRING_EVENT,
+  REMOVE_ATHLETE_FROM_RECURRING_EVENT,
 } from "@/lib/graphql";
 import {
   Plus,
   Calendar,
+  CalendarDays,
   MapPin,
   Clock,
   Trash2,
@@ -31,6 +37,7 @@ import {
   Shield,
   UserMinus,
   Search,
+  Check,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -66,6 +73,31 @@ type Member = {
   };
 };
 
+type AthleteUser = { id: string; firstName: string; lastName: string; image?: string };
+
+type DaySchedule = {
+  active: boolean;
+  recurringEventId?: string;
+  startTime: string;
+  endTime: string;
+  venueId: string;
+  coaches: AthleteUser[];
+  athletes: AthleteUser[];
+};
+
+type RecurringEventData = {
+  id: string;
+  frequency: string;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  startDate: string;
+  endDate: string;
+  venue?: { id: string; name: string; city?: string } | null;
+  includedAthletes: AthleteUser[];
+  excludedAthletes: AthleteUser[];
+};
+
 const EVENT_TYPE_COLORS = {
   PRACTICE: "bg-[#a855f7]/15 text-[#a78bfa]",
   EVENT: "bg-red-600/20 text-red-400",
@@ -78,7 +110,7 @@ export default function TeamDetail() {
   const teamId = params.id as string;
   const { canEdit, isOwner, isAdmin, isManager } = useAuth();
   const canManageRoles = isOwner || isAdmin || isManager;
-  const [activeTab, setActiveTab] = useState<"events" | "members" | "coaches">("events");
+  const [activeTab, setActiveTab] = useState<"events" | "members" | "coaches" | "schedule">("events");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedTime, setSelectedTime] = useState<"upcoming" | "past">("upcoming");
@@ -364,10 +396,11 @@ export default function TeamDetail() {
       {/* Tabs */}
       <div className="flex items-center space-x-1 mb-6 border-b border-white/8">
         {([
-          { key: "events", label: "Events", icon: <Calendar className="w-4 h-4 mr-2" /> },
-          { key: "members", label: `Athletes (${members.length})`, icon: <Users className="w-4 h-4 mr-2" /> },
-          { key: "coaches", label: `Coaches (${coaches.length})`, icon: <Shield className="w-4 h-4 mr-2" /> },
-        ] as const).map((tab) => (
+          { key: "events" as const, label: "Events", icon: <Calendar className="w-4 h-4 mr-2" /> },
+          { key: "members" as const, label: `Athletes (${members.length})`, icon: <Users className="w-4 h-4 mr-2" /> },
+          { key: "coaches" as const, label: `Coaches (${coaches.length})`, icon: <Shield className="w-4 h-4 mr-2" /> },
+          ...(canEdit ? [{ key: "schedule" as const, label: "Schedule", icon: <CalendarDays className="w-4 h-4 mr-2" /> }] : []),
+        ]).map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -606,6 +639,16 @@ export default function TeamDetail() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Schedule Tab */}
+      {activeTab === "schedule" && (
+        <ScheduleTab
+          team={team}
+          organizationId={team.organization.id}
+          canEdit={canEdit}
+          refetch={refetch}
+        />
       )}
 
       {/* Create Event Modal */}
@@ -950,6 +993,674 @@ function EventCard({
               <Trash2 className="w-4 h-4" />
             </button>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// Schedule Tab
+// ============================================
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_NAMES_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function computeSeasonDates(team: any): { start: string; end: string } {
+  if (team.orgSeason && team.seasonYear) {
+    const { startMonth, endMonth } = team.orgSeason;
+    const startYear = endMonth < startMonth ? team.seasonYear - 1 : team.seasonYear;
+    const endYear = endMonth < startMonth ? team.seasonYear : team.seasonYear;
+    return {
+      start: `${startYear}-${String(startMonth).padStart(2, "0")}-01`,
+      end: `${endYear}-${String(endMonth).padStart(2, "0")}-28`,
+    };
+  }
+  const now = new Date();
+  return {
+    start: now.toISOString().slice(0, 10),
+    end: `${now.getUTCFullYear()}-12-31`,
+  };
+}
+
+function initScheduleFromRecurringEvents(
+  recurringEvents: RecurringEventData[],
+  allMembers: { id: string; role: string; user: AthleteUser }[]
+): DaySchedule[] {
+  const schedule: DaySchedule[] = Array.from({ length: 7 }, () => ({
+    active: false,
+    recurringEventId: undefined,
+    startTime: "6:00 PM",
+    endTime: "8:00 PM",
+    venueId: "",
+    coaches: [],
+    athletes: [],
+  }));
+
+  const teamCoachIds = new Set(allMembers.filter(m => m.role === "COACH").map(m => m.user.id));
+  const teamAthleteIds = new Set(
+    allMembers.filter(m => m.role === "MEMBER" || m.role === "CAPTAIN").map(m => m.user.id)
+  );
+
+  const weeklyEvents = recurringEvents.filter(
+    re => re.frequency === "WEEKLY" && re.daysOfWeek.length === 1
+  );
+
+  for (const re of weeklyEvents) {
+    const dayIndex = re.daysOfWeek[0];
+    if (dayIndex < 0 || dayIndex > 6) continue;
+
+    const excludedIds = new Set(re.excludedAthletes.map(u => u.id));
+
+    const coaches = allMembers
+      .filter(m => m.role === "COACH" && !excludedIds.has(m.user.id))
+      .map(m => m.user);
+    const athletes = allMembers
+      .filter(m => (m.role === "MEMBER" || m.role === "CAPTAIN") && !excludedIds.has(m.user.id))
+      .map(m => m.user);
+
+    // Add included extras
+    for (const u of re.includedAthletes) {
+      if (!teamCoachIds.has(u.id) && !teamAthleteIds.has(u.id)) {
+        athletes.push(u);
+      }
+    }
+
+    schedule[dayIndex] = {
+      active: true,
+      recurringEventId: re.id,
+      startTime: re.startTime,
+      endTime: re.endTime,
+      venueId: re.venue?.id || "",
+      coaches,
+      athletes,
+    };
+  }
+
+  return schedule;
+}
+
+function ScheduleTab({
+  team,
+  organizationId,
+  canEdit,
+  refetch,
+}: {
+  team: any;
+  organizationId: string;
+  canEdit: boolean;
+  refetch: () => void;
+}) {
+  const seasonDates = computeSeasonDates(team);
+  const allMembers: { id: string; role: string; user: AthleteUser }[] = team.members || [];
+
+  const [schedule, setSchedule] = useState<DaySchedule[]>(() =>
+    initScheduleFromRecurringEvents(team.recurringEvents || [], allMembers)
+  );
+  const [startDate, setStartDate] = useState(seasonDates.start);
+  const [endDate, setEndDate] = useState(seasonDates.end);
+  const [applying, setApplying] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [searchModal, setSearchModal] = useState<{ day: number; role: "coach" | "athlete" } | null>(null);
+
+  const [createRecurringEvent] = useMutation<any>(CREATE_RECURRING_EVENT);
+  const [deleteRecurringEvent] = useMutation<any>(DELETE_RECURRING_EVENT);
+
+  const existingWeeklyEvents: RecurringEventData[] = (team.recurringEvents || []).filter(
+    (re: RecurringEventData) => re.frequency === "WEEKLY" && re.daysOfWeek.length === 1
+  );
+
+  const toggleDay = (dayIndex: number) => {
+    setSchedule(prev => {
+      const next = [...prev];
+      next[dayIndex] = { ...next[dayIndex], active: !next[dayIndex].active };
+      return next;
+    });
+  };
+
+  const handleApplySchedule = async () => {
+    if (existingWeeklyEvents.length > 0) {
+      setConfirmReplace(true);
+      return;
+    }
+    await doApply();
+  };
+
+  const doApply = async () => {
+    setApplying(true);
+    setConfirmReplace(false);
+    try {
+      // Delete existing weekly recurring events
+      for (const re of existingWeeklyEvents) {
+        await deleteRecurringEvent({ variables: { id: re.id } });
+      }
+
+      const allTeamIds = new Set(allMembers.map(m => m.user.id));
+
+      for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+        const day = schedule[dayIndex];
+        if (!day.active) continue;
+
+        const participantIds = new Set([
+          ...day.coaches.map(u => u.id),
+          ...day.athletes.map(u => u.id),
+        ]);
+
+        // excludedUserIds = team members NOT in participants
+        const excludedUserIds = allMembers
+          .map(m => m.user.id)
+          .filter(id => !participantIds.has(id));
+
+        // includedUserIds = participants NOT on the team
+        const includedUserIds = [
+          ...day.coaches.map(u => u.id),
+          ...day.athletes.map(u => u.id),
+        ].filter(id => !allTeamIds.has(id));
+
+        await createRecurringEvent({
+          variables: {
+            input: {
+              title: `${team.name} Practice`,
+              type: "PRACTICE",
+              startTime: day.startTime,
+              endTime: day.endTime,
+              frequency: "WEEKLY",
+              daysOfWeek: [dayIndex],
+              startDate,
+              endDate,
+              organizationId,
+              teamId: team.id,
+              venueId: day.venueId || undefined,
+              includedUserIds: includedUserIds.length > 0 ? includedUserIds : undefined,
+              excludedUserIds: excludedUserIds.length > 0 ? excludedUserIds : undefined,
+            },
+          },
+        });
+      }
+
+      refetch();
+    } catch (err) {
+      console.error("Failed to apply schedule:", err);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const { data: venuesData } = useQuery<any>(GET_ORGANIZATION_VENUES, {
+    variables: { organizationId },
+  });
+  const venues: { id: string; name: string; city?: string }[] = venuesData?.organizationVenues || [];
+
+  const teamCoaches = allMembers.filter(m => m.role === "COACH").map(m => m.user);
+  const teamAthletes = allMembers
+    .filter(m => m.role === "MEMBER" || m.role === "CAPTAIN")
+    .map(m => m.user);
+
+  return (
+    <div>
+      {/* Season date range + Apply button */}
+      <div className="flex items-end gap-4 mb-6 flex-wrap">
+        <div>
+          <label className="block text-xs font-medium text-white/55 mb-1">Season Start</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={e => setStartDate(e.target.value)}
+            className="px-3 py-2 bg-white/8 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-white/55 mb-1">Season End</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={e => setEndDate(e.target.value)}
+            className="px-3 py-2 bg-white/8 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+          />
+        </div>
+        <button
+          onClick={handleApplySchedule}
+          disabled={applying || !canEdit}
+          className="flex items-center gap-2 px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+        >
+          {applying ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Check className="w-4 h-4" />
+          )}
+          Apply Schedule
+        </button>
+      </div>
+
+      {/* Kanban board */}
+      <div className="overflow-x-auto pb-4">
+        <div className="flex gap-3" style={{ minWidth: "max-content" }}>
+          {schedule.map((day, dayIndex) => (
+            <DayColumn
+              key={dayIndex}
+              dayIndex={dayIndex}
+              day={day}
+              canEdit={canEdit}
+              venues={venues}
+              onToggle={() => toggleDay(dayIndex)}
+              onTimeChange={(field, value) =>
+                setSchedule(prev => {
+                  const next = [...prev];
+                  next[dayIndex] = { ...next[dayIndex], [field]: value };
+                  return next;
+                })
+              }
+              onVenueChange={venueId =>
+                setSchedule(prev => {
+                  const next = [...prev];
+                  next[dayIndex] = { ...next[dayIndex], venueId };
+                  return next;
+                })
+              }
+              onAddAllCoaches={() =>
+                setSchedule(prev => {
+                  const next = [...prev];
+                  const existing = new Set(next[dayIndex].coaches.map(u => u.id));
+                  const merged = [
+                    ...next[dayIndex].coaches,
+                    ...teamCoaches.filter(u => !existing.has(u.id)),
+                  ];
+                  next[dayIndex] = { ...next[dayIndex], coaches: merged };
+                  return next;
+                })
+              }
+              onAddAllAthletes={() =>
+                setSchedule(prev => {
+                  const next = [...prev];
+                  const existing = new Set(next[dayIndex].athletes.map(u => u.id));
+                  const merged = [
+                    ...next[dayIndex].athletes,
+                    ...teamAthletes.filter(u => !existing.has(u.id)),
+                  ];
+                  next[dayIndex] = { ...next[dayIndex], athletes: merged };
+                  return next;
+                })
+              }
+              onRemoveCoach={userId =>
+                setSchedule(prev => {
+                  const next = [...prev];
+                  next[dayIndex] = {
+                    ...next[dayIndex],
+                    coaches: next[dayIndex].coaches.filter(u => u.id !== userId),
+                  };
+                  return next;
+                })
+              }
+              onRemoveAthlete={userId =>
+                setSchedule(prev => {
+                  const next = [...prev];
+                  next[dayIndex] = {
+                    ...next[dayIndex],
+                    athletes: next[dayIndex].athletes.filter(u => u.id !== userId),
+                  };
+                  return next;
+                })
+              }
+              onOpenSearch={role => setSearchModal({ day: dayIndex, role })}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Search modal */}
+      {searchModal !== null && (
+        <ScheduleSearchModal
+          organizationId={organizationId}
+          day={searchModal.day}
+          role={searchModal.role}
+          existingIds={new Set([
+            ...(searchModal.role === "coach"
+              ? schedule[searchModal.day].coaches.map(u => u.id)
+              : schedule[searchModal.day].athletes.map(u => u.id)),
+          ])}
+          onAdd={user => {
+            setSchedule(prev => {
+              const next = [...prev];
+              const field = searchModal.role === "coach" ? "coaches" : "athletes";
+              if (!next[searchModal.day][field].find(u => u.id === user.id)) {
+                next[searchModal.day] = {
+                  ...next[searchModal.day],
+                  [field]: [...next[searchModal.day][field], user],
+                };
+              }
+              return next;
+            });
+          }}
+          onClose={() => setSearchModal(null)}
+        />
+      )}
+
+      {/* Confirm replace dialog */}
+      {confirmReplace && (
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-sm p-6 border border-white/15 shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-2">Replace Existing Schedule?</h3>
+            <p className="text-white/55 text-sm mb-6">
+              This will delete all {existingWeeklyEvents.length} existing weekly practice series and create new ones from the current schedule.
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={doApply}
+                className="w-full px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors text-sm font-medium"
+              >
+                Replace Schedule
+              </button>
+              <button
+                onClick={() => setConfirmReplace(false)}
+                className="w-full px-4 py-2 text-white/55 hover:text-white transition-colors text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DayColumn({
+  dayIndex,
+  day,
+  canEdit,
+  venues,
+  onToggle,
+  onTimeChange,
+  onVenueChange,
+  onAddAllCoaches,
+  onAddAllAthletes,
+  onRemoveCoach,
+  onRemoveAthlete,
+  onOpenSearch,
+}: {
+  dayIndex: number;
+  day: DaySchedule;
+  canEdit: boolean;
+  venues: { id: string; name: string; city?: string }[];
+  onToggle: () => void;
+  onTimeChange: (field: "startTime" | "endTime", value: string) => void;
+  onVenueChange: (venueId: string) => void;
+  onAddAllCoaches: () => void;
+  onAddAllAthletes: () => void;
+  onRemoveCoach: (userId: string) => void;
+  onRemoveAthlete: (userId: string) => void;
+  onOpenSearch: (role: "coach" | "athlete") => void;
+}) {
+  return (
+    <div
+      className={`w-48 rounded-xl border flex-shrink-0 overflow-hidden transition-all ${
+        day.active
+          ? "border-[#6c5ce7]/50 bg-[#6c5ce7]/8"
+          : "border-white/8 bg-white/4 opacity-60"
+      }`}
+    >
+      {/* Header */}
+      <div
+        className={`flex items-center justify-between px-3 py-2.5 ${
+          day.active ? "bg-[#6c5ce7]/20" : "bg-white/5"
+        }`}
+      >
+        <span className="text-sm font-semibold text-white">{DAY_NAMES_FULL[dayIndex]}</span>
+        {canEdit && (
+          <button
+            onClick={onToggle}
+            className={`w-8 h-5 rounded-full transition-colors relative flex-shrink-0 ${
+              day.active ? "bg-[#6c5ce7]" : "bg-white/20"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                day.active ? "translate-x-3" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        )}
+      </div>
+
+      {day.active && (
+        <div className="p-3 space-y-3">
+          {/* Times */}
+          <div className="space-y-1.5">
+            <input
+              type="text"
+              value={day.startTime}
+              onChange={e => onTimeChange("startTime", e.target.value)}
+              disabled={!canEdit}
+              placeholder="Start time"
+              className="w-full px-2 py-1.5 bg-white/8 border border-white/10 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] disabled:opacity-50"
+            />
+            <input
+              type="text"
+              value={day.endTime}
+              onChange={e => onTimeChange("endTime", e.target.value)}
+              disabled={!canEdit}
+              placeholder="End time"
+              className="w-full px-2 py-1.5 bg-white/8 border border-white/10 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] disabled:opacity-50"
+            />
+          </div>
+
+          {/* Venue */}
+          <select
+            value={day.venueId}
+            onChange={e => onVenueChange(e.target.value)}
+            disabled={!canEdit}
+            className="w-full px-2 py-1.5 bg-white/8 border border-white/10 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] disabled:opacity-50"
+          >
+            <option value="">No venue</option>
+            {venues.map(v => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Coaches section */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-semibold text-white/55 uppercase tracking-wide">Coaches</span>
+              {canEdit && (
+                <div className="flex gap-1">
+                  <button
+                    onClick={onAddAllCoaches}
+                    className="text-xs text-[#a78bfa] hover:text-white transition-colors px-1"
+                    title="Add all team coaches"
+                  >
+                    +All
+                  </button>
+                  <button
+                    onClick={() => onOpenSearch("coach")}
+                    className="text-xs text-[#a78bfa] hover:text-white transition-colors px-1"
+                  >
+                    +Add
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="space-y-1">
+              {day.coaches.map(u => (
+                <div key={u.id} className="flex items-center justify-between gap-1">
+                  <span className="text-xs text-white/80 truncate">
+                    {u.firstName} {u.lastName}
+                  </span>
+                  {canEdit && (
+                    <button
+                      onClick={() => onRemoveCoach(u.id)}
+                      className="text-white/30 hover:text-red-400 transition-colors flex-shrink-0"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {day.coaches.length === 0 && (
+                <p className="text-xs text-white/30 italic">No coaches</p>
+              )}
+            </div>
+          </div>
+
+          {/* Athletes section */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-semibold text-white/55 uppercase tracking-wide">Athletes</span>
+              {canEdit && (
+                <div className="flex gap-1">
+                  <button
+                    onClick={onAddAllAthletes}
+                    className="text-xs text-[#a78bfa] hover:text-white transition-colors px-1"
+                    title="Add all team athletes"
+                  >
+                    +All
+                  </button>
+                  <button
+                    onClick={() => onOpenSearch("athlete")}
+                    className="text-xs text-[#a78bfa] hover:text-white transition-colors px-1"
+                  >
+                    +Add
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="space-y-1 max-h-40 overflow-y-auto">
+              {day.athletes.map(u => (
+                <div key={u.id} className="flex items-center justify-between gap-1">
+                  <span className="text-xs text-white/80 truncate">
+                    {u.firstName} {u.lastName}
+                  </span>
+                  {canEdit && (
+                    <button
+                      onClick={() => onRemoveAthlete(u.id)}
+                      className="text-white/30 hover:text-red-400 transition-colors flex-shrink-0"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {day.athletes.length === 0 && (
+                <p className="text-xs text-white/30 italic">No athletes</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!day.active && (
+        <div className="px-3 py-4 text-center">
+          <p className="text-xs text-white/30">Off</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScheduleSearchModal({
+  organizationId,
+  day,
+  role,
+  existingIds,
+  onAdd,
+  onClose,
+}: {
+  organizationId: string;
+  day: number;
+  role: "coach" | "athlete";
+  existingIds: Set<string>;
+  onAdd: (user: AthleteUser) => void;
+  onClose: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const { data: orgUsersData, loading } = useQuery<any>(GET_ORGANIZATION_USERS, {
+    variables: { id: organizationId },
+  });
+
+  const orgMembers: { id: string; role: string; user: AthleteUser & { email: string } }[] =
+    orgUsersData?.organization?.members || [];
+
+  const coachRoles = new Set(["COACH", "ADMIN", "OWNER"]);
+  const candidates = orgMembers.filter(m => {
+    if (existingIds.has(m.user.id)) return false;
+    if (role === "coach") return coachRoles.has(m.role);
+    return m.role === "ATHLETE";
+  });
+
+  const q = search.toLowerCase();
+  const filtered = q
+    ? candidates.filter(m =>
+        `${m.user.firstName} ${m.user.lastName}`.toLowerCase().includes(q) ||
+        m.user.email.toLowerCase().includes(q)
+      )
+    : candidates;
+
+  return (
+    <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 p-6 w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">
+            Add {role === "coach" ? "Coach" : "Athlete"} — {DAY_NAMES_FULL[day]}
+          </h2>
+          <button onClick={onClose} className="text-white/55 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name or email..."
+            autoFocus
+            className="w-full pl-10 pr-4 py-2.5 bg-white/15 border border-white/25 rounded-lg text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+          />
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-6 h-6 text-[#6c5ce7] animate-spin" />
+          </div>
+        ) : (
+          <div className="space-y-1 max-h-72 overflow-y-auto mb-4">
+            {filtered.map(m => (
+              <button
+                key={m.user.id}
+                onClick={() => {
+                  onAdd(m.user);
+                  onClose();
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border border-white/8 bg-white/5 hover:bg-white/10 text-left transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                  {m.user.firstName[0]}{m.user.lastName[0]}
+                </div>
+                <div>
+                  <p className="text-sm text-white font-medium">
+                    {m.user.firstName} {m.user.lastName}
+                  </p>
+                  <p className="text-xs text-white/55">{m.user.email}</p>
+                </div>
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <p className="text-white/40 text-sm text-center py-4">
+                {candidates.length === 0 ? "No eligible members found" : `No results for "${search}"`}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-white/8 hover:bg-white/12 text-white/75 text-sm font-medium rounded-lg transition-colors"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>

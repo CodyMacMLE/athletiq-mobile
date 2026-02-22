@@ -218,6 +218,7 @@ export const typeDefs = `#graphql
     seasonYear: Int
     members: [TeamMember!]!
     events: [Event!]!
+    recurringEvents: [RecurringEvent!]!
     memberCount: Int!
     attendancePercent(timeRange: TimeRange): Float!
     archivedAt: String
@@ -296,6 +297,8 @@ export const typeDefs = `#graphql
     team: Team
     venue: Venue
     events: [Event!]!
+    includedAthletes: [User!]!
+    excludedAthletes: [User!]!
     createdAt: String!
     updatedAt: String!
   }
@@ -633,6 +636,8 @@ export const typeDefs = `#graphql
     organizationId: ID!
     teamId: ID
     venueId: ID
+    includedUserIds: [ID!]
+    excludedUserIds: [ID!]
   }
 
   input CheckInInput {
@@ -879,6 +884,10 @@ export const typeDefs = `#graphql
     # Recurring event mutations
     createRecurringEvent(input: CreateRecurringEventInput!): RecurringEvent!
     deleteRecurringEvent(id: ID!): Boolean!
+    addAthleteToRecurringEvent(recurringEventId: ID!, userId: ID!): RecurringEvent!
+    removeAthleteFromRecurringEvent(recurringEventId: ID!, userId: ID!): RecurringEvent!
+    excludeAthleteFromRecurringEvent(recurringEventId: ID!, userId: ID!): RecurringEvent!
+    unexcludeAthleteFromRecurringEvent(recurringEventId: ID!, userId: ID!): RecurringEvent!
 
     # Check-in mutations
     markAbsentForPastEvents(organizationId: ID!): Int!
