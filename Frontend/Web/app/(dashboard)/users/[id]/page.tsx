@@ -14,7 +14,6 @@ import {
   GET_ATHLETE_GUARDIANS,
   GET_ATHLETE_STATUS_HISTORY,
   GET_GYMNASTICS_PROFILE,
-  UPDATE_USER,
   UPDATE_ORG_MEMBER_ROLE,
   UPDATE_TEAM_MEMBER_ROLE,
   ADD_TEAM_MEMBER,
@@ -52,7 +51,7 @@ import {
   Users,
   Send,
   Activity,
-  ChevronDown,
+  Calendar,
   History,
 } from "lucide-react";
 
@@ -202,8 +201,6 @@ export default function UserDetailPage() {
   const [editingContact, setEditingContact] = useState<EmergencyContact | null>(null);
   const [showMedicalModal, setShowMedicalModal] = useState(false);
   const [showInviteGuardianModal, setShowInviteGuardianModal] = useState(false);
-  const [editingDob, setEditingDob] = useState(false);
-  const [dobInput, setDobInput] = useState("");
   const [showStatusChangeForm, setShowStatusChangeForm] = useState(false);
   const [pendingStatus, setPendingStatus] = useState("");
   const [statusNote, setStatusNote] = useState("");
@@ -250,7 +247,6 @@ export default function UserDetailPage() {
 
   const [updateAthleteStatus] = useMutation<any>(UPDATE_ATHLETE_STATUS);
   const [upsertGymnasticsProfile] = useMutation<any>(UPSERT_GYMNASTICS_PROFILE);
-  const [updateUser] = useMutation<any>(UPDATE_USER);
 
   const [updateOrgMemberRole] = useMutation<any>(UPDATE_ORG_MEMBER_ROLE);
   const [updateTeamMemberRole] = useMutation<any>(UPDATE_TEAM_MEMBER_ROLE);
@@ -354,16 +350,6 @@ export default function UserDetailPage() {
       router.push("/users");
     } catch (error) {
       console.error("Failed to remove from organization:", error);
-    }
-  };
-
-  const handleSaveDob = async () => {
-    try {
-      await updateUser({ variables: { id: userId, input: { dateOfBirth: dobInput || null } } });
-      refetch();
-      setEditingDob(false);
-    } catch (error) {
-      console.error("Failed to update date of birth:", error);
     }
   };
 
@@ -562,38 +548,21 @@ export default function UserDetailPage() {
                 </div>
               )}
               {/* Date of Birth */}
-              <div className="flex items-center gap-3">
-                <span className="text-white/40 text-xs w-4 shrink-0 text-center font-medium">DOB</span>
-                {editingDob ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={dobInput}
-                      onChange={(e) => setDobInput(e.target.value)}
-                      className="px-2 py-1 bg-white/10 border border-white/15 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-                    />
-                    <button onClick={handleSaveDob} className="text-xs text-[#a78bfa] hover:text-[#c4b5fd] transition-colors">Save</button>
-                    <button onClick={() => setEditingDob(false)} className="text-xs text-white/40 hover:text-white transition-colors">Cancel</button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
+              {(() => {
+                if (!member.user.dateOfBirth) return null;
+                const dob = new Date(isNaN(Number(member.user.dateOfBirth)) ? member.user.dateOfBirth : Number(member.user.dateOfBirth));
+                const today = new Date();
+                const age = today.getFullYear() - dob.getFullYear() - (today < new Date(today.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+                return (
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-4 h-4 text-white/40 shrink-0" />
                     <span className="text-white/80 text-sm">
-                      {member.user.dateOfBirth
-                        ? new Date(isNaN(Number(member.user.dateOfBirth)) ? member.user.dateOfBirth : Number(member.user.dateOfBirth)).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
-                        : <span className="text-white/35">Not set</span>
-                      }
+                      {dob.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                      <span className="text-white/40 ml-2">{age} yrs</span>
                     </span>
-                    {canEdit && (
-                      <button
-                        onClick={() => { setDobInput(member.user.dateOfBirth ? new Date(isNaN(Number(member.user.dateOfBirth)) ? member.user.dateOfBirth : Number(member.user.dateOfBirth)).toISOString().slice(0, 10) : ""); setEditingDob(true); }}
-                        className="text-white/30 hover:text-white/60 transition-colors"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </button>
-                    )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
 
               {!member.user.phone && !member.user.address && !member.user.city && !member.user.country && (
                 <p className="text-white/40 text-sm">No additional contact info on file</p>
