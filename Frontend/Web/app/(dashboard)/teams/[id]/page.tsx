@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useLazyQuery } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1100,8 +1100,25 @@ function ScheduleTab({
   const [startDate, setStartDate] = useState(seasonDates.start);
   const [endDate, setEndDate] = useState(seasonDates.end);
   const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [applySuccess, setApplySuccess] = useState(false);
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [searchModal, setSearchModal] = useState<{ day: number; role: "coach" | "athlete" } | null>(null);
+
+  // Re-sync schedule whenever team.recurringEvents changes (e.g. after apply+refetch)
+  const recurringEventsKey = JSON.stringify((team.recurringEvents || []).map((re: RecurringEventData) => re.id));
+  const prevKeyRef = useRef(recurringEventsKey);
+  if (prevKeyRef.current !== recurringEventsKey) {
+    prevKeyRef.current = recurringEventsKey;
+    const synced = initScheduleFromRecurringEvents(team.recurringEvents || [], allMembers);
+    // Only reset days that were saved (have a recurringEventId) — preserve unsaved local edits for new days
+    setSchedule(prev => prev.map((day, i) => {
+      const syncedDay = synced[i];
+      // If there's now a recurringEvent for this day, use the synced version
+      if (syncedDay.recurringEventId || day.recurringEventId) return syncedDay;
+      return day;
+    }));
+  }
 
   const [createRecurringEvent] = useMutation<any>(CREATE_RECURRING_EVENT);
   const [deleteRecurringEvent] = useMutation<any>(DELETE_RECURRING_EVENT);
@@ -1119,6 +1136,16 @@ function ScheduleTab({
   };
 
   const handleApplySchedule = async () => {
+    setApplyError(null);
+    const activeDays = schedule.filter(d => d.active);
+    if (activeDays.length === 0) {
+      setApplyError("No days are active. Toggle at least one day on before applying.");
+      return;
+    }
+    if (!startDate || !endDate) {
+      setApplyError("Season start and end dates are required.");
+      return;
+    }
     if (existingWeeklyEvents.length > 0) {
       setConfirmReplace(true);
       return;
@@ -1128,6 +1155,8 @@ function ScheduleTab({
 
   const doApply = async () => {
     setApplying(true);
+    setApplyError(null);
+    setApplySuccess(false);
     setConfirmReplace(false);
     try {
       // Delete existing weekly recurring events
@@ -1136,6 +1165,7 @@ function ScheduleTab({
       }
 
       const allTeamIds = new Set(allMembers.map(m => m.user.id));
+      let created = 0;
 
       for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
         const day = schedule[dayIndex];
@@ -1176,10 +1206,15 @@ function ScheduleTab({
             },
           },
         });
+        created++;
       }
 
-      refetch();
-    } catch (err) {
+      setApplySuccess(true);
+      setTimeout(() => setApplySuccess(false), 4000);
+      await refetch();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to apply schedule";
+      setApplyError(msg);
       console.error("Failed to apply schedule:", err);
     } finally {
       setApplying(false);
@@ -1231,6 +1266,22 @@ function ScheduleTab({
           Apply Schedule
         </button>
       </div>
+
+      {/* Error / success banners */}
+      {applyError && (
+        <div className="mb-4 px-4 py-3 bg-red-600/20 border border-red-600/30 rounded-lg text-red-400 text-sm flex items-center justify-between">
+          <span>{applyError}</span>
+          <button onClick={() => setApplyError(null)} className="ml-3 text-red-400 hover:text-white">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+      {applySuccess && (
+        <div className="mb-4 px-4 py-3 bg-green-600/20 border border-green-600/30 rounded-lg text-green-400 text-sm flex items-center gap-2">
+          <Check className="w-4 h-4" />
+          Schedule applied successfully — recurring events created.
+        </div>
+      )}
 
       {/* Kanban board */}
       <div className="overflow-x-auto pb-4">
