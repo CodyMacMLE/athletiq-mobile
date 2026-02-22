@@ -780,19 +780,75 @@ export const resolvers = {
 
     allAttendanceRecords: async (
       _: unknown,
-      { organizationId, limit, offset }: { organizationId: string; limit?: number; offset?: number }
+      { organizationId, search, status, sortField, sortDir, limit, offset }: {
+        organizationId: string;
+        search?: string;
+        status?: string;
+        sortField?: string;
+        sortDir?: string;
+        limit?: number;
+        offset?: number;
+      }
     ) => {
       const coachTeamMap = await getNonAthleteTeamMap(organizationId);
+      const dir = sortDir === "asc" ? "asc" : "desc";
+      const orderBy: any[] = (() => {
+        switch (sortField) {
+          case "name": return [{ user: { firstName: dir } }, { user: { lastName: dir } }];
+          case "event": return [{ event: { title: dir } }];
+          case "status": return [{ status: dir }, { event: { date: "desc" } }];
+          case "checkIn": return [{ checkInTime: dir }];
+          case "checkOut": return [{ checkOutTime: dir }];
+          case "hours": return [{ hoursLogged: dir }];
+          default: return [{ event: { date: "desc" } }];
+        }
+      })();
+
+      const where: any = {
+        event: { organizationId },
+        approved: true,
+        ...(status && status !== "ALL" && { status }),
+        ...(search && {
+          OR: [
+            { user: { firstName: { contains: search, mode: "insensitive" } } },
+            { user: { lastName: { contains: search, mode: "insensitive" } } },
+            { event: { title: { contains: search, mode: "insensitive" } } },
+          ],
+        }),
+      };
+
       const checkIns = await prisma.checkIn.findMany({
-        where: {
-          event: { organizationId },
-          approved: true,
-        },
-        orderBy: { createdAt: "desc" },
+        where,
+        orderBy,
         include: { event: { select: { teamId: true } } },
       });
       const filtered = checkIns.filter(c => isAthleteCheckIn(c, coachTeamMap));
-      return filtered.slice(offset || 0, (offset || 0) + (limit || 100));
+      return filtered.slice(offset || 0, (offset || 0) + (limit || 20));
+    },
+
+    attendanceRecordsCount: async (
+      _: unknown,
+      { organizationId, search, status }: { organizationId: string; search?: string; status?: string }
+    ) => {
+      const coachTeamMap = await getNonAthleteTeamMap(organizationId);
+      const where: any = {
+        event: { organizationId },
+        approved: true,
+        ...(status && status !== "ALL" && { status }),
+        ...(search && {
+          OR: [
+            { user: { firstName: { contains: search, mode: "insensitive" } } },
+            { user: { lastName: { contains: search, mode: "insensitive" } } },
+            { event: { title: { contains: search, mode: "insensitive" } } },
+          ],
+        }),
+      };
+      // Load minimal fields for the athlete filter, then count
+      const checkIns = await prisma.checkIn.findMany({
+        where,
+        select: { userId: true, event: { select: { teamId: true } } },
+      });
+      return checkIns.filter(c => isAthleteCheckIn(c, coachTeamMap)).length;
     },
 
     attendanceInsights: async (

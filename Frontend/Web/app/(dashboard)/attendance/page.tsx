@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   GET_PENDING_EXCUSE_REQUESTS,
   GET_ALL_ATTENDANCE_RECORDS,
+  GET_ATTENDANCE_RECORDS_COUNT,
   GET_PENDING_AD_HOC_CHECK_INS,
   UPDATE_EXCUSE_REQUEST,
   CHECK_OUT,
@@ -103,11 +104,37 @@ export default function Attendance() {
 
   // Table state
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchInput, setSearchInput] = useState(""); // debounced → searchQuery
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ON_TIME" | "LATE" | "ABSENT" | "EXCUSED">("ALL");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+
+  // Debounce search input so we don't fire a query on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(searchInput), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Reset to page 0 when filters/sort change
+  useEffect(() => { setPage(0); }, [searchQuery, statusFilter, sortField, sortDir, pageSize]);
+
+  const recordsVariables = useMemo(() => ({
+    organizationId: selectedOrganizationId,
+    search: searchQuery || undefined,
+    status: statusFilter !== "ALL" ? statusFilter : undefined,
+    sortField,
+    sortDir,
+    limit: pageSize,
+    offset: page * pageSize,
+  }), [selectedOrganizationId, searchQuery, statusFilter, sortField, sortDir, pageSize, page]);
+
+  const countVariables = useMemo(() => ({
+    organizationId: selectedOrganizationId,
+    search: searchQuery || undefined,
+    status: statusFilter !== "ALL" ? statusFilter : undefined,
+  }), [selectedOrganizationId, searchQuery, statusFilter]);
 
   // Queries
   const {
@@ -115,7 +142,12 @@ export default function Attendance() {
     loading: recordsLoading,
     refetch: refetchRecords,
   } = useQuery<any>(GET_ALL_ATTENDANCE_RECORDS, {
-    variables: { organizationId: selectedOrganizationId, limit: 200 },
+    variables: recordsVariables,
+    skip: !selectedOrganizationId,
+  });
+
+  const { data: countData, refetch: refetchCount } = useQuery<any>(GET_ATTENDANCE_RECORDS_COUNT, {
+    variables: countVariables,
     skip: !selectedOrganizationId,
   });
 
@@ -143,81 +175,18 @@ export default function Attendance() {
       markAbsentForPastEvents({
         variables: { organizationId: selectedOrganizationId },
       })
-        .then(() => refetchRecords())
+        .then(() => { refetchRecords(); refetchCount(); })
         .catch((err) => console.error("Auto-absent failed:", err));
     }
   }, [selectedOrganizationId, canEdit]);
 
-  const allRecords: AttendanceRecord[] = recordsData?.allAttendanceRecords || [];
+  // Server returns exactly the current page, pre-filtered and pre-sorted
+  const paginatedRecords: AttendanceRecord[] = recordsData?.allAttendanceRecords || [];
+  const totalCount: number = countData?.attendanceRecordsCount ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
   const pendingExcuses = excusesData?.pendingExcuseRequests || [];
   const pendingAdHocCheckIns = adHocData?.pendingAdHocCheckIns || [];
-
-  // Filter + sort
-  const filteredSorted = useMemo(() => {
-    let result = [...allRecords];
-
-    // Search filter
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (r) =>
-          `${r.user.firstName} ${r.user.lastName}`.toLowerCase().includes(q) ||
-          r.event.title.toLowerCase().includes(q)
-      );
-    }
-
-    // Status filter
-    if (statusFilter !== "ALL") {
-      result = result.filter((r) => r.status === statusFilter);
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      let cmp = 0;
-      switch (sortField) {
-        case "name":
-          cmp = `${a.user.firstName} ${a.user.lastName}`.localeCompare(
-            `${b.user.firstName} ${b.user.lastName}`
-          );
-          break;
-        case "event":
-          cmp = a.event.title.localeCompare(b.event.title);
-          break;
-        case "date":
-          cmp = new Date(isNaN(Number(a.event.date)) ? a.event.date : Number(a.event.date)).getTime() - new Date(isNaN(Number(b.event.date)) ? b.event.date : Number(b.event.date)).getTime();
-          break;
-        case "status": {
-          const order = { ON_TIME: 0, LATE: 1, ABSENT: 2, EXCUSED: 3 };
-          cmp = order[a.status] - order[b.status];
-          break;
-        }
-        case "checkIn":
-          cmp =
-            (a.checkInTime ? new Date(a.checkInTime).getTime() : 0) -
-            (b.checkInTime ? new Date(b.checkInTime).getTime() : 0);
-          break;
-        case "checkOut":
-          cmp =
-            (a.checkOutTime ? new Date(a.checkOutTime).getTime() : 0) -
-            (b.checkOutTime ? new Date(b.checkOutTime).getTime() : 0);
-          break;
-        case "hours":
-          cmp = (a.hoursLogged || 0) - (b.hoursLogged || 0);
-          break;
-      }
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-
-    return result;
-  }, [allRecords, searchQuery, statusFilter, sortField, sortDir]);
-
-  // Reset to first page when filters/search/sort change
-  useEffect(() => {
-    setPage(0);
-  }, [searchQuery, statusFilter, sortField, sortDir, pageSize]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / pageSize));
-  const paginatedRecords = filteredSorted.slice(page * pageSize, (page + 1) * pageSize);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -233,6 +202,7 @@ export default function Attendance() {
       await updateExcuseRequest({ variables: { input: { id: excuseId, status } } });
       refetchExcuses();
       refetchRecords();
+      refetchCount();
     } catch (error) {
       console.error("Failed to update excuse request:", error);
     }
@@ -252,6 +222,7 @@ export default function Attendance() {
       await approveAdHocCheckIn({ variables: { checkInId } });
       refetchAdHoc();
       refetchRecords();
+      refetchCount();
     } catch (error) {
       console.error("Failed to approve ad-hoc check-in:", error);
     }
@@ -268,6 +239,7 @@ export default function Attendance() {
 
   const refetchAll = () => {
     refetchRecords();
+    refetchCount();
     refetchExcuses();
     refetchAdHoc();
   };
@@ -336,8 +308,8 @@ export default function Attendance() {
               <input
                 type="text"
                 placeholder="Search by name or event..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
               />
             </div>
@@ -362,11 +334,13 @@ export default function Attendance() {
             <div className="flex items-center justify-center h-48">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6c5ce7]"></div>
             </div>
-          ) : filteredSorted.length === 0 ? (
+          ) : paginatedRecords.length === 0 ? (
             <div className="text-center py-16">
               <Users className="w-12 h-12 text-white/30 mx-auto mb-4" />
               <p className="text-white/55">
-                {allRecords.length === 0 ? "No attendance records yet" : "No records match your filters"}
+                {totalCount === 0 && !searchQuery && statusFilter === "ALL"
+                  ? "No attendance records yet"
+                  : "No records match your filters"}
               </p>
             </div>
           ) : (
@@ -402,7 +376,7 @@ export default function Attendance() {
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/8/50">
+                <tbody className="divide-y divide-white/[0.04]">
                   {paginatedRecords.map((record) => {
                     const config = STATUS_CONFIG[record.status];
                     const Icon = config.icon;
@@ -499,7 +473,7 @@ export default function Attendance() {
           )}
 
           {/* Pagination */}
-          {!recordsLoading && filteredSorted.length > 0 && (
+          {!recordsLoading && totalCount > 0 && (
             <div className="px-6 py-3 border-t border-white/8 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-white/40 text-xs">Show</span>
@@ -513,7 +487,7 @@ export default function Attendance() {
                   <option value={100}>100</option>
                 </select>
                 <span className="text-white/40 text-xs">
-                  &middot; {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredSorted.length)} of {filteredSorted.length}
+                  &middot; {page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalCount)} of {totalCount}
                 </span>
               </div>
               <div className="flex items-center gap-1">

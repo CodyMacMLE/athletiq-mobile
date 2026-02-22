@@ -819,7 +819,8 @@ export const typeDefs = `#graphql
     # Attendance log queries
     attendanceLog(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
     absentExcusedLog(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
-    allAttendanceRecords(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
+    allAttendanceRecords(organizationId: ID!, search: String, status: AttendanceStatus, sortField: String, sortDir: String, limit: Int, offset: Int): [CheckIn!]!
+    attendanceRecordsCount(organizationId: ID!, search: String, status: AttendanceStatus): Int!
     attendanceInsights(organizationId: ID!, teamId: ID, timeRange: TimeRange): AttendanceInsights!
     teamAttendanceRecords(teamId: ID!, limit: Int, offset: Int): [CheckIn!]!
 

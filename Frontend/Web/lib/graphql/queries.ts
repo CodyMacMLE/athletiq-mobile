@@ -426,8 +426,8 @@ export const GET_ABSENT_EXCUSED_LOG = gql`
 `;
 
 export const GET_ALL_ATTENDANCE_RECORDS = gql`
-  query GetAllAttendanceRecords($organizationId: ID!, $limit: Int, $offset: Int) {
-    allAttendanceRecords(organizationId: $organizationId, limit: $limit, offset: $offset) {
+  query GetAllAttendanceRecords($organizationId: ID!, $search: String, $status: AttendanceStatus, $sortField: String, $sortDir: String, $limit: Int, $offset: Int) {
+    allAttendanceRecords(organizationId: $organizationId, search: $search, status: $status, sortField: $sortField, sortDir: $sortDir, limit: $limit, offset: $offset) {
       id
       status
       checkInTime
@@ -449,6 +449,12 @@ export const GET_ALL_ATTENDANCE_RECORDS = gql`
         endTime
       }
     }
+  }
+`;
+
+export const GET_ATTENDANCE_RECORDS_COUNT = gql`
+  query GetAttendanceRecordsCount($organizationId: ID!, $search: String, $status: AttendanceStatus) {
+    attendanceRecordsCount(organizationId: $organizationId, search: $search, status: $status)
   }
 `;
 
