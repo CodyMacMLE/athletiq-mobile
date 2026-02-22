@@ -593,6 +593,23 @@ export const GET_USER_HEALTH = gql`
   }
 `;
 
+export const GET_ATHLETE_GUARDIANS = gql`
+  query GetAthleteGuardians($userId: ID!, $organizationId: ID!) {
+    athleteGuardians(userId: $userId, organizationId: $organizationId) {
+      id
+      createdAt
+      guardian {
+        id
+        firstName
+        lastName
+        email
+        phone
+        image
+      }
+    }
+  }
+`;
+
 export const GET_GUARDIAN_ATHLETES = gql`
   query GetGuardianAthletes($organizationId: ID!) {
     myLinkedAthletes(organizationId: $organizationId) {

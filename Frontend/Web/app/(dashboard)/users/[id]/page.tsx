@@ -11,6 +11,7 @@ import {
   GET_USER_STATS,
   GET_CHECK_IN_HISTORY,
   GET_USER_HEALTH,
+  GET_ATHLETE_GUARDIANS,
   UPDATE_ORG_MEMBER_ROLE,
   UPDATE_TEAM_MEMBER_ROLE,
   ADD_TEAM_MEMBER,
@@ -20,6 +21,8 @@ import {
   UPDATE_EMERGENCY_CONTACT,
   DELETE_EMERGENCY_CONTACT,
   UPSERT_MEDICAL_INFO,
+  INVITE_GUARDIAN,
+  REMOVE_GUARDIAN,
 } from "@/lib/graphql";
 import {
   ArrowLeft,
@@ -39,6 +42,10 @@ import {
   Lock,
   Phone,
   Heart,
+  Mail,
+  MapPin,
+  Users,
+  Send,
 } from "lucide-react";
 
 type TeamAssignment = {
@@ -59,9 +66,25 @@ type OrgMember = {
     firstName: string;
     lastName: string;
     phone?: string;
+    address?: string;
+    city?: string;
+    country?: string;
     image?: string;
     createdAt: string;
     memberships: TeamAssignment[];
+  };
+};
+
+type GuardianLink = {
+  id: string;
+  createdAt: string;
+  guardian: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+    image?: string;
   };
 };
 
@@ -119,11 +142,12 @@ export default function UserDetailPage() {
   const userId = params.id as string;
   const { selectedOrganizationId, canEdit, isOwner, isAdmin, user: currentUser } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"roles" | "attendance" | "health">("attendance");
+  const [activeTab, setActiveTab] = useState<"attendance" | "user-info" | "guardians" | "health" | "roles">("attendance");
   const [showAddTeamModal, setShowAddTeamModal] = useState(false);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
   const [editingContact, setEditingContact] = useState<EmergencyContact | null>(null);
   const [showMedicalModal, setShowMedicalModal] = useState(false);
+  const [showInviteGuardianModal, setShowInviteGuardianModal] = useState(false);
 
   const { data, loading, refetch } = useQuery<any>(GET_ORGANIZATION_USERS, {
     variables: { id: selectedOrganizationId },
@@ -145,6 +169,11 @@ export default function UserDetailPage() {
     skip: !selectedOrganizationId || activeTab !== "health",
   });
 
+  const { data: guardiansData, loading: guardiansLoading, refetch: refetchGuardians } = useQuery<any>(GET_ATHLETE_GUARDIANS, {
+    variables: { userId, organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId || (activeTab !== "guardians" && activeTab !== "user-info"),
+  });
+
   const [updateOrgMemberRole] = useMutation<any>(UPDATE_ORG_MEMBER_ROLE);
   const [updateTeamMemberRole] = useMutation<any>(UPDATE_TEAM_MEMBER_ROLE);
   const [addTeamMember] = useMutation<any>(ADD_TEAM_MEMBER);
@@ -154,6 +183,8 @@ export default function UserDetailPage() {
   const [updateEmergencyContact] = useMutation<any>(UPDATE_EMERGENCY_CONTACT);
   const [deleteEmergencyContact] = useMutation<any>(DELETE_EMERGENCY_CONTACT);
   const [upsertMedicalInfo] = useMutation<any>(UPSERT_MEDICAL_INFO);
+  const [inviteGuardian] = useMutation<any>(INVITE_GUARDIAN);
+  const [removeGuardian] = useMutation<any>(REMOVE_GUARDIAN);
 
   const orgMembers: OrgMember[] = data?.organization?.members || [];
   const member = orgMembers.find((m) => m.user.id === userId);
@@ -162,6 +193,7 @@ export default function UserDetailPage() {
   const medicalInfo: MedicalInfo | null = healthData?.user?.medicalInfo || null;
   const adminHealthAccess: string = healthData?.organization?.adminHealthAccess || "ADMINS_ONLY";
   const coachHealthAccess: string = healthData?.organization?.coachHealthAccess || "TEAM_ONLY";
+  const guardianLinks: GuardianLink[] = guardiansData?.athleteGuardians || [];
 
   // Derive current viewer's org role from loaded members list
   const viewerOrgRole = orgMembers.find((m) => m.user.id === currentUser?.id)?.role || "";
@@ -334,50 +366,167 @@ export default function UserDetailPage() {
       </div>
 
       {/* Tab Bar */}
-      <div className="flex border-b border-white/8 mb-6">
-        <button
-          onClick={() => setActiveTab("attendance")}
-          className={`px-4 py-3 text-sm font-medium transition-colors relative ${
-            activeTab === "attendance"
-              ? "text-[#a78bfa]"
-              : "text-white/55 hover:text-white"
-          }`}
-        >
-          Attendance
-          {activeTab === "attendance" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6c5ce7]" />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab("roles")}
-          className={`px-4 py-3 text-sm font-medium transition-colors relative ${
-            activeTab === "roles"
-              ? "text-[#a78bfa]"
-              : "text-white/55 hover:text-white"
-          }`}
-        >
-          Roles & Settings
-          {activeTab === "roles" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6c5ce7]" />
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab("health")}
-          className={`px-4 py-3 text-sm font-medium transition-colors relative ${
-            activeTab === "health"
-              ? "text-[#a78bfa]"
-              : "text-white/55 hover:text-white"
-          }`}
-        >
-          Health & Safety
-          {activeTab === "health" && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6c5ce7]" />
-          )}
-        </button>
+      <div className="flex border-b border-white/8 mb-6 overflow-x-auto">
+        {([
+          { key: "attendance", label: "Attendance" },
+          { key: "user-info", label: "User Info" },
+          { key: "guardians", label: "Guardians" },
+          { key: "health", label: "Health & Safety" },
+          { key: "roles", label: "Roles & Settings" },
+        ] as const).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors relative ${
+              activeTab === key ? "text-[#a78bfa]" : "text-white/55 hover:text-white"
+            }`}
+          >
+            {label}
+            {activeTab === key && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#6c5ce7]" />
+            )}
+          </button>
+        ))}
       </div>
 
       {/* Tab Content */}
-      {activeTab === "health" ? (
+      {activeTab === "user-info" ? (
+        <div className="space-y-6">
+          {/* Contact Info */}
+          <div className="bg-white/8 rounded-xl border border-white/8 p-6">
+            <h2 className="text-lg font-semibold text-white mb-4">Contact Info</h2>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Mail className="w-4 h-4 text-white/40 shrink-0" />
+                <span className="text-white/80 text-sm">{member.user.email}</span>
+              </div>
+              {member.user.phone && (
+                <div className="flex items-center gap-3">
+                  <Phone className="w-4 h-4 text-white/40 shrink-0" />
+                  <span className="text-white/80 text-sm">{member.user.phone}</span>
+                </div>
+              )}
+              {(member.user.address || member.user.city || member.user.country) && (
+                <div className="flex items-start gap-3">
+                  <MapPin className="w-4 h-4 text-white/40 shrink-0 mt-0.5" />
+                  <span className="text-white/80 text-sm">
+                    {[member.user.address, member.user.city, member.user.country].filter(Boolean).join(", ")}
+                  </span>
+                </div>
+              )}
+              {!member.user.phone && !member.user.address && !member.user.city && !member.user.country && (
+                <p className="text-white/40 text-sm">No additional contact info on file</p>
+              )}
+            </div>
+          </div>
+
+          {/* Guardian Contact Info (if athlete has guardians) */}
+          {(guardiansLoading || guardianLinks.length > 0) && (
+            <div className="bg-white/8 rounded-xl border border-white/8 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-5 h-5 text-[#a78bfa]" />
+                <h2 className="text-lg font-semibold text-white">Guardian Contacts</h2>
+              </div>
+              {guardiansLoading ? (
+                <div className="flex items-center justify-center h-16">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#6c5ce7]" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {guardianLinks.map((link) => (
+                    <div key={link.id} className="bg-white/5 rounded-lg px-4 py-3 space-y-2">
+                      <p className="text-white font-medium">
+                        {link.guardian.firstName} {link.guardian.lastName}
+                      </p>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-3.5 h-3.5 text-white/40" />
+                          <span className="text-white/70 text-sm">{link.guardian.email}</span>
+                        </div>
+                        {link.guardian.phone && (
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-3.5 h-3.5 text-white/40" />
+                            <span className="text-white/70 text-sm">{link.guardian.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : activeTab === "guardians" ? (
+        <div className="bg-white/8 rounded-xl border border-white/8 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-[#a78bfa]" />
+              <h2 className="text-lg font-semibold text-white">Guardians</h2>
+            </div>
+            {canEdit && (
+              <button
+                onClick={() => setShowInviteGuardianModal(true)}
+                className="flex items-center text-sm text-[#a78bfa] hover:text-[#c4b5fd] transition-colors"
+              >
+                <Send className="w-4 h-4 mr-1" />
+                Invite Guardian
+              </button>
+            )}
+          </div>
+          {guardiansLoading ? (
+            <div className="flex items-center justify-center h-24">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6c5ce7]" />
+            </div>
+          ) : guardianLinks.length > 0 ? (
+            <div className="space-y-3">
+              {guardianLinks.map((link) => (
+                <div key={link.id} className="flex items-center justify-between bg-white/5 rounded-lg px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    {link.guardian.image ? (
+                      <img src={link.guardian.image} alt="" className="w-9 h-9 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-[#6c5ce7]/30 flex items-center justify-center text-white text-sm font-medium">
+                        {link.guardian.firstName[0]}{link.guardian.lastName[0]}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-white font-medium text-sm">
+                        {link.guardian.firstName} {link.guardian.lastName}
+                      </p>
+                      <p className="text-white/55 text-xs">{link.guardian.email}</p>
+                      {link.guardian.phone && (
+                        <p className="text-white/40 text-xs">{link.guardian.phone}</p>
+                      )}
+                    </div>
+                  </div>
+                  {canEdit && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Remove ${link.guardian.firstName} ${link.guardian.lastName} as guardian?`)) return;
+                        await removeGuardian({ variables: { guardianLinkId: link.id } });
+                        refetchGuardians();
+                      }}
+                      className="p-1.5 text-white/40 hover:text-red-400 transition-colors"
+                      title="Remove guardian"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Users className="w-10 h-10 text-white/20 mx-auto mb-3" />
+              <p className="text-white/55 text-sm">No guardians linked to this athlete</p>
+              {canEdit && (
+                <p className="text-white/35 text-xs mt-1">Use "Invite Guardian" to send an invitation</p>
+              )}
+            </div>
+          )}
+        </div>
+      ) : activeTab === "health" ? (
         <>
           {healthLoading ? (
             <div className="flex items-center justify-center h-32">
@@ -498,6 +647,7 @@ export default function UserDetailPage() {
           )}
         </>
       ) : activeTab === "roles" ? (
+        // Roles & Settings tab
         <>
           {/* Organization Role */}
           <div className="bg-white/8 rounded-xl border border-white/8 p-6 mb-6">
@@ -605,7 +755,7 @@ export default function UserDetailPage() {
         </>
       ) : (
         <>
-          {/* Attendance Tab */}
+          {/* Attendance Tab (activeTab === "attendance") */}
           {statsLoading ? (
             <div className="flex items-center justify-center h-32">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6c5ce7]"></div>
@@ -740,6 +890,21 @@ export default function UserDetailPage() {
             </>
           )}
         </>
+      )}
+
+      {/* Invite Guardian Modal */}
+      {showInviteGuardianModal && selectedOrganizationId && (
+        <InviteGuardianModal
+          athleteName={`${member.user.firstName} ${member.user.lastName}`}
+          onClose={() => setShowInviteGuardianModal(false)}
+          onInvite={async (email) => {
+            await inviteGuardian({
+              variables: { email, organizationId: selectedOrganizationId, athleteId: userId },
+            });
+            setShowInviteGuardianModal(false);
+            refetchGuardians();
+          }}
+        />
       )}
 
       {/* Add to Team Modal */}
@@ -1016,6 +1181,73 @@ function MedicalInfoModal({
           <button onClick={onClose} className="px-4 py-2 text-sm text-white/55 hover:text-white transition-colors">Cancel</button>
           <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50">
             {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InviteGuardianModal({
+  athleteName,
+  onClose,
+  onInvite,
+}: {
+  athleteName: string;
+  onClose: () => void;
+  onInvite: (email: string) => Promise<void>;
+}) {
+  const [email, setEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async () => {
+    if (!email.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      await onInvite(email.trim());
+    } catch (err: any) {
+      setError(err.message || "Failed to send invite");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-md p-6 border border-white/15 shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-white">Invite Guardian</h2>
+          <button onClick={onClose} className="text-white/55 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        <p className="text-white/55 text-sm mb-4">
+          Send a guardian invite on behalf of <span className="text-white font-medium">{athleteName}</span>. The invited person will receive an email to accept.
+        </p>
+        {error && (
+          <div className="mb-4 p-3 bg-red-600/10 border border-red-600/20 rounded-lg text-red-400 text-sm">{error}</div>
+        )}
+        <div>
+          <label className="block text-sm font-medium text-white/55 mb-1">Guardian&apos;s Email *</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            autoFocus
+            placeholder="parent@example.com"
+            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+          />
+        </div>
+        <div className="flex items-center justify-end gap-2 mt-5">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-white/55 hover:text-white transition-colors">Cancel</button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving || !email.trim()}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50"
+          >
+            <Send className="w-4 h-4" />
+            {saving ? "Sending..." : "Send Invite"}
           </button>
         </div>
       </div>

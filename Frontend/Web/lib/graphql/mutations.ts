@@ -385,6 +385,27 @@ export const DENY_AD_HOC_CHECK_IN = gql`
 `;
 
 // ============================================
+// Guardian Mutations
+// ============================================
+
+export const INVITE_GUARDIAN = gql`
+  mutation InviteGuardian($email: String!, $organizationId: ID!, $athleteId: ID) {
+    inviteGuardian(email: $email, organizationId: $organizationId, athleteId: $athleteId) {
+      id
+      email
+      status
+      token
+    }
+  }
+`;
+
+export const REMOVE_GUARDIAN = gql`
+  mutation RemoveGuardian($guardianLinkId: ID!) {
+    removeGuardian(guardianLinkId: $guardianLinkId)
+  }
+`;
+
+// ============================================
 // Upload Mutations
 // ============================================
 

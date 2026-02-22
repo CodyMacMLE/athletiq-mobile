@@ -800,6 +800,7 @@ export const typeDefs = `#graphql
     # Guardian queries
     myGuardians(organizationId: ID!): [GuardianLink!]!
     myLinkedAthletes(organizationId: ID!): [GuardianLink!]!
+    athleteGuardians(userId: ID!, organizationId: ID!): [GuardianLink!]!
 
     # Attendance log queries
     attendanceLog(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
@@ -887,7 +888,7 @@ export const typeDefs = `#graphql
     resendInvite(id: ID!): Invite!
 
     # Guardian mutations
-    inviteGuardian(email: String!, organizationId: ID!): Invite!
+    inviteGuardian(email: String!, organizationId: ID!, athleteId: ID): Invite!
     removeGuardian(guardianLinkId: ID!): Boolean!
 
     # NFC mutations

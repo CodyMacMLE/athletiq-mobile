@@ -480,6 +480,19 @@ export const resolvers = {
       });
     },
 
+    athleteGuardians: async (
+      _: unknown,
+      { userId, organizationId }: { userId: string; organizationId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      return prisma.guardianLink.findMany({
+        where: { athleteId: userId, organizationId },
+        include: { guardian: true, athlete: true, organization: true },
+        orderBy: { createdAt: "asc" },
+      });
+    },
+
     // NFC queries
     organizationNfcTags: async (_: unknown, { organizationId }: { organizationId: string }) => {
       return prisma.nfcTag.findMany({ where: { organizationId, isActive: true } });
@@ -2293,13 +2306,24 @@ export const resolvers = {
     // Guardian mutations
     inviteGuardian: async (
       _: unknown,
-      { email, organizationId }: { email: string; organizationId: string },
+      { email, organizationId, athleteId: explicitAthleteId }: { email: string; organizationId: string; athleteId?: string },
       context: { userId?: string }
     ) => {
       if (!context.userId) throw new Error("Authentication required");
 
-      // Prevent inviting yourself
-      const self = await prisma.user.findUnique({ where: { id: context.userId } });
+      // If an explicit athleteId is provided, the caller must be an admin/manager in the org
+      const subjectUserId = explicitAthleteId || context.userId;
+      if (explicitAthleteId && explicitAthleteId !== context.userId) {
+        const callerMembership = await prisma.organizationMember.findUnique({
+          where: { userId_organizationId: { userId: context.userId, organizationId } },
+        });
+        if (!callerMembership || !["OWNER", "ADMIN", "MANAGER"].includes(callerMembership.role)) {
+          throw new Error("Only admins and managers can invite guardians on behalf of an athlete");
+        }
+      }
+
+      // Prevent inviting yourself (as the athlete)
+      const self = await prisma.user.findUnique({ where: { id: subjectUserId } });
       if (self && self.email.toLowerCase() === email.toLowerCase()) {
         throw new Error("You cannot invite yourself as a guardian");
       }
@@ -2312,7 +2336,7 @@ export const resolvers = {
       });
       if (invitee) {
         const circularLink = await prisma.guardianLink.findFirst({
-          where: { guardianId: context.userId, athleteId: invitee.id },
+          where: { guardianId: subjectUserId, athleteId: invitee.id },
         });
         if (circularLink) {
           throw new Error(
@@ -2348,7 +2372,7 @@ export const resolvers = {
         update: {
           role: "GUARDIAN",
           teamIds: [],
-          athleteId: context.userId,
+          athleteId: subjectUserId,
           status: "PENDING",
           expiresAt,
         },
@@ -2357,7 +2381,7 @@ export const resolvers = {
           organizationId,
           role: "GUARDIAN",
           teamIds: [],
-          athleteId: context.userId,
+          athleteId: subjectUserId,
           expiresAt,
         },
       });
@@ -2380,7 +2404,10 @@ export const resolvers = {
         where: { email: { equals: email, mode: "insensitive" } },
       });
       if (guardianUser) {
-        const athleteName = `${self!.firstName} ${self!.lastName}`;
+        const athleteUser = subjectUserId !== context.userId
+          ? (await prisma.user.findUnique({ where: { id: subjectUserId } })) ?? self!
+          : self!;
+        const athleteName = `${athleteUser.firstName} ${athleteUser.lastName}`;
         const orgName = org?.name ?? "your organization";
         const notifTitle = "Guardian Invite";
         const notifMessage = `${athleteName} has invited you to be their guardian in ${orgName}`;
