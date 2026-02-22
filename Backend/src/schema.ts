@@ -883,7 +883,7 @@ export const typeDefs = `#graphql
 
     # Recurring event mutations
     createRecurringEvent(input: CreateRecurringEventInput!): RecurringEvent!
-    deleteRecurringEvent(id: ID!): Boolean!
+    deleteRecurringEvent(id: ID!, futureOnly: Boolean): Boolean!
     addAthleteToRecurringEvent(recurringEventId: ID!, userId: ID!): RecurringEvent!
     removeAthleteFromRecurringEvent(recurringEventId: ID!, userId: ID!): RecurringEvent!
     excludeAthleteFromRecurringEvent(recurringEventId: ID!, userId: ID!): RecurringEvent!

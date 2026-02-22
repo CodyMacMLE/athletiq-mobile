@@ -1097,6 +1097,10 @@ function ScheduleTab({
   const [schedule, setSchedule] = useState<DaySchedule[]>(() =>
     initScheduleFromRecurringEvents(team.recurringEvents || [], allMembers)
   );
+  // Snapshot of the last-saved state — used to detect per-day changes
+  const [originalSchedule, setOriginalSchedule] = useState<DaySchedule[]>(() =>
+    initScheduleFromRecurringEvents(team.recurringEvents || [], allMembers)
+  );
   const [startDate, setStartDate] = useState(seasonDates.start);
   const [endDate, setEndDate] = useState(seasonDates.end);
   const [applying, setApplying] = useState(false);
@@ -1105,16 +1109,15 @@ function ScheduleTab({
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [searchModal, setSearchModal] = useState<{ day: number; role: "coach" | "athlete" } | null>(null);
 
-  // Re-sync schedule whenever team.recurringEvents changes (e.g. after apply+refetch)
-  const recurringEventsKey = JSON.stringify((team.recurringEvents || []).map((re: RecurringEventData) => re.id));
+  // Re-sync schedule + original whenever team.recurringEvents changes (e.g. after apply+refetch)
+  const recurringEventsKey = (team.recurringEvents || []).map((re: RecurringEventData) => re.id).join(",");
   const prevKeyRef = useRef(recurringEventsKey);
   if (prevKeyRef.current !== recurringEventsKey) {
     prevKeyRef.current = recurringEventsKey;
     const synced = initScheduleFromRecurringEvents(team.recurringEvents || [], allMembers);
-    // Only reset days that were saved (have a recurringEventId) — preserve unsaved local edits for new days
+    setOriginalSchedule(synced);
     setSchedule(prev => prev.map((day, i) => {
       const syncedDay = synced[i];
-      // If there's now a recurringEvent for this day, use the synced version
       if (syncedDay.recurringEventId || day.recurringEventId) return syncedDay;
       return day;
     }));
@@ -1122,10 +1125,6 @@ function ScheduleTab({
 
   const [createRecurringEvent] = useMutation<any>(CREATE_RECURRING_EVENT);
   const [deleteRecurringEvent] = useMutation<any>(DELETE_RECURRING_EVENT);
-
-  const existingWeeklyEvents: RecurringEventData[] = (team.recurringEvents || []).filter(
-    (re: RecurringEventData) => re.frequency === "WEEKLY" && re.daysOfWeek.length === 1
-  );
 
   const toggleDay = (dayIndex: number) => {
     setSchedule(prev => {
@@ -1135,18 +1134,37 @@ function ScheduleTab({
     });
   };
 
+  // Returns true if a day's schedule differs from its original saved state
+  function dayHasChanges(orig: DaySchedule, curr: DaySchedule): boolean {
+    if (orig.active !== curr.active) return true;
+    if (!orig.active && !curr.active) return false;
+    if (orig.startTime !== curr.startTime || orig.endTime !== curr.endTime) return true;
+    if (orig.venueId !== curr.venueId) return true;
+    const origCoaches = orig.coaches.map(u => u.id).sort().join(",");
+    const currCoaches = curr.coaches.map(u => u.id).sort().join(",");
+    if (origCoaches !== currCoaches) return true;
+    const origAthletes = orig.athletes.map(u => u.id).sort().join(",");
+    const currAthletes = curr.athletes.map(u => u.id).sort().join(",");
+    return origAthletes !== currAthletes;
+  }
+
+  const changedDays = schedule.filter((curr, i) => dayHasChanges(originalSchedule[i], curr));
+  const willReplaceExisting = changedDays.some((_, idx) => {
+    const i = schedule.indexOf(changedDays[idx]);
+    return originalSchedule[i]?.active && !!originalSchedule[i]?.recurringEventId;
+  });
+
   const handleApplySchedule = async () => {
     setApplyError(null);
-    const activeDays = schedule.filter(d => d.active);
-    if (activeDays.length === 0) {
-      setApplyError("No days are active. Toggle at least one day on before applying.");
-      return;
-    }
     if (!startDate || !endDate) {
       setApplyError("Season start and end dates are required.");
       return;
     }
-    if (existingWeeklyEvents.length > 0) {
+    if (changedDays.length === 0) {
+      setApplyError("No changes detected. Modify the schedule before applying.");
+      return;
+    }
+    if (willReplaceExisting) {
       setConfirmReplace(true);
       return;
     }
@@ -1159,54 +1177,61 @@ function ScheduleTab({
     setApplySuccess(false);
     setConfirmReplace(false);
     try {
-      // Delete existing weekly recurring events
-      for (const re of existingWeeklyEvents) {
-        await deleteRecurringEvent({ variables: { id: re.id } });
-      }
-
       const allTeamIds = new Set(allMembers.map(m => m.user.id));
-      let created = 0;
+      // Today's date as YYYY-MM-DD for future-only new series
+      const todayStr = new Date().toISOString().slice(0, 10);
 
       for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-        const day = schedule[dayIndex];
-        if (!day.active) continue;
+        const orig = originalSchedule[dayIndex];
+        const curr = schedule[dayIndex];
 
-        const participantIds = new Set([
-          ...day.coaches.map(u => u.id),
-          ...day.athletes.map(u => u.id),
-        ]);
+        if (!dayHasChanges(orig, curr)) continue; // Skip unchanged days
 
-        // excludedUserIds = team members NOT in participants
-        const excludedUserIds = allMembers
-          .map(m => m.user.id)
-          .filter(id => !participantIds.has(id));
+        // Delete (or trim to future) the old series for this day
+        if (orig.active && orig.recurringEventId) {
+          await deleteRecurringEvent({
+            variables: { id: orig.recurringEventId, futureOnly: true },
+          });
+        }
 
-        // includedUserIds = participants NOT on the team
-        const includedUserIds = [
-          ...day.coaches.map(u => u.id),
-          ...day.athletes.map(u => u.id),
-        ].filter(id => !allTeamIds.has(id));
+        // Create a new series if the day is now active
+        if (curr.active) {
+          const participantIds = new Set([
+            ...curr.coaches.map(u => u.id),
+            ...curr.athletes.map(u => u.id),
+          ]);
+          const excludedUserIds = allMembers
+            .map(m => m.user.id)
+            .filter(id => !participantIds.has(id));
+          const includedUserIds = [
+            ...curr.coaches.map(u => u.id),
+            ...curr.athletes.map(u => u.id),
+          ].filter(id => !allTeamIds.has(id));
 
-        await createRecurringEvent({
-          variables: {
-            input: {
-              title: `${team.name} Practice`,
-              type: "PRACTICE",
-              startTime: day.startTime,
-              endTime: day.endTime,
-              frequency: "WEEKLY",
-              daysOfWeek: [dayIndex],
-              startDate,
-              endDate,
-              organizationId,
-              teamId: team.id,
-              venueId: day.venueId || undefined,
-              includedUserIds: includedUserIds.length > 0 ? includedUserIds : undefined,
-              excludedUserIds: excludedUserIds.length > 0 ? excludedUserIds : undefined,
+          // When replacing an existing series use today as start so we only
+          // create future events; for brand-new days use the season start date
+          const seriesStart = orig.active ? (todayStr > startDate ? todayStr : startDate) : startDate;
+
+          await createRecurringEvent({
+            variables: {
+              input: {
+                title: `${team.name} Practice`,
+                type: "PRACTICE",
+                startTime: curr.startTime,
+                endTime: curr.endTime,
+                frequency: "WEEKLY",
+                daysOfWeek: [dayIndex],
+                startDate: seriesStart,
+                endDate,
+                organizationId,
+                teamId: team.id,
+                venueId: curr.venueId || undefined,
+                includedUserIds: includedUserIds.length > 0 ? includedUserIds : undefined,
+                excludedUserIds: excludedUserIds.length > 0 ? excludedUserIds : undefined,
+              },
             },
-          },
-        });
-        created++;
+          });
+        }
       }
 
       setApplySuccess(true);
@@ -1390,16 +1415,16 @@ function ScheduleTab({
       {confirmReplace && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-sm p-6 border border-white/15 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-2">Replace Existing Schedule?</h3>
+            <h3 className="text-lg font-bold text-white mb-2">Update Future Events?</h3>
             <p className="text-white/55 text-sm mb-6">
-              This will delete all {existingWeeklyEvents.length} existing weekly practice series and create new ones from the current schedule.
+              Changed days will have their future events replaced. Past events and their attendance records are preserved.
             </p>
             <div className="space-y-3">
               <button
                 onClick={doApply}
                 className="w-full px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors text-sm font-medium"
               >
-                Replace Schedule
+                Update Future Events
               </button>
               <button
                 onClick={() => setConfirmReplace(false)}
@@ -1444,7 +1469,7 @@ function DayColumn({
 }) {
   return (
     <div
-      className={`w-48 rounded-xl border flex-shrink-0 overflow-hidden transition-all ${
+      className={`w-52 rounded-xl border flex-shrink-0 transition-all ${
         day.active
           ? "border-[#6c5ce7]/50 bg-[#6c5ce7]/8"
           : "border-white/8 bg-white/4 opacity-60"
@@ -1452,21 +1477,24 @@ function DayColumn({
     >
       {/* Header */}
       <div
-        className={`flex items-center justify-between px-3 py-2.5 ${
+        className={`flex items-center justify-between px-3 py-2.5 rounded-t-xl ${
           day.active ? "bg-[#6c5ce7]/20" : "bg-white/5"
         }`}
       >
         <span className="text-sm font-semibold text-white">{DAY_NAMES_FULL[dayIndex]}</span>
         {canEdit && (
           <button
+            type="button"
             onClick={onToggle}
-            className={`w-8 h-5 rounded-full transition-colors relative flex-shrink-0 ${
-              day.active ? "bg-[#6c5ce7]" : "bg-white/20"
+            role="switch"
+            aria-checked={day.active}
+            className={`inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+              day.active ? "bg-[#6c5ce7]" : "bg-white/25"
             }`}
           >
             <span
-              className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                day.active ? "translate-x-3" : "translate-x-0.5"
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                day.active ? "translate-x-4" : "translate-x-1"
               }`}
             />
           </button>

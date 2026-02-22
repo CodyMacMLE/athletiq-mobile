@@ -1905,8 +1905,18 @@ export const resolvers = {
       return recurringEvent;
     },
 
-    deleteRecurringEvent: async (_: unknown, { id }: { id: string }) => {
+    deleteRecurringEvent: async (_: unknown, { id, futureOnly }: { id: string; futureOnly?: boolean }) => {
       await prisma.$transaction(async (tx) => {
+        const now = new Date();
+
+        if (futureOnly) {
+          // Preserve past events by detaching them from the recurring series
+          await tx.event.updateMany({
+            where: { recurringEventId: id, date: { lt: now } },
+            data: { recurringEventId: null },
+          });
+        }
+
         const eventIds = (
           await tx.event.findMany({
             where: { recurringEventId: id },

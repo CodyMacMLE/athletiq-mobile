@@ -260,8 +260,8 @@ export const CREATE_RECURRING_EVENT = gql`
 `;
 
 export const DELETE_RECURRING_EVENT = gql`
-  mutation DeleteRecurringEvent($id: ID!) {
-    deleteRecurringEvent(id: $id)
+  mutation DeleteRecurringEvent($id: ID!, $futureOnly: Boolean) {
+    deleteRecurringEvent(id: $id, futureOnly: $futureOnly)
   }
 `;
 
