@@ -964,6 +964,7 @@ export const resolvers = {
             ],
           },
           approved: true,
+          status: { not: "ABSENT" },
         },
         orderBy: { createdAt: "desc" },
         take: limit || 20,
