@@ -2048,6 +2048,22 @@ export const resolvers = {
             );
           }
 
+          // Prevent org athletes from becoming guardians for other org members.
+          // Check whether the acceptor is an ATHLETE in the same organization.
+          const acceptorOrgMembership = await tx.organizationMember.findUnique({
+            where: {
+              userId_organizationId: {
+                userId: context.userId!,
+                organizationId: invite.organizationId,
+              },
+            },
+          });
+          if (acceptorOrgMembership?.role === "ATHLETE") {
+            throw new Error(
+              "Athletes in the same organization cannot be guardians for each other."
+            );
+          }
+
           await tx.guardianLink.upsert({
             where: {
               guardianId_athleteId_organizationId: {
@@ -2155,6 +2171,20 @@ export const resolvers = {
         if (circularLink) {
           throw new Error(
             "Mutual guardian relationships are not allowed. You are already a guardian for this person."
+          );
+        }
+
+        // Prevent org athletes from being guardians for other org members.
+        // An athlete in the same organization cannot be a guardian — this would
+        // let teammates check each other in without being physically present.
+        const inviteeOrgMembership = await prisma.organizationMember.findUnique({
+          where: {
+            userId_organizationId: { userId: invitee.id, organizationId },
+          },
+        });
+        if (inviteeOrgMembership?.role === "ATHLETE") {
+          throw new Error(
+            "Athletes in the same organization cannot be guardians for each other."
           );
         }
       }
