@@ -103,6 +103,7 @@ export const typeDefs = `#graphql
     EXCUSE_STATUS
     ATTENDANCE_MILESTONE
     EMAIL_REPORT
+    GUARDIAN_INVITE
   }
 
   enum NotificationChannel {
@@ -426,6 +427,7 @@ export const typeDefs = `#graphql
     channel: NotificationChannel!
     title: String!
     message: String!
+    metadata: String
     status: DeliveryStatus!
     errorMessage: String
     sentAt: String

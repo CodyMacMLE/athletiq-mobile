@@ -422,6 +422,7 @@ enum NotificationType {
   EXCUSE_STATUS
   ATTENDANCE_MILESTONE
   EMAIL_REPORT
+  GUARDIAN_INVITE
 }
 
 enum NotificationChannel {

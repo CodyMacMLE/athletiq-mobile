@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { NoOrgScreen } from "@/components/NoOrgScreen";
 import { GET_NOTIFICATION_HISTORY } from "@/lib/graphql/queries";
-import { MARK_NOTIFICATION_READ, MARK_ALL_NOTIFICATIONS_READ } from "@/lib/graphql/mutations";
+import { MARK_NOTIFICATION_READ, MARK_ALL_NOTIFICATIONS_READ, ACCEPT_INVITE } from "@/lib/graphql/mutations";
 import { useQuery, useMutation } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -10,6 +10,7 @@ import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +24,7 @@ type NotificationDelivery = {
   type: string;
   title: string;
   message: string;
+  metadata: string | null;
   status: string;
   readAt: string | null;
   sentAt: string | null;
@@ -35,6 +37,7 @@ const TYPE_CONFIG: Record<string, { icon: string; color: string; label: string }
   EXCUSE_STATUS: { icon: "file-text", color: "#f59e0b", label: "Excuse Update" },
   ATTENDANCE_MILESTONE: { icon: "award", color: "#10b981", label: "Milestone" },
   EMAIL_REPORT: { icon: "mail", color: "#6c5ce7", label: "Report" },
+  GUARDIAN_INVITE: { icon: "user-plus", color: "#06b6d4", label: "Guardian Invite" },
 };
 
 function formatRelativeTime(dateStr: string): string {
@@ -56,6 +59,7 @@ export default function Notifications() {
   const { user, selectedOrganization } = useAuth();
   const router = useRouter();
   const [selectedNotif, setSelectedNotif] = useState<NotificationDelivery | null>(null);
+  const [acceptingInvite, setAcceptingInvite] = useState(false);
 
   const { data, loading, refetch } = useQuery(GET_NOTIFICATION_HISTORY, {
     variables: { limit: 100 },
@@ -69,6 +73,10 @@ export default function Notifications() {
 
   const [markAllRead] = useMutation(MARK_ALL_NOTIFICATIONS_READ, {
     refetchQueries: ["GetNotificationHistory"],
+  });
+
+  const [acceptInvite] = useMutation(ACCEPT_INVITE, {
+    refetchQueries: ["GetMe", "GetNotificationHistory"],
   });
 
   const notifications: NotificationDelivery[] = useMemo(
@@ -94,6 +102,30 @@ export default function Notifications() {
     try {
       await markAllRead();
     } catch {}
+  };
+
+  const handleAcceptInvite = async (notif: NotificationDelivery) => {
+    let token: string | null = null;
+    try {
+      const meta = notif.metadata ? JSON.parse(notif.metadata) : null;
+      token = meta?.inviteToken ?? null;
+    } catch {}
+
+    if (!token) {
+      Alert.alert("Error", "Invite token not found. Please contact the athlete.");
+      return;
+    }
+
+    try {
+      setAcceptingInvite(true);
+      await acceptInvite({ variables: { token } });
+      setSelectedNotif(null);
+      Alert.alert("Accepted", "You are now linked as a guardian.");
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to accept invite.");
+    } finally {
+      setAcceptingInvite(false);
+    }
   };
 
   if (!user) return null;
@@ -236,12 +268,39 @@ export default function Notifications() {
                     <View style={styles.detailDivider} />
                     <Text style={styles.detailMessage}>{selectedNotif.message}</Text>
 
-                    <Pressable
-                      style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.7 }]}
-                      onPress={() => setSelectedNotif(null)}
-                    >
-                      <Text style={styles.closeBtnText}>Close</Text>
-                    </Pressable>
+                    {selectedNotif.type === "GUARDIAN_INVITE" ? (
+                      <View style={styles.inviteActions}>
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.acceptBtn,
+                            pressed && { opacity: 0.85 },
+                            acceptingInvite && { opacity: 0.6 },
+                          ]}
+                          onPress={() => handleAcceptInvite(selectedNotif)}
+                          disabled={acceptingInvite}
+                        >
+                          {acceptingInvite ? (
+                            <ActivityIndicator color="white" size="small" />
+                          ) : (
+                            <Text style={styles.acceptBtnText}>Accept</Text>
+                          )}
+                        </Pressable>
+                        <Pressable
+                          style={({ pressed }) => [styles.closeBtn, styles.declineBtn, pressed && { opacity: 0.7 }]}
+                          onPress={() => setSelectedNotif(null)}
+                          disabled={acceptingInvite}
+                        >
+                          <Text style={styles.closeBtnText}>Decline</Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <Pressable
+                        style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.7 }]}
+                        onPress={() => setSelectedNotif(null)}
+                      >
+                        <Text style={styles.closeBtnText}>Close</Text>
+                      </Pressable>
+                    )}
                   </View>
                 </ScrollView>
               );
@@ -471,5 +530,22 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.7)",
     fontSize: 15,
     fontWeight: "600",
+  },
+  inviteActions: {
+    gap: 10,
+  },
+  acceptBtn: {
+    backgroundColor: "#06b6d4",
+    paddingVertical: 13,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  acceptBtnText: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  declineBtn: {
+    backgroundColor: "rgba(255,255,255,0.08)",
   },
 });

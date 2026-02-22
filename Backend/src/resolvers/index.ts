@@ -2158,18 +2158,34 @@ export const resolvers = {
         },
       });
 
-      try {
-        const org = await prisma.organization.findUnique({ where: { id: organizationId } });
-        if (org) {
-          await sendInviteEmail({
-            to: email,
-            organizationName: org.name,
-            role: invite.role,
-            token: invite.token,
-          });
-        }
-      } catch (err) {
-        console.error("Failed to send guardian invite email:", err);
+      const org = await prisma.organization.findUnique({ where: { id: organizationId } });
+
+      // Send invite email (non-blocking)
+      if (org) {
+        sendInviteEmail({
+          to: email,
+          organizationName: org.name,
+          role: invite.role,
+          token: invite.token,
+        }).catch((err) => console.error("Failed to send guardian invite email:", err));
+      }
+
+      // If the invited guardian already has an account, send a push notification
+      const guardianUser = await prisma.user.findUnique({ where: { email } });
+      if (guardianUser) {
+        const athleteName = `${self!.firstName} ${self!.lastName}`;
+        const orgName = org?.name ?? "your organization";
+        sendPushNotification(
+          guardianUser.id,
+          "Guardian Invite",
+          `${athleteName} has invited you to be their guardian in ${orgName}`,
+          {
+            type: "GUARDIAN_INVITE",
+            inviteToken: invite.token,
+            athleteName,
+            organizationName: orgName,
+          }
+        ).catch((err) => console.error("Failed to send guardian invite push:", err));
       }
 
       return invite;
@@ -3383,6 +3399,8 @@ export const resolvers = {
   NotificationDelivery: {
     user: (parent: { userId: string }) =>
       prisma.user.findUnique({ where: { id: parent.userId } }),
+    metadata: (parent: any) =>
+      parent.metadata != null ? JSON.stringify(parent.metadata) : null,
     sentAt: (parent: any) => parent.sentAt ? toISO(parent.sentAt) : null,
     readAt: (parent: any) => parent.readAt ? toISO(parent.readAt) : null,
     createdAt: (parent: any) => toISO(parent.createdAt),

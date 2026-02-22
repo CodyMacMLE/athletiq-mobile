@@ -526,6 +526,7 @@ export const GET_NOTIFICATION_HISTORY = gql`
       type
       title
       message
+      metadata
       status
       readAt
       sentAt
