@@ -1214,7 +1214,7 @@ export default function UserDetailPage() {
                           <th className="pb-3 font-medium">Hours</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-white/8/50">
+                      <tbody className="divide-y divide-white/[0.04]">
                         {checkIns.map((checkIn) => {
                           const config = STATUS_CONFIG[checkIn.status];
                           const StatusIcon = config?.icon || CheckCircle;
