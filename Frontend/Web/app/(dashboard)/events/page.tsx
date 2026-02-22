@@ -981,7 +981,7 @@ function EventModal({
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white/8 rounded-xl w-full max-w-lg p-6 border border-white/8 max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#13102a] rounded-xl w-full max-w-lg p-6 border border-white/15 max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">{isEdit ? "Edit Event" : "Create Event"}</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -991,23 +991,23 @@ function EventModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-white/55 mb-1">Title</label>
+            <label className="block text-sm font-medium text-white/70 mb-1">Title</label>
             <input
               type="text"
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
               placeholder="e.g., Spring Tournament"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white/55 mb-1">Type</label>
+            <label className="block text-sm font-medium text-white/70 mb-1">Type</label>
             <select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as "PRACTICE" | "EVENT" | "MEETING" })}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
             >
               <option value="PRACTICE">Practice</option>
               <option value="EVENT">Tournament</option>
@@ -1016,7 +1016,7 @@ function EventModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-white/55 mb-1">
+            <label className="block text-sm font-medium text-white/70 mb-1">
               {formData.isMultiDay || formData.isRecurring ? "Start Date" : "Date"}
             </label>
             <input
@@ -1024,7 +1024,7 @@ function EventModal({
               required
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
             />
           </div>
 
@@ -1076,13 +1076,13 @@ function EventModal({
 
           {/* Recurring Event Options */}
           {formData.isRecurring && !formData.isMultiDay && (
-            <div className="space-y-4 p-4 bg-white/8 rounded-lg border border-white/10">
+            <div className="space-y-4 p-4 bg-white/8 rounded-lg border border-white/15">
               <div>
-                <label className="block text-sm font-medium text-white/55 mb-1">Frequency</label>
+                <label className="block text-sm font-medium text-white/70 mb-1">Frequency</label>
                 <select
                   value={formData.frequency}
                   onChange={(e) => setFormData({ ...formData, frequency: e.target.value as "WEEKLY" | "BIWEEKLY" | "DAILY" })}
-                  className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
                 >
                   <option value="DAILY">Daily</option>
                   <option value="WEEKLY">Weekly</option>
@@ -1118,13 +1118,13 @@ function EventModal({
               )}
 
               <div>
-                <label className="block text-sm font-medium text-white/55 mb-1">Repeat Until</label>
+                <label className="block text-sm font-medium text-white/70 mb-1">Repeat Until</label>
                 <input
                   type="date"
                   required
                   value={formData.recurringEndDate}
                   onChange={(e) => setFormData({ ...formData, recurringEndDate: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
                 />
               </div>
             </div>
@@ -1132,36 +1132,36 @@ function EventModal({
 
           {formData.isMultiDay ? (
             <div>
-              <label className="block text-sm font-medium text-white/55 mb-1">End Date</label>
+              <label className="block text-sm font-medium text-white/70 mb-1">End Date</label>
               <input
                 type="date"
                 required
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
               />
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-white/55 mb-1">Start Time</label>
+                <label className="block text-sm font-medium text-white/70 mb-1">Start Time</label>
                 <input
                   type="text"
                   required
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
                   placeholder="6:00 PM"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-white/55 mb-1">End Time</label>
+                <label className="block text-sm font-medium text-white/70 mb-1">End Time</label>
                 <input
                   type="text"
                   required
                   value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
                   placeholder="8:00 PM"
                 />
               </div>
@@ -1169,12 +1169,12 @@ function EventModal({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-white/55 mb-1">Location</label>
+            <label className="block text-sm font-medium text-white/70 mb-1">Location</label>
             <input
               type="text"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
               placeholder="e.g., Main Gym"
             />
           </div>
@@ -1182,7 +1182,7 @@ function EventModal({
           {/* Teams Picker (create mode only — team changes not supported in edit) */}
           {!isEdit && (
             <div>
-              <label className="block text-sm font-medium text-white/55 mb-1">Teams</label>
+              <label className="block text-sm font-medium text-white/70 mb-1">Teams</label>
 
               {selectedTeams.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2">
@@ -1211,7 +1211,7 @@ function EventModal({
                       setShowTeamDropdown(true);
                     }}
                     onFocus={() => setShowTeamDropdown(true)}
-                    className="w-full pl-9 pr-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
+                    className="w-full pl-9 pr-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm placeholder:text-white/35"
                     placeholder="Search teams..."
                   />
                 </div>
@@ -1243,7 +1243,7 @@ function EventModal({
           {/* Teams display (edit mode — read-only) */}
           {isEdit && editingEvent?.participatingTeams && editingEvent.participatingTeams.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-white/55 mb-1">Teams</label>
+              <label className="block text-sm font-medium text-white/70 mb-1">Teams</label>
               <div className="flex flex-wrap gap-2">
                 {editingEvent.participatingTeams.map((team) => (
                   <span
@@ -1258,12 +1258,12 @@ function EventModal({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-white/55 mb-1">Description</label>
+            <label className="block text-sm font-medium text-white/70 mb-1">Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+              className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none placeholder:text-white/35"
               placeholder="Event details..."
             />
           </div>
