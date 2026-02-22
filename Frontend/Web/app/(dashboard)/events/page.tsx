@@ -95,9 +95,9 @@ type TabKey = "PRACTICE" | "MEETING" | "EVENT";
 type TimeFilter = "TODAY" | "WEEK" | "MONTH" | "ALL";
 
 const TAB_CONFIG: { key: TabKey; label: string; defaultFilter: TimeFilter }[] = [
-  { key: "PRACTICE", label: "Practices", defaultFilter: "TODAY" },
+  { key: "PRACTICE", label: "Practices", defaultFilter: "WEEK" },
   { key: "MEETING", label: "Meetings", defaultFilter: "WEEK" },
-  { key: "EVENT", label: "Events", defaultFilter: "ALL" },
+  { key: "EVENT", label: "Events", defaultFilter: "WEEK" },
 ];
 
 const TIME_FILTERS: { value: TimeFilter; label: string }[] = [
