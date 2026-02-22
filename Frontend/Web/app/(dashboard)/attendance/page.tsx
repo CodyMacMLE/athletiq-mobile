@@ -8,6 +8,7 @@ import {
   GET_ALL_ATTENDANCE_RECORDS,
   GET_ATTENDANCE_RECORDS_COUNT,
   GET_PENDING_AD_HOC_CHECK_INS,
+  GET_TEAMS,
   UPDATE_EXCUSE_REQUEST,
   CHECK_OUT,
   MARK_ABSENT_FOR_PAST_EVENTS,
@@ -106,6 +107,10 @@ export default function Attendance() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchInput, setSearchInput] = useState(""); // debounced → searchQuery
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ON_TIME" | "LATE" | "ABSENT" | "EXCUSED">("ALL");
+  const [teamFilter, setTeamFilter] = useState<string>("ALL");
+  const [dateFilter, setDateFilter] = useState<"ALL" | "TODAY" | "WEEK" | "MONTH" | "CUSTOM">("ALL");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(0);
@@ -118,23 +123,61 @@ export default function Attendance() {
   }, [searchInput]);
 
   // Reset to page 0 when filters/sort change
-  useEffect(() => { setPage(0); }, [searchQuery, statusFilter, sortField, sortDir, pageSize]);
+  useEffect(() => { setPage(0); }, [searchQuery, statusFilter, teamFilter, dateFilter, customStart, customEnd, sortField, sortDir, pageSize]);
+
+  // Compute startDate/endDate from date filter
+  const dateBounds = useMemo(() => {
+    if (dateFilter === "CUSTOM") {
+      if (!customStart) return { startDate: undefined, endDate: undefined };
+      const [sy, sm, sd] = customStart.split("-").map(Number);
+      const startUTC = new Date(Date.UTC(sy, sm - 1, sd));
+      const endStr = customEnd || customStart;
+      const [ey, em, ed] = endStr.split("-").map(Number);
+      const endUTC = new Date(Date.UTC(ey, em - 1, ed, 23, 59, 59, 999));
+      return { startDate: startUTC.toISOString(), endDate: endUTC.toISOString() };
+    }
+    if (dateFilter === "ALL") return { startDate: undefined, endDate: undefined };
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+    if (dateFilter === "TODAY") return {
+      startDate: new Date(Date.UTC(y, m, d)).toISOString(),
+      endDate: new Date(Date.UTC(y, m, d, 23, 59, 59, 999)).toISOString(),
+    };
+    if (dateFilter === "WEEK") {
+      const weekStart = d - now.getDay();
+      return {
+        startDate: new Date(Date.UTC(y, m, weekStart)).toISOString(),
+        endDate: new Date(Date.UTC(y, m, weekStart + 6, 23, 59, 59, 999)).toISOString(),
+      };
+    }
+    if (dateFilter === "MONTH") return {
+      startDate: new Date(Date.UTC(y, m, 1)).toISOString(),
+      endDate: new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999)).toISOString(),
+    };
+    return { startDate: undefined, endDate: undefined };
+  }, [dateFilter, customStart, customEnd]);
 
   const recordsVariables = useMemo(() => ({
     organizationId: selectedOrganizationId,
     search: searchQuery || undefined,
     status: statusFilter !== "ALL" ? statusFilter : undefined,
+    teamId: teamFilter !== "ALL" ? teamFilter : undefined,
+    startDate: dateBounds.startDate,
+    endDate: dateBounds.endDate,
     sortField,
     sortDir,
     limit: pageSize,
     offset: page * pageSize,
-  }), [selectedOrganizationId, searchQuery, statusFilter, sortField, sortDir, pageSize, page]);
+  }), [selectedOrganizationId, searchQuery, statusFilter, teamFilter, dateBounds, sortField, sortDir, pageSize, page]);
 
   const countVariables = useMemo(() => ({
     organizationId: selectedOrganizationId,
     search: searchQuery || undefined,
     status: statusFilter !== "ALL" ? statusFilter : undefined,
-  }), [selectedOrganizationId, searchQuery, statusFilter]);
+    teamId: teamFilter !== "ALL" ? teamFilter : undefined,
+    startDate: dateBounds.startDate,
+    endDate: dateBounds.endDate,
+  }), [selectedOrganizationId, searchQuery, statusFilter, teamFilter, dateBounds]);
 
   // Queries
   const {
@@ -160,6 +203,12 @@ export default function Attendance() {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
+
+  const { data: teamsData } = useQuery<any>(GET_TEAMS, {
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId,
+  });
+  const allTeams: { id: string; name: string }[] = teamsData?.teams || [];
 
   // Mutations
   const [markAbsentForPastEvents] = useMutation<any>(MARK_ABSENT_FOR_PAST_EVENTS);
@@ -301,31 +350,84 @@ export default function Attendance() {
       {/* Attendance Tab */}
       {activeTab === "attendance" && (
         <div className="bg-white/8 rounded-xl border border-white/8">
-          {/* Toolbar: search + status filter */}
-          <div className="px-6 py-4 border-b border-white/8 flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
-              <input
-                type="text"
-                placeholder="Search by name or event..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
-              />
+          {/* Toolbar */}
+          <div className="px-6 py-4 border-b border-white/8 flex flex-col gap-3">
+            {/* Date filter pills */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {(["ALL", "TODAY", "WEEK", "MONTH", "CUSTOM"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setDateFilter(v)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    dateFilter === v
+                      ? "bg-white/12 text-white"
+                      : "bg-white/8 text-white/40 border border-white/8 hover:text-white/75"
+                  }`}
+                >
+                  {v === "ALL" ? "All Time" : v === "TODAY" ? "Today" : v === "WEEK" ? "This Week" : v === "MONTH" ? "This Month" : "Custom"}
+                </button>
+              ))}
+              {dateFilter === "CUSTOM" && (
+                <>
+                  <input
+                    type="date"
+                    value={customStart}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    className="px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark]"
+                  />
+                  <span className="text-white/30 text-xs">—</span>
+                  <input
+                    type="date"
+                    value={customEnd}
+                    min={customStart || undefined}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                    className="px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark]"
+                  />
+                </>
+              )}
             </div>
-            <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] appearance-none pr-9 text-sm"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="ON_TIME">On Time</option>
-                <option value="LATE">Late</option>
-                <option value="ABSENT">Absent</option>
-                <option value="EXCUSED">Excused</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55 pointer-events-none" />
+
+            {/* Search + dropdowns */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
+                <input
+                  type="text"
+                  placeholder="Search by athlete or event..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
+                />
+              </div>
+              {/* Team filter */}
+              <div className="relative">
+                <select
+                  value={teamFilter}
+                  onChange={(e) => setTeamFilter(e.target.value)}
+                  className="px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] appearance-none pr-9 text-sm"
+                >
+                  <option value="ALL">All Teams</option>
+                  {allTeams.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55 pointer-events-none" />
+              </div>
+              {/* Status filter */}
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as any)}
+                  className="px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] appearance-none pr-9 text-sm"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="ON_TIME">On Time</option>
+                  <option value="LATE">Late</option>
+                  <option value="ABSENT">Absent</option>
+                  <option value="EXCUSED">Excused</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55 pointer-events-none" />
+              </div>
             </div>
           </div>
 
@@ -338,7 +440,7 @@ export default function Attendance() {
             <div className="text-center py-16">
               <Users className="w-12 h-12 text-white/30 mx-auto mb-4" />
               <p className="text-white/55">
-                {totalCount === 0 && !searchQuery && statusFilter === "ALL"
+                {totalCount === 0 && !searchQuery && statusFilter === "ALL" && teamFilter === "ALL" && dateFilter === "ALL"
                   ? "No attendance records yet"
                   : "No records match your filters"}
               </p>

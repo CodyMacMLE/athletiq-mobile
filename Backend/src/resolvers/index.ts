@@ -811,10 +811,14 @@ export const resolvers = {
 
     allAttendanceRecords: async (
       _: unknown,
-      { organizationId, search, status, sortField, sortDir, limit, offset }: {
+      { organizationId, search, status, teamId, userId, startDate, endDate, sortField, sortDir, limit, offset }: {
         organizationId: string;
         search?: string;
         status?: string;
+        teamId?: string;
+        userId?: string;
+        startDate?: string;
+        endDate?: string;
         sortField?: string;
         sortDir?: string;
         limit?: number;
@@ -835,10 +839,20 @@ export const resolvers = {
         }
       })();
 
+      const eventFilter: any = { organizationId };
+      if (teamId) eventFilter.teamId = teamId;
+      if (startDate || endDate) {
+        eventFilter.date = {
+          ...(startDate && { gte: new Date(startDate) }),
+          ...(endDate && { lte: new Date(endDate) }),
+        };
+      }
+
       const where: any = {
-        event: { organizationId },
+        event: eventFilter,
         approved: true,
         ...(status && status !== "ALL" && { status }),
+        ...(userId && { userId }),
         ...(search && {
           OR: [
             { user: { firstName: { contains: search, mode: "insensitive" } } },
@@ -859,13 +873,32 @@ export const resolvers = {
 
     attendanceRecordsCount: async (
       _: unknown,
-      { organizationId, search, status }: { organizationId: string; search?: string; status?: string }
+      { organizationId, search, status, teamId, userId, startDate, endDate }: {
+        organizationId: string;
+        search?: string;
+        status?: string;
+        teamId?: string;
+        userId?: string;
+        startDate?: string;
+        endDate?: string;
+      }
     ) => {
       const coachTeamMap = await getNonAthleteTeamMap(organizationId);
+
+      const eventFilter: any = { organizationId };
+      if (teamId) eventFilter.teamId = teamId;
+      if (startDate || endDate) {
+        eventFilter.date = {
+          ...(startDate && { gte: new Date(startDate) }),
+          ...(endDate && { lte: new Date(endDate) }),
+        };
+      }
+
       const where: any = {
-        event: { organizationId },
+        event: eventFilter,
         approved: true,
         ...(status && status !== "ALL" && { status }),
+        ...(userId && { userId }),
         ...(search && {
           OR: [
             { user: { firstName: { contains: search, mode: "insensitive" } } },
