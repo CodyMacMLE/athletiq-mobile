@@ -2060,7 +2060,7 @@ export const resolvers = {
           });
           if (acceptorOrgMembership?.role === "ATHLETE") {
             throw new Error(
-              "Athletes in the same organization cannot be guardians for each other."
+              "You are an athlete in this organization. To be a guardian here, an admin must change your org role to Guardian first."
             );
           }
 
@@ -2184,7 +2184,7 @@ export const resolvers = {
         });
         if (inviteeOrgMembership?.role === "ATHLETE") {
           throw new Error(
-            "Athletes in the same organization cannot be guardians for each other."
+            "This person is an athlete in the same organization. To allow them to be a guardian, an admin must change their org role to Guardian first."
           );
         }
       }
