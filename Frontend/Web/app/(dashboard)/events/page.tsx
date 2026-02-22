@@ -92,7 +92,7 @@ type Event = {
 };
 
 type TabKey = "PRACTICE" | "MEETING" | "EVENT";
-type TimeFilter = "TODAY" | "WEEK" | "MONTH" | "ALL";
+type TimeFilter = "TODAY" | "WEEK" | "MONTH" | "ALL" | "CUSTOM";
 
 const TAB_CONFIG: { key: TabKey; label: string; defaultFilter: TimeFilter }[] = [
   { key: "PRACTICE", label: "Practices", defaultFilter: "WEEK" },
@@ -105,6 +105,7 @@ const TIME_FILTERS: { value: TimeFilter; label: string }[] = [
   { value: "WEEK", label: "This Week" },
   { value: "MONTH", label: "This Month" },
   { value: "ALL", label: "All" },
+  { value: "CUSTOM", label: "Custom" },
 ];
 
 const EVENT_TYPE_COLORS: Record<string, string> = {
@@ -125,7 +126,7 @@ function parseDate(dateStr: string) {
 }
 
 function getDateRange(filter: TimeFilter): { start: Date; end: Date } | null {
-  if (filter === "ALL") return null;
+  if (filter === "ALL" || filter === "CUSTOM") return null;
   const now = new Date();
   // Use local calendar date but construct UTC boundaries to match how event
   // dates are stored (noon UTC) and displayed (timeZone: "UTC" in EventCard)
@@ -160,7 +161,10 @@ function getDateRange(filter: TimeFilter): { start: Date; end: Date } | null {
 // ============================================
 
 export default function Events() {
-  const { selectedOrganizationId, canEdit } = useAuth();
+  const { user, selectedOrganizationId, canEdit } = useAuth();
+  const orgName = user?.organizationMemberships?.find(
+    (m) => m.organization.id === selectedOrganizationId
+  )?.organization.name ?? "athletiq";
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -172,6 +176,10 @@ export default function Events() {
   const [activeTab, setActiveTab] = useState<TabKey>("PRACTICE");
   const defaultFilter = TAB_CONFIG.find((t) => t.key === activeTab)!.defaultFilter;
   const [timeFilter, setTimeFilter] = useState<TimeFilter>(defaultFilter);
+
+  // Custom date range (YYYY-MM-DD strings from <input type="date">)
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
 
   // Team grouping
   const [groupByTeam, setGroupByTeam] = useState(false);
@@ -185,16 +193,28 @@ export default function Events() {
   const handleTabChange = (tab: TabKey) => {
     setActiveTab(tab);
     setTimeFilter(TAB_CONFIG.find((t) => t.key === tab)!.defaultFilter);
+    setCustomStart("");
+    setCustomEnd("");
     setPage(0);
   };
 
   // Reset page when filter or page size changes
   useEffect(() => {
     setPage(0);
-  }, [timeFilter, pageSize, teamFilter, activeTab]);
+  }, [timeFilter, customStart, customEnd, pageSize, teamFilter, activeTab]);
 
   // Convert time filter to date range strings for server-side filtering
   const timeFilterDates = useMemo(() => {
+    if (timeFilter === "CUSTOM") {
+      if (!customStart) return { startDate: undefined, endDate: undefined };
+      // Parse as local date → UTC boundaries
+      const [sy, sm, sd] = customStart.split("-").map(Number);
+      const startUTC = new Date(Date.UTC(sy, sm - 1, sd));
+      const endStr = customEnd || customStart;
+      const [ey, em, ed] = endStr.split("-").map(Number);
+      const endUTC = new Date(Date.UTC(ey, em - 1, ed, 23, 59, 59, 999));
+      return { startDate: startUTC.toISOString(), endDate: endUTC.toISOString() };
+    }
     if (timeFilter === "ALL") return { startDate: undefined, endDate: undefined };
     const range = getDateRange(timeFilter);
     if (!range) return { startDate: undefined, endDate: undefined };
@@ -202,7 +222,7 @@ export default function Events() {
       startDate: range.start.toISOString(),
       endDate: range.end.toISOString(),
     };
-  }, [timeFilter]);
+  }, [timeFilter, customStart, customEnd]);
 
   const eventsVariables = useMemo(() => ({
     organizationId: selectedOrganizationId,
@@ -255,7 +275,7 @@ export default function Events() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "athletiq-events.ics";
+      a.download = `${orgName.replace(/[^a-z0-9]/gi, "-").toLowerCase()}-events.ics`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -498,6 +518,27 @@ export default function Events() {
             {label}
           </button>
         ))}
+
+        {timeFilter === "CUSTOM" && (
+          <>
+            <input
+              type="date"
+              value={customStart}
+              onChange={(e) => setCustomStart(e.target.value)}
+              placeholder="Start date"
+              className="px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark]"
+            />
+            <span className="text-white/30 text-xs">—</span>
+            <input
+              type="date"
+              value={customEnd}
+              min={customStart || undefined}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              placeholder="End date"
+              className="px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark]"
+            />
+          </>
+        )}
 
         <div className="h-4 w-px bg-white/8 mx-1" />
 
