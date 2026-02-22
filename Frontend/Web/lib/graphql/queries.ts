@@ -64,6 +64,12 @@ export const EVENT_FRAGMENT = gql`
     endTime
     location
     description
+    venue {
+      id
+      name
+      address
+      city
+    }
     recurringEvent {
       id
     }
@@ -606,6 +612,30 @@ export const GET_GUARDIAN_ATHLETES = gql`
         }
       }
     }
+  }
+`;
+
+// ============================================
+// Venue Queries
+// ============================================
+
+export const GET_ORGANIZATION_VENUES = gql`
+  query GetOrganizationVenues($organizationId: ID!) {
+    organizationVenues(organizationId: $organizationId) {
+      id
+      name
+      address
+      city
+      state
+      country
+      notes
+    }
+  }
+`;
+
+export const EXPORT_CALENDAR = gql`
+  query ExportCalendar($organizationId: ID!, $teamId: ID, $startDate: String, $endDate: String) {
+    exportCalendar(organizationId: $organizationId, teamId: $teamId, startDate: $startDate, endDate: $endDate)
   }
 `;
 

@@ -8,6 +8,7 @@ import {
   GET_EVENT_DETAIL,
   GET_EVENTS,
   GET_TEAMS,
+  GET_ORGANIZATION_VENUES,
   CREATE_EVENT,
   UPDATE_EVENT,
   DELETE_EVENT,
@@ -89,6 +90,7 @@ type EventDetail = {
   location?: string;
   description?: string;
   recurringEvent?: { id: string } | null;
+  venue?: { id: string; name: string; address?: string; city?: string } | null;
   team?: Team | null;
   participatingTeams: Team[];
   checkIns: CheckIn[];
@@ -196,6 +198,7 @@ export default function EventDetailPage() {
     endTime: string;
     location: string;
     description: string;
+    venueId: string;
   }) => {
     if (!event) return;
     try {
@@ -210,6 +213,7 @@ export default function EventDetailPage() {
           endTime: formData.isMultiDay ? "All Day" : formData.endTime,
           location: formData.location || null,
           description: formData.description || null,
+          venueId: formData.venueId || null,
         },
       });
       setIsEditModalOpen(false);
@@ -436,10 +440,21 @@ export default function EventDetailPage() {
               {event.startTime} - {event.endTime}
             </div>
           )}
-          {event.location && (
-            <div className="flex items-center">
-              <MapPin className="w-4 h-4 mr-1.5" />
-              {event.location}
+          {(event.venue || event.location) && (
+            <div className="flex items-start gap-1.5">
+              <MapPin className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                {event.venue ? (
+                  <>
+                    {event.venue.name}
+                    {(event.venue.address || event.venue.city) && (
+                      <span className="text-white/50 text-sm ml-1">
+                        — {[event.venue.address, event.venue.city].filter(Boolean).join(", ")}
+                      </span>
+                    )}
+                  </>
+                ) : event.location}
+              </span>
             </div>
           )}
         </div>
@@ -916,6 +931,7 @@ type EditEventFormData = {
   endTime: string;
   location: string;
   description: string;
+  venueId: string;
 };
 
 function formatDateForInput(dateStr: string): string {
@@ -939,6 +955,10 @@ function EditEventModal({
   onUpdate: (data: EditEventFormData) => void;
 }) {
   const isMultiDay = !!event.endDate;
+  const { data: venuesData } = useQuery<any>(GET_ORGANIZATION_VENUES, {
+    variables: { organizationId },
+  });
+  const venues: { id: string; name: string; city?: string }[] = venuesData?.organizationVenues || [];
 
   const [formData, setFormData] = useState<EditEventFormData>({
     title: event.title,
@@ -950,6 +970,7 @@ function EditEventModal({
     endTime: isMultiDay ? "" : event.endTime,
     location: event.location || "",
     description: event.description || "",
+    venueId: event.venue?.id || "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1066,7 +1087,7 @@ function EditEventModal({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-white/55 mb-1">Location</label>
+            <label className="block text-sm font-medium text-white/55 mb-1">Location (free text)</label>
             <input
               type="text"
               value={formData.location}
@@ -1075,6 +1096,24 @@ function EditEventModal({
               placeholder="e.g., Main Gym"
             />
           </div>
+
+          {venues.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-white/55 mb-1">Venue</label>
+              <select
+                value={formData.venueId}
+                onChange={(e) => setFormData({ ...formData, venueId: e.target.value })}
+                className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              >
+                <option value="">No venue selected</option>
+                {venues.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}{v.city ? ` — ${v.city}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Teams (read-only) */}
           {event.participatingTeams.length > 0 && (

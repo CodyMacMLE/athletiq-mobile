@@ -40,6 +40,8 @@ type CalendarEvent = {
   location?: string;
   description?: string;
   team?: { id: string; name: string };
+  venue?: { id: string; name: string; address?: string; city?: string } | null;
+  rsvps?: { id: string; status: string }[];
 };
 
 const AVATAR_SIZE = 45;
@@ -309,6 +311,8 @@ export default function Calendar() {
       location: e.location,
       description: e.description,
       team: e.team,
+      venue: e.venue || null,
+      rsvps: e.rsvps || [],
     }));
   }, [eventsData]);
 
@@ -405,6 +409,37 @@ export default function Calendar() {
   const selectedCheckIn = selectedEvent ? checkinByEvent.get(selectedEvent.id) : null;
   const selectedExcuse = selectedEvent ? excuseByEvent.get(selectedEvent.id) : null;
   const selectedRsvp = selectedEvent ? rsvpByEvent.get(selectedEvent.id) : null;
+
+  const rsvpCounts = useMemo(() => {
+    if (!selectedEvent?.rsvps) return { GOING: 0, MAYBE: 0, NOT_GOING: 0 };
+    const counts = { GOING: 0, MAYBE: 0, NOT_GOING: 0 };
+    for (const r of selectedEvent.rsvps) {
+      if (r.status in counts) counts[r.status as keyof typeof counts]++;
+    }
+    return counts;
+  }, [selectedEvent]);
+
+  const handleAddToCalendar = () => {
+    if (!selectedEvent) return;
+    const title = encodeURIComponent(selectedEvent.title);
+    const locationStr = encodeURIComponent(
+      selectedEvent.venue
+        ? [selectedEvent.venue.name, selectedEvent.venue.address, selectedEvent.venue.city].filter(Boolean).join(", ")
+        : selectedEvent.location || ""
+    );
+    const d = selectedEvent.date;
+    const pad2 = (n: number) => String(n).padStart(2, "0");
+    const dateStr = `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}`;
+    // Use all-day format: YYYYMMDD/YYYYMMDD (end date = same day + 1 for Google Cal)
+    const nextDay = new Date(d);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDateStr = `${nextDay.getFullYear()}${pad2(nextDay.getMonth() + 1)}${pad2(nextDay.getDate())}`;
+    const dates = `${dateStr}/${nextDateStr}`;
+    const googleCalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&location=${locationStr}`;
+    import("expo-linking").then(({ default: Linking }) => {
+      Linking.openURL(googleCalUrl);
+    });
+  };
 
   const handleRequestAbsence = () => {
     if (!selectedEvent) return;
@@ -557,10 +592,12 @@ export default function Calendar() {
                             <Text style={styles.dayPickerMetaText}>{event.startTime}{event.endTime ? ` – ${event.endTime}` : ""}</Text>
                           </View>
                         ) : null}
-                        {event.location ? (
+                        {(event.venue || event.location) ? (
                           <View style={styles.dayPickerMetaRow}>
                             <Feather name="map-pin" size={12} color="rgba(255,255,255,0.45)" />
-                            <Text style={styles.dayPickerMetaText} numberOfLines={1}>{event.location}</Text>
+                            <Text style={styles.dayPickerMetaText} numberOfLines={1}>
+                              {event.venue ? event.venue.name : event.location}
+                            </Text>
                           </View>
                         ) : null}
                         {event.team ? (
@@ -646,12 +683,23 @@ export default function Calendar() {
                     </View>
                   )}
 
-                  {selectedEvent.location && (
+                  {(selectedEvent.venue || selectedEvent.location) && (
                     <View style={styles.eventModalRow}>
                       <Feather name="map-pin" size={16} color="rgba(255,255,255,0.6)" />
-                      <Text style={styles.eventModalText}>
-                        {selectedEvent.location}
-                      </Text>
+                      <View style={{ flex: 1 }}>
+                        {selectedEvent.venue ? (
+                          <>
+                            <Text style={styles.eventModalText}>{selectedEvent.venue.name}</Text>
+                            {(selectedEvent.venue.address || selectedEvent.venue.city) && (
+                              <Text style={[styles.eventModalText, { fontSize: 13, color: "rgba(255,255,255,0.5)", marginTop: 1 }]}>
+                                {[selectedEvent.venue.address, selectedEvent.venue.city].filter(Boolean).join(", ")}
+                              </Text>
+                            )}
+                          </>
+                        ) : (
+                          <Text style={styles.eventModalText}>{selectedEvent.location}</Text>
+                        )}
+                      </View>
                     </View>
                   )}
 
@@ -767,6 +815,21 @@ export default function Calendar() {
                     <View style={styles.attendanceSection}>
                       <Text style={styles.attendanceSectionTitle}>Are you going?</Text>
 
+                      {/* RSVP Aggregate Counts */}
+                      {(rsvpCounts.GOING > 0 || rsvpCounts.MAYBE > 0 || rsvpCounts.NOT_GOING > 0) && (
+                        <View style={{ flexDirection: "row", gap: 10, marginBottom: 10 }}>
+                          {rsvpCounts.GOING > 0 && (
+                            <Text style={{ fontSize: 12, color: "#27ae60" }}>{rsvpCounts.GOING} Going</Text>
+                          )}
+                          {rsvpCounts.MAYBE > 0 && (
+                            <Text style={{ fontSize: 12, color: "#f39c12" }}>{rsvpCounts.MAYBE} Maybe</Text>
+                          )}
+                          {rsvpCounts.NOT_GOING > 0 && (
+                            <Text style={{ fontSize: 12, color: "#e74c3c" }}>{rsvpCounts.NOT_GOING} Not Going</Text>
+                          )}
+                        </View>
+                      )}
+
                       {/* RSVP Pill Buttons */}
                       <View style={styles.rsvpPillRow}>
                         {(["GOING", "MAYBE", "NOT_GOING"] as const).map((status) => {
@@ -847,6 +910,18 @@ export default function Calendar() {
                       )}
                     </View>
                   )}
+
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.eventModalButton,
+                      { backgroundColor: "rgba(108,92,231,0.15)", marginBottom: 8, flexDirection: "row", justifyContent: "center" },
+                      pressed && { opacity: 0.8 },
+                    ]}
+                    onPress={handleAddToCalendar}
+                  >
+                    <Feather name="calendar" size={15} color="rgba(167,139,250,0.9)" style={{ marginRight: 6 }} />
+                    <Text style={[styles.eventModalButtonText, { color: "rgba(167,139,250,0.9)" }]}>Add to Calendar</Text>
+                  </Pressable>
 
                   <Pressable
                     style={({ pressed }) => [
@@ -1083,11 +1158,11 @@ export default function Calendar() {
                         </Text>
                       </View>
                     )}
-                    {event.location && (
+                    {(event.venue || event.location) && (
                       <View style={styles.upcomingCardDetail}>
                         <Feather name="map-pin" size={12} color="rgba(255,255,255,0.5)" />
                         <Text style={styles.upcomingCardDetailText} numberOfLines={1}>
-                          {event.location}
+                          {event.venue ? event.venue.name : event.location}
                         </Text>
                       </View>
                     )}

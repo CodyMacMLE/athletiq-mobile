@@ -244,6 +244,19 @@ export const typeDefs = `#graphql
     joinedAt: String!
   }
 
+  type Venue {
+    id: ID!
+    name: String!
+    address: String
+    city: String
+    state: String
+    country: String
+    notes: String
+    organizationId: ID!
+    createdAt: String!
+    updatedAt: String!
+  }
+
   type Event {
     id: ID!
     title: String!
@@ -256,6 +269,7 @@ export const typeDefs = `#graphql
     description: String
     organization: Organization!
     team: Team
+    venue: Venue
     participatingTeams: [Team!]!
     checkIns: [CheckIn!]!
     rsvps: [EventRsvp!]!
@@ -278,6 +292,7 @@ export const typeDefs = `#graphql
     endDate: String!
     organization: Organization!
     team: Team
+    venue: Venue
     events: [Event!]!
     createdAt: String!
     updatedAt: String!
@@ -568,6 +583,25 @@ export const typeDefs = `#graphql
     note: String
   }
 
+  input CreateVenueInput {
+    name: String!
+    address: String
+    city: String
+    state: String
+    country: String
+    notes: String
+    organizationId: ID!
+  }
+
+  input UpdateVenueInput {
+    name: String
+    address: String
+    city: String
+    state: String
+    country: String
+    notes: String
+  }
+
   input CreateEventInput {
     title: String!
     type: EventType!
@@ -579,6 +613,7 @@ export const typeDefs = `#graphql
     description: String
     organizationId: ID!
     teamId: ID
+    venueId: ID
     participatingTeamIds: [ID!]
   }
 
@@ -595,6 +630,7 @@ export const typeDefs = `#graphql
     endDate: String!
     organizationId: ID!
     teamId: ID
+    venueId: ID
   }
 
   input CheckInInput {
@@ -741,6 +777,13 @@ export const typeDefs = `#graphql
     # RSVP queries
     myRsvps(userId: ID!): [EventRsvp!]!
 
+    # Venue queries
+    venue(id: ID!): Venue
+    organizationVenues(organizationId: ID!): [Venue!]!
+
+    # Calendar export
+    exportCalendar(organizationId: ID!, teamId: ID, startDate: String, endDate: String): String!
+
     # Recurring event queries
     recurringEvent(id: ID!): RecurringEvent
     recurringEvents(organizationId: ID!): [RecurringEvent!]!
@@ -816,9 +859,14 @@ export const typeDefs = `#graphql
     removeTeamMember(userId: ID!, teamId: ID!): Boolean!
     updateTeamMemberRole(userId: ID!, teamId: ID!, role: TeamRole!): TeamMember!
 
+    # Venue mutations
+    createVenue(input: CreateVenueInput!): Venue!
+    updateVenue(id: ID!, input: UpdateVenueInput!): Venue!
+    deleteVenue(id: ID!): Boolean!
+
     # Event mutations
     createEvent(input: CreateEventInput!): Event!
-    updateEvent(id: ID!, title: String, type: EventType, date: String, endDate: String, startTime: String, endTime: String, location: String, description: String): Event!
+    updateEvent(id: ID!, title: String, type: EventType, date: String, endDate: String, startTime: String, endTime: String, location: String, description: String, venueId: ID): Event!
     deleteEvent(id: ID!): Boolean!
 
     # Recurring event mutations

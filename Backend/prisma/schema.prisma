@@ -82,6 +82,7 @@ model Organization {
   emailReportConfigs EmailReportConfig[]
   emergencyContacts  EmergencyContact[]
   medicalInfos       MedicalInfo[]
+  venues             Venue[]
 }
 
 model OrgSeason {
@@ -170,6 +171,28 @@ model OrganizationMember {
 }
 
 // ============================================
+// Venues
+// ============================================
+
+model Venue {
+  id             String       @id @default(cuid())
+  name           String
+  address        String?
+  city           String?
+  state          String?
+  country        String?
+  notes          String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  events         Event[]
+  recurringEvents RecurringEvent[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+// ============================================
 // Events & Calendar
 // ============================================
 
@@ -188,6 +211,8 @@ model Event {
   organization   Organization @relation(fields: [organizationId], references: [id])
   teamId         String?
   team           Team?        @relation(fields: [teamId], references: [id])
+  venueId        String?
+  venue          Venue?       @relation(fields: [venueId], references: [id])
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -365,6 +390,8 @@ model RecurringEvent {
   organization   Organization        @relation(fields: [organizationId], references: [id])
   teamId         String?
   team           Team?               @relation(fields: [teamId], references: [id])
+  venueId        String?
+  venue          Venue?              @relation(fields: [venueId], references: [id])
   events         Event[]
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt

@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
-import { GET_ORG_SEASONS, CREATE_ORG_SEASON, UPDATE_ORG_SEASON, DELETE_ORG_SEASON, GET_ORGANIZATION, UPDATE_ORGANIZATION_SETTINGS } from "@/lib/graphql";
-import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield, Heart } from "lucide-react";
+import { GET_ORG_SEASONS, CREATE_ORG_SEASON, UPDATE_ORG_SEASON, DELETE_ORG_SEASON, GET_ORGANIZATION, UPDATE_ORGANIZATION_SETTINGS, GET_ORGANIZATION_VENUES, CREATE_VENUE, UPDATE_VENUE, DELETE_VENUE } from "@/lib/graphql";
+import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield, Heart, Building2 } from "lucide-react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -24,6 +24,16 @@ type OrgSeason = {
   organizationId: string;
 };
 
+type Venue = {
+  id: string;
+  name: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  notes?: string | null;
+};
+
 export default function SettingsPage() {
   const { selectedOrganizationId, canEdit, canManageOrg } = useAuth();
   const [showAddForm, setShowAddForm] = useState(false);
@@ -36,6 +46,12 @@ export default function SettingsPage() {
   const [coachHealthAccess, setCoachHealthAccess] = useState<string>("TEAM_ONLY");
   const [healthSaving, setHealthSaving] = useState(false);
   const [healthSaved, setHealthSaved] = useState(false);
+
+  // Venues
+  const [showVenueForm, setShowVenueForm] = useState(false);
+  const [editingVenue, setEditingVenue] = useState<Venue | null>(null);
+  const [venueForm, setVenueForm] = useState({ name: "", address: "", city: "", state: "", country: "", notes: "" });
+  const [venueError, setVenueError] = useState("");
 
   const { data, refetch } = useQuery<any>(GET_ORG_SEASONS, {
     variables: { organizationId: selectedOrganizationId },
@@ -58,6 +74,16 @@ export default function SettingsPage() {
   const [updateOrgSeason] = useMutation<any>(UPDATE_ORG_SEASON);
   const [deleteOrgSeason] = useMutation<any>(DELETE_ORG_SEASON);
   const [updateOrganizationSettings] = useMutation<any>(UPDATE_ORGANIZATION_SETTINGS);
+
+  const { data: venuesData, refetch: refetchVenues } = useQuery<any>(GET_ORGANIZATION_VENUES, {
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId,
+  });
+  const [createVenue] = useMutation<any>(CREATE_VENUE);
+  const [updateVenue] = useMutation<any>(UPDATE_VENUE);
+  const [deleteVenue] = useMutation<any>(DELETE_VENUE);
+
+  const venues: Venue[] = venuesData?.organizationVenues || [];
 
   const seasons: OrgSeason[] = data?.orgSeasons || [];
 
@@ -146,6 +172,86 @@ export default function SettingsPage() {
     }
   };
 
+  const resetVenueForm = () => {
+    setShowVenueForm(false);
+    setEditingVenue(null);
+    setVenueForm({ name: "", address: "", city: "", state: "", country: "", notes: "" });
+    setVenueError("");
+  };
+
+  const handleStartEditVenue = (venue: Venue) => {
+    setEditingVenue(venue);
+    setVenueForm({
+      name: venue.name,
+      address: venue.address || "",
+      city: venue.city || "",
+      state: venue.state || "",
+      country: venue.country || "",
+      notes: venue.notes || "",
+    });
+    setShowVenueForm(false);
+    setVenueError("");
+  };
+
+  const handleCreateVenue = async () => {
+    if (!venueForm.name.trim()) return;
+    setVenueError("");
+    try {
+      await createVenue({
+        variables: {
+          input: {
+            name: venueForm.name.trim(),
+            address: venueForm.address.trim() || undefined,
+            city: venueForm.city.trim() || undefined,
+            state: venueForm.state.trim() || undefined,
+            country: venueForm.country.trim() || undefined,
+            notes: venueForm.notes.trim() || undefined,
+            organizationId: selectedOrganizationId,
+          },
+        },
+      });
+      resetVenueForm();
+      refetchVenues();
+    } catch (err: any) {
+      setVenueError(err.message || "Failed to create venue");
+    }
+  };
+
+  const handleUpdateVenue = async () => {
+    if (!editingVenue || !venueForm.name.trim()) return;
+    setVenueError("");
+    try {
+      await updateVenue({
+        variables: {
+          id: editingVenue.id,
+          input: {
+            name: venueForm.name.trim(),
+            address: venueForm.address.trim() || undefined,
+            city: venueForm.city.trim() || undefined,
+            state: venueForm.state.trim() || undefined,
+            country: venueForm.country.trim() || undefined,
+            notes: venueForm.notes.trim() || undefined,
+          },
+        },
+      });
+      resetVenueForm();
+      refetchVenues();
+    } catch (err: any) {
+      setVenueError(err.message || "Failed to update venue");
+    }
+  };
+
+  const handleDeleteVenue = async (venue: Venue) => {
+    if (!confirm(`Delete "${venue.name}"? This cannot be undone.`)) return;
+    setVenueError("");
+    try {
+      await deleteVenue({ variables: { id: venue.id } });
+      refetchVenues();
+    } catch (err: any) {
+      setVenueError(err.message || "Failed to delete venue");
+    }
+  };
+
   const SeasonForm = ({ isEditing }: { isEditing: boolean }) => (
     <div className="bg-white/5 rounded-lg p-4 space-y-3">
       <div>
@@ -199,6 +305,90 @@ export default function SettingsPage() {
         >
           <Check className="w-4 h-4" />
           {isEditing ? "Save" : "Add Season"}
+        </button>
+      </div>
+    </div>
+  );
+
+  const VenueForm = ({ isEditing }: { isEditing: boolean }) => (
+    <div className="bg-white/5 rounded-lg p-4 space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-white/55 mb-1">Venue Name *</label>
+          <input
+            type="text"
+            value={venueForm.name}
+            onChange={(e) => setVenueForm(f => ({ ...f, name: e.target.value }))}
+            placeholder="e.g., Main Gym, North Field"
+            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white/55 mb-1">Address</label>
+          <input
+            type="text"
+            value={venueForm.address}
+            onChange={(e) => setVenueForm(f => ({ ...f, address: e.target.value }))}
+            placeholder="123 Main St"
+            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white/55 mb-1">City</label>
+          <input
+            type="text"
+            value={venueForm.city}
+            onChange={(e) => setVenueForm(f => ({ ...f, city: e.target.value }))}
+            placeholder="Springfield"
+            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white/55 mb-1">State / Province</label>
+          <input
+            type="text"
+            value={venueForm.state}
+            onChange={(e) => setVenueForm(f => ({ ...f, state: e.target.value }))}
+            placeholder="IL"
+            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-white/55 mb-1">Country</label>
+          <input
+            type="text"
+            value={venueForm.country}
+            onChange={(e) => setVenueForm(f => ({ ...f, country: e.target.value }))}
+            placeholder="USA"
+            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-sm font-medium text-white/55 mb-1">Notes</label>
+          <input
+            type="text"
+            value={venueForm.notes}
+            onChange={(e) => setVenueForm(f => ({ ...f, notes: e.target.value }))}
+            placeholder="Parking info, entrance details, etc."
+            className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+          />
+        </div>
+      </div>
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <button
+          onClick={resetVenueForm}
+          className="px-3 py-1.5 text-sm text-white/55 hover:text-white transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={isEditing ? handleUpdateVenue : handleCreateVenue}
+          disabled={!venueForm.name.trim()}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Check className="w-4 h-4" />
+          {isEditing ? "Save" : "Add Venue"}
         </button>
       </div>
     </div>
@@ -417,6 +607,87 @@ export default function SettingsPage() {
             >
               {healthSaved ? <><Check className="w-4 h-4" /> Saved</> : healthSaving ? "Saving..." : <><Check className="w-4 h-4" /> Save</>}
             </button>
+          </div>
+        </section>
+      )}
+
+      {/* Venues */}
+      {canManageOrg && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-[#a78bfa]" />
+              <h2 className="text-lg font-semibold text-white">Venues</h2>
+            </div>
+            {!showVenueForm && !editingVenue && (
+              <button
+                onClick={() => { setShowVenueForm(true); setEditingVenue(null); setVenueError(""); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Venue
+              </button>
+            )}
+          </div>
+
+          <div className="bg-white/8 rounded-lg border border-white/8 p-4">
+            <p className="text-sm text-white/55 mb-4">
+              Manage your organization&apos;s venues and facilities. Venues can be selected when creating events.
+            </p>
+
+            {venueError && (
+              <div className="mb-4 p-3 bg-red-600/10 border border-red-600/20 rounded-lg text-red-400 text-sm">
+                {venueError}
+              </div>
+            )}
+
+            {venues.length > 0 && (
+              <div className="space-y-2 mb-4">
+                {venues.map((venue) => (
+                  <div key={venue.id}>
+                    {editingVenue?.id === venue.id ? (
+                      <VenueForm isEditing />
+                    ) : (
+                      <div className="flex items-center justify-between px-3 py-2.5 bg-white/5 rounded-lg">
+                        <div>
+                          <span className="text-white font-medium">{venue.name}</span>
+                          {(venue.city || venue.state) && (
+                            <span className="text-white/55 text-sm ml-3">
+                              {[venue.city, venue.state].filter(Boolean).join(", ")}
+                            </span>
+                          )}
+                          {venue.address && (
+                            <span className="text-white/40 text-xs ml-3">{venue.address}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <button
+                            onClick={() => handleStartEditVenue(venue)}
+                            className="p-1.5 text-white/55 hover:text-white transition-colors"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteVenue(venue)}
+                            className="p-1.5 text-white/55 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {venues.length === 0 && !showVenueForm && (
+              <p className="text-white/40 text-sm text-center py-4">
+                No venues defined yet. Add one to get started.
+              </p>
+            )}
+
+            {showVenueForm && <VenueForm isEditing={false} />}
           </div>
         </section>
       )}

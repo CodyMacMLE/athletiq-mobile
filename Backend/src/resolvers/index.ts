@@ -239,6 +239,125 @@ export const resolvers = {
       });
     },
 
+    // Venue queries
+    venue: async (_: unknown, { id }: { id: string }) => {
+      return prisma.venue.findUnique({ where: { id } });
+    },
+
+    organizationVenues: async (_: unknown, { organizationId }: { organizationId: string }) => {
+      return prisma.venue.findMany({
+        where: { organizationId },
+        orderBy: { name: "asc" },
+      });
+    },
+
+    // Calendar export
+    exportCalendar: async (
+      _: unknown,
+      { organizationId, teamId, startDate, endDate }: { organizationId: string; teamId?: string; startDate?: string; endDate?: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const events = await prisma.event.findMany({
+        where: {
+          organizationId,
+          isAdHoc: false,
+          ...(teamId && {
+            OR: [
+              { teamId },
+              { participatingTeams: { some: { id: teamId } } },
+            ],
+          }),
+          ...(startDate && endDate && {
+            date: { gte: new Date(startDate), lte: new Date(endDate) },
+          }),
+        },
+        include: { venue: true, team: true },
+        orderBy: { date: "asc" },
+      });
+
+      // Helper: parse "6:00 PM" → { hours, minutes }
+      function parseTime(timeStr: string): { h: number; m: number } {
+        const match = timeStr?.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+        if (!match) return { h: 12, m: 0 };
+        let h = parseInt(match[1]);
+        const m = parseInt(match[2]);
+        const ampm = match[3].toUpperCase();
+        if (ampm === "PM" && h !== 12) h += 12;
+        if (ampm === "AM" && h === 12) h = 0;
+        return { h, m };
+      }
+
+      // Format Date + time to iCal datetime: YYYYMMDDTHHMMSSZ
+      function toICalDate(date: Date, timeStr: string): string {
+        const year = date.getUTCFullYear();
+        const month = date.getUTCMonth();
+        const day = date.getUTCDate();
+        const { h, m } = parseTime(timeStr);
+        const dt = new Date(Date.UTC(year, month, day, h, m, 0));
+        return dt.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+      }
+
+      // Escape special iCal characters
+      function escIcal(str: string): string {
+        return str.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+      }
+
+      const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+
+      const vevents = events.map((e) => {
+        const isAllDay = e.startTime === "All Day";
+        let dtstart: string;
+        let dtend: string;
+
+        if (isAllDay) {
+          const d = e.date;
+          const y = d.getUTCFullYear();
+          const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+          const da = String(d.getUTCDate()).padStart(2, "0");
+          dtstart = `DTSTART;VALUE=DATE:${y}${mo}${da}`;
+          const endD = e.endDate || e.date;
+          const nextDay = new Date(endD);
+          nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+          const ey = nextDay.getUTCFullYear();
+          const emo = String(nextDay.getUTCMonth() + 1).padStart(2, "0");
+          const eda = String(nextDay.getUTCDate()).padStart(2, "0");
+          dtend = `DTEND;VALUE=DATE:${ey}${emo}${eda}`;
+        } else {
+          dtstart = `DTSTART:${toICalDate(e.date, e.startTime)}`;
+          dtend = `DTEND:${toICalDate(e.endDate || e.date, e.endTime)}`;
+        }
+
+        const location = e.venue
+          ? [e.venue.name, e.venue.address, e.venue.city, e.venue.country].filter(Boolean).join(", ")
+          : e.location || "";
+
+        const lines = [
+          "BEGIN:VEVENT",
+          `UID:event-${e.id}@athletiq.app`,
+          `DTSTAMP:${stamp}`,
+          dtstart,
+          dtend,
+          `SUMMARY:${escIcal(e.title)}`,
+          ...(location ? [`LOCATION:${escIcal(location)}`] : []),
+          ...(e.description ? [`DESCRIPTION:${escIcal(e.description)}`] : []),
+          "END:VEVENT",
+        ];
+        return lines.join("\r\n");
+      });
+
+      return [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//AthletiQ//Events//EN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        ...vevents,
+        "END:VCALENDAR",
+      ].join("\r\n");
+    },
+
     // Event queries
     event: async (_: unknown, { id }: { id: string }) => {
       return prisma.event.findUnique({ where: { id } });
@@ -1527,6 +1646,29 @@ export const resolvers = {
       });
     },
 
+    // Venue mutations
+    createVenue: async (
+      _: unknown,
+      { input }: { input: { name: string; address?: string; city?: string; state?: string; country?: string; notes?: string; organizationId: string } }
+    ) => {
+      return prisma.venue.create({ data: input });
+    },
+
+    updateVenue: async (
+      _: unknown,
+      { id, input }: { id: string; input: { name?: string; address?: string; city?: string; state?: string; country?: string; notes?: string } }
+    ) => {
+      return prisma.venue.update({ where: { id }, data: input });
+    },
+
+    deleteVenue: async (_: unknown, { id }: { id: string }) => {
+      // Unlink venue from events first, then delete
+      await prisma.event.updateMany({ where: { venueId: id }, data: { venueId: null } });
+      await prisma.recurringEvent.updateMany({ where: { venueId: id }, data: { venueId: null } });
+      await prisma.venue.delete({ where: { id } });
+      return true;
+    },
+
     // Event mutations
     createEvent: async (
       _: unknown,
@@ -1544,6 +1686,7 @@ export const resolvers = {
           description?: string;
           organizationId: string;
           teamId?: string;
+          venueId?: string;
           participatingTeamIds?: string[];
         };
       }
@@ -1575,6 +1718,7 @@ export const resolvers = {
         endTime,
         location,
         description,
+        venueId,
       }: {
         id: string;
         title?: string;
@@ -1585,6 +1729,7 @@ export const resolvers = {
         endTime?: string;
         location?: string;
         description?: string;
+        venueId?: string | null;
       }
     ) => {
       return prisma.event.update({
@@ -1598,6 +1743,7 @@ export const resolvers = {
           ...(endTime && { endTime }),
           ...(location !== undefined && { location }),
           ...(description !== undefined && { description }),
+          ...(venueId !== undefined && { venueId: venueId || null }),
         },
       });
     },
@@ -3370,11 +3516,18 @@ export const resolvers = {
     joinedAt: (parent: any) => toISO(parent.joinedAt),
   },
 
+  Venue: {
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
+  },
+
   Event: {
     organization: (parent: { organizationId: string }) =>
       prisma.organization.findUnique({ where: { id: parent.organizationId } }),
     team: (parent: { teamId: string | null }) =>
       parent.teamId ? prisma.team.findUnique({ where: { id: parent.teamId } }) : null,
+    venue: (parent: { venueId: string | null }) =>
+      parent.venueId ? prisma.venue.findUnique({ where: { id: parent.venueId } }) : null,
     checkIns: (parent: { id: string }) => prisma.checkIn.findMany({ where: { eventId: parent.id } }),
     rsvps: (parent: { id: string }) => prisma.eventRsvp.findMany({ where: { eventId: parent.id }, include: { user: true } }),
     recurringEvent: (parent: { recurringEventId: string | null }) =>
@@ -3396,6 +3549,8 @@ export const resolvers = {
       prisma.organization.findUnique({ where: { id: parent.organizationId } }),
     team: (parent: { teamId: string | null }) =>
       parent.teamId ? prisma.team.findUnique({ where: { id: parent.teamId } }) : null,
+    venue: (parent: { venueId: string | null }) =>
+      parent.venueId ? prisma.venue.findUnique({ where: { id: parent.venueId } }) : null,
     events: (parent: { id: string }) =>
       prisma.event.findMany({ where: { recurringEventId: parent.id }, orderBy: { date: "asc" } }),
     startDate: (parent: any) => toISO(parent.startDate),

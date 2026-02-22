@@ -1,16 +1,19 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useQuery, useMutation } from "@apollo/client/react";
+import { useQuery, useMutation, useApolloClient } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   GET_EVENTS,
   GET_TEAMS,
+  GET_ORGANIZATION_VENUES,
+  EXPORT_CALENDAR,
   CREATE_EVENT,
   CREATE_RECURRING_EVENT,
   UPDATE_EVENT,
   DELETE_EVENT,
   DELETE_RECURRING_EVENT,
+  CREATE_VENUE,
 } from "@/lib/graphql";
 import {
   Plus,
@@ -27,12 +30,24 @@ import {
   ChevronRight,
   LayoutList,
   ChevronDown,
+  Download,
+  Building2,
 } from "lucide-react";
 import Link from "next/link";
 
 // ============================================
 // Types
 // ============================================
+
+type Venue = {
+  id: string;
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  notes?: string;
+};
 
 type Event = {
   id: string;
@@ -44,6 +59,7 @@ type Event = {
   endTime: string;
   location?: string;
   description?: string;
+  venue?: Venue | null;
   team?: { id: string; name: string };
   participatingTeams: { id: string; name: string }[];
   checkIns: { id: string; status: string }[];
@@ -122,6 +138,7 @@ export default function Events() {
   const { selectedOrganizationId, canEdit } = useAuth();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [deleteConfirmEvent, setDeleteConfirmEvent] = useState<Event | null>(null);
   const [deleteDialogEvent, setDeleteDialogEvent] = useState<Event | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -160,6 +177,40 @@ export default function Events() {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
+
+  const { data: venuesData, refetch: refetchVenues } = useQuery<any>(GET_ORGANIZATION_VENUES, {
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId,
+  });
+
+  const apolloClient = useApolloClient();
+
+  const handleExportCalendar = async () => {
+    if (!selectedOrganizationId) return;
+    setIsExporting(true);
+    try {
+      const { data: calData } = await apolloClient.query<{ exportCalendar: string }>({
+        query: EXPORT_CALENDAR,
+        variables: { organizationId: selectedOrganizationId },
+        fetchPolicy: "network-only",
+      });
+      const icalContent = calData?.exportCalendar;
+      if (!icalContent) return;
+      const blob = new Blob([icalContent], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "athletiq-events.ics";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to export calendar:", error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const [updateEvent] = useMutation<any>(UPDATE_EVENT);
   const [deleteEvent] = useMutation<any>(DELETE_EVENT);
@@ -266,6 +317,7 @@ export default function Events() {
     endTime: string;
     location: string;
     description: string;
+    venueId: string;
   }) => {
     if (!editingEvent) return;
     try {
@@ -280,6 +332,7 @@ export default function Events() {
           endTime: data.isMultiDay ? "All Day" : data.endTime,
           location: data.location || null,
           description: data.description || null,
+          venueId: data.venueId || null,
         },
       });
       setEditingEvent(null);
@@ -346,15 +399,26 @@ export default function Events() {
           <h1 className="text-2xl font-bold text-white">Events</h1>
           <p className="text-white/55 mt-1">Manage practices, meetings, and tournaments</p>
         </div>
-        {canEdit && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors"
+            onClick={handleExportCalendar}
+            disabled={isExporting}
+            className="flex items-center px-3 py-2 bg-white/8 text-white/70 rounded-lg hover:bg-white/12 hover:text-white transition-colors text-sm disabled:opacity-50"
+            title="Download .ics calendar file"
           >
-            <Plus className="w-5 h-5 mr-2" />
-            Create Event
+            <Download className="w-4 h-4 mr-1.5" />
+            {isExporting ? "Exporting..." : "Export .ics"}
           </button>
-        )}
+          {canEdit && (
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="flex items-center px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Create Event
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -745,10 +809,12 @@ function EventCard({
                   {event.startTime} - {event.endTime}
                 </div>
               )}
-              {event.location && (
+              {(event.venue || event.location) && (
                 <div className="flex items-center">
                   <MapPin className="w-4 h-4 mr-1" />
-                  {event.location}
+                  {event.venue
+                    ? `${event.venue.name}${event.venue.city ? `, ${event.venue.city}` : ""}`
+                    : event.location}
                 </div>
               )}
             </div>
@@ -828,6 +894,7 @@ type EventFormData = {
   endTime: string;
   location: string;
   description: string;
+  venueId: string;
 };
 
 function formatDateForInput(dateStr: string): string {
@@ -871,6 +938,7 @@ function EventModal({
         endTime: isMultiDay ? "" : editingEvent.endTime,
         location: editingEvent.location || "",
         description: editingEvent.description || "",
+        venueId: editingEvent.venue?.id || "",
       };
     }
     return {
@@ -887,8 +955,50 @@ function EventModal({
       endTime: "",
       location: "",
       description: "",
+      venueId: "",
     };
   });
+
+  const { data: venuesData } = useQuery<any>(GET_ORGANIZATION_VENUES, {
+    variables: { organizationId },
+  });
+  const [createVenue] = useMutation<any>(CREATE_VENUE);
+  const [showNewVenueForm, setShowNewVenueForm] = useState(false);
+  const [newVenueName, setNewVenueName] = useState("");
+  const [newVenueCity, setNewVenueCity] = useState("");
+  const [newVenueAddress, setNewVenueAddress] = useState("");
+  const [creatingVenue, setCreatingVenue] = useState(false);
+
+  const venues: Venue[] = venuesData?.organizationVenues || [];
+
+  const handleCreateVenue = async () => {
+    if (!newVenueName.trim()) return;
+    setCreatingVenue(true);
+    try {
+      const { data } = await createVenue({
+        variables: {
+          input: {
+            name: newVenueName.trim(),
+            address: newVenueAddress.trim() || undefined,
+            city: newVenueCity.trim() || undefined,
+            organizationId,
+          },
+        },
+        refetchQueries: [{ query: GET_ORGANIZATION_VENUES, variables: { organizationId } }],
+      });
+      if (data?.createVenue) {
+        setFormData({ ...formData, venueId: data.createVenue.id });
+        setShowNewVenueForm(false);
+        setNewVenueName("");
+        setNewVenueCity("");
+        setNewVenueAddress("");
+      }
+    } catch (err) {
+      console.error("Failed to create venue:", err);
+    } finally {
+      setCreatingVenue(false);
+    }
+  };
   const [selectedTeams, setSelectedTeams] = useState<{ id: string; name: string }[]>(
     () => editingEvent?.participatingTeams || []
   );
@@ -952,6 +1062,7 @@ function EventModal({
               description: formData.description || undefined,
               organizationId,
               teamId: selectedTeams.length === 1 ? selectedTeams[0].id : undefined,
+              venueId: formData.venueId || undefined,
             },
           },
         });
@@ -969,6 +1080,7 @@ function EventModal({
               description: formData.description || undefined,
               organizationId,
               participatingTeamIds: selectedTeams.map((t) => t.id),
+              venueId: formData.venueId || undefined,
             },
           },
         });
@@ -1169,7 +1281,7 @@ function EventModal({
           )}
 
           <div>
-            <label className="block text-sm font-medium text-white/70 mb-1">Location</label>
+            <label className="block text-sm font-medium text-white/70 mb-1">Location (free text)</label>
             <input
               type="text"
               value={formData.location}
@@ -1177,6 +1289,70 @@ function EventModal({
               className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
               placeholder="e.g., Main Gym"
             />
+          </div>
+
+          {/* Venue selector */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-white/70">
+                <Building2 className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+                Venue (structured)
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowNewVenueForm((v) => !v)}
+                className="text-xs text-[#a78bfa] hover:text-white transition-colors"
+              >
+                {showNewVenueForm ? "Cancel" : "+ New venue"}
+              </button>
+            </div>
+
+            {showNewVenueForm ? (
+              <div className="space-y-2 p-3 bg-white/8 rounded-lg border border-white/15">
+                <input
+                  type="text"
+                  value={newVenueName}
+                  onChange={(e) => setNewVenueName(e.target.value)}
+                  placeholder="Venue name *"
+                  className="w-full px-3 py-1.5 bg-white/15 border border-white/25 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] placeholder:text-white/35"
+                />
+                <input
+                  type="text"
+                  value={newVenueAddress}
+                  onChange={(e) => setNewVenueAddress(e.target.value)}
+                  placeholder="Address (optional)"
+                  className="w-full px-3 py-1.5 bg-white/15 border border-white/25 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] placeholder:text-white/35"
+                />
+                <input
+                  type="text"
+                  value={newVenueCity}
+                  onChange={(e) => setNewVenueCity(e.target.value)}
+                  placeholder="City (optional)"
+                  className="w-full px-3 py-1.5 bg-white/15 border border-white/25 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] placeholder:text-white/35"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateVenue}
+                  disabled={creatingVenue || !newVenueName.trim()}
+                  className="px-3 py-1.5 bg-[#6c5ce7] text-white rounded text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50"
+                >
+                  {creatingVenue ? "Creating..." : "Create & Select"}
+                </button>
+              </div>
+            ) : (
+              <select
+                value={formData.venueId}
+                onChange={(e) => setFormData({ ...formData, venueId: e.target.value })}
+                className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              >
+                <option value="">No venue selected</option>
+                {venues.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}{v.city ? ` — ${v.city}` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Teams Picker (create mode only — team changes not supported in edit) */}

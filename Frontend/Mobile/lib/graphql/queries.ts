@@ -28,6 +28,12 @@ export const EVENT_FRAGMENT = gql`
     endTime
     location
     description
+    venue {
+      id
+      name
+      address
+      city
+    }
   }
 `;
 
@@ -157,6 +163,10 @@ export const GET_EVENTS = gql`
       participatingTeams {
         id
         name
+      }
+      rsvps {
+        id
+        status
       }
     }
   }

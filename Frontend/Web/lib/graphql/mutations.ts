@@ -208,6 +208,7 @@ export const UPDATE_EVENT = gql`
     $endTime: String
     $location: String
     $description: String
+    $venueId: ID
   ) {
     updateEvent(
       id: $id
@@ -219,8 +220,15 @@ export const UPDATE_EVENT = gql`
       endTime: $endTime
       location: $location
       description: $description
+      venueId: $venueId
     ) {
       ...EventFields
+      venue {
+        id
+        name
+        address
+        city
+      }
     }
   }
   ${EVENT_FRAGMENT}
@@ -480,5 +488,43 @@ export const UPDATE_ORGANIZATION_SETTINGS = gql`
       adminHealthAccess
       coachHealthAccess
     }
+  }
+`;
+
+// ============================================
+// Venue Mutations
+// ============================================
+
+export const CREATE_VENUE = gql`
+  mutation CreateVenue($input: CreateVenueInput!) {
+    createVenue(input: $input) {
+      id
+      name
+      address
+      city
+      state
+      country
+      notes
+    }
+  }
+`;
+
+export const UPDATE_VENUE = gql`
+  mutation UpdateVenue($id: ID!, $input: UpdateVenueInput!) {
+    updateVenue(id: $id, input: $input) {
+      id
+      name
+      address
+      city
+      state
+      country
+      notes
+    }
+  }
+`;
+
+export const DELETE_VENUE = gql`
+  mutation DeleteVenue($id: ID!) {
+    deleteVenue(id: $id)
   }
 `;
