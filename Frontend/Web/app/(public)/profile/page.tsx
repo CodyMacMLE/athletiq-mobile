@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useLazyQuery } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatPhone, sanitizePhone } from "@/lib/utils";
 import {
   UPDATE_USER,
   LEAVE_ORGANIZATION,
@@ -97,7 +98,7 @@ export default function ProfilePage() {
     if (user) {
       setFirstName(user.firstName || "");
       setLastName(user.lastName || "");
-      setPhone(user.phone || "");
+      setPhone(formatPhone(user.phone));
       setAddress(user.address || "");
       setCity(user.city || "");
       setCountry(user.country || "");
@@ -146,7 +147,7 @@ export default function ProfilePage() {
           input: {
             firstName,
             lastName,
-            phone: phone || undefined,
+            phone: sanitizePhone(phone) || undefined,
             address: address || undefined,
             city: city || undefined,
             country: country || undefined,

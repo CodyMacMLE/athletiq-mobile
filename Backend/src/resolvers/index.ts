@@ -141,6 +141,13 @@ function isAthleteCheckIn(
 // Helper to safely serialize Date objects to ISO strings for GraphQL String fields
 const toISO = (val: any) => val instanceof Date ? val.toISOString() : val;
 
+// Strip all non-digit characters from a phone number before persisting
+const sanitizePhone = (phone?: string | null): string | undefined => {
+  if (!phone) return undefined;
+  const digits = phone.replace(/\D/g, "");
+  return digits || undefined;
+};
+
 // Compute actual start/end Date objects for a season given its month range and year.
 // The seasonYear represents the END year of the season (e.g. a Sep-Jun season
 // spanning 2025-2026 has seasonYear=2026).
@@ -1387,21 +1394,23 @@ export const resolvers = {
   Mutation: {
     // User mutations
     createUser: async (_: unknown, { input }: { input: { email: string; firstName: string; lastName: string; phone?: string; address?: string; city?: string; country?: string; image?: string } }) => {
+      const sanitized = { ...input, phone: sanitizePhone(input.phone) };
       return prisma.user.upsert({
         where: { email: input.email },
-        update: {
-          firstName: input.firstName,
-          lastName: input.lastName,
-        },
-        create: input,
+        update: { firstName: input.firstName, lastName: input.lastName },
+        create: sanitized,
       });
     },
 
     updateUser: async (_: unknown, { id, input }: { id: string; input: { firstName?: string; lastName?: string; dateOfBirth?: string; phone?: string; address?: string; city?: string; country?: string; image?: string } }) => {
-      const { dateOfBirth, ...rest } = input;
+      const { dateOfBirth, phone, ...rest } = input;
       return prisma.user.update({
         where: { id },
-        data: { ...rest, ...(dateOfBirth !== undefined ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null } : {}) },
+        data: {
+          ...rest,
+          ...(phone !== undefined ? { phone: sanitizePhone(phone) } : {}),
+          ...(dateOfBirth !== undefined ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null } : {}),
+        },
       });
     },
 
@@ -2287,13 +2296,17 @@ export const resolvers = {
 
     adminCheckIn: async (
       _: unknown,
-      { input }: { input: { userId: string; eventId: string; status: AttendanceStatus; note?: string; checkInTime?: string; checkOutTime?: string } }
+      { input }: { input: { userId: string; eventId: string; status: AttendanceStatus; note?: string; checkInTime?: string | null; checkOutTime?: string | null } }
     ) => {
-      const checkInTime = input.checkInTime
-        ? new Date(input.checkInTime)
-        : input.status !== "EXCUSED" && input.status !== "ABSENT"
-          ? new Date()
-          : null;
+      // null = explicitly cleared, undefined = auto-set, string = provided value
+      let checkInTime: Date | null;
+      if (input.checkInTime) {
+        checkInTime = new Date(input.checkInTime);
+      } else if (input.checkInTime === null) {
+        checkInTime = null;
+      } else {
+        checkInTime = input.status !== "EXCUSED" && input.status !== "ABSENT" ? new Date() : null;
+      }
       const checkOutTime = input.checkOutTime ? new Date(input.checkOutTime) : null;
 
       // Calculate hoursLogged when both times are provided
@@ -3593,7 +3606,7 @@ export const resolvers = {
           data: { isPrimary: false },
         });
       }
-      return prisma.emergencyContact.create({ data: input });
+      return prisma.emergencyContact.create({ data: { ...input, phone: sanitizePhone(input.phone) || input.phone } });
     },
 
     updateEmergencyContact: async (_: unknown, { id, input }: { id: string; input: { name?: string; relationship?: string; phone?: string; email?: string; isPrimary?: boolean } }) => {
@@ -3606,7 +3619,11 @@ export const resolvers = {
           });
         }
       }
-      return prisma.emergencyContact.update({ where: { id }, data: input });
+      const { phone, ...rest } = input;
+      return prisma.emergencyContact.update({
+        where: { id },
+        data: { ...rest, ...(phone !== undefined ? { phone: sanitizePhone(phone) || phone } : {}) },
+      });
     },
 
     deleteEmergencyContact: async (_: unknown, { id }: { id: string }) => {

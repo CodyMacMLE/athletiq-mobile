@@ -148,6 +148,27 @@ function parseDate(dateStr: string) {
   return isNaN(num) ? new Date(dateStr) : new Date(num);
 }
 
+function getEventStartDateTime(event: EventDetail): Date | null {
+  if (!event?.startTime || event.startTime === "All Day") return null;
+  const match = event.startTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+  let hours = parseInt(match[1]);
+  const minutes = parseInt(match[2]);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hours !== 12) hours += 12;
+  if (period === "AM" && hours === 12) hours = 0;
+  const eventDate = parseDate(event.date);
+  return new Date(
+    eventDate.getUTCFullYear(),
+    eventDate.getUTCMonth(),
+    eventDate.getUTCDate(),
+    hours,
+    minutes,
+    0,
+    0
+  );
+}
+
 // ============================================
 // Main Page
 // ============================================
@@ -166,6 +187,11 @@ export default function EventDetailPage() {
     userId: string;
     name: string;
     checkIn?: CheckIn;
+  } | null>(null);
+  const [earlyCheckInWarning, setEarlyCheckInWarning] = useState<{
+    userId: string;
+    name: string;
+    cappedTime: Date;
   } | null>(null);
 
   const { data, loading, refetch } = useQuery<any>(GET_EVENT_DETAIL, {
@@ -737,16 +763,27 @@ export default function EventDetailPage() {
                           title="Check in"
                           onClick={(e) => {
                             e.stopPropagation();
-                            adminCheckIn({
-                              variables: {
-                                input: {
-                                  userId: row.user.id,
-                                  eventId,
-                                  status: "ON_TIME",
-                                  checkInTime: new Date().toISOString(),
+                            const now = new Date();
+                            const eventStart = getEventStartDateTime(event!);
+                            if (eventStart && (eventStart.getTime() - now.getTime()) > 30 * 60 * 1000) {
+                              const cappedTime = new Date(eventStart.getTime() - 30 * 60 * 1000);
+                              setEarlyCheckInWarning({
+                                userId: row.user.id,
+                                name: `${row.user.firstName} ${row.user.lastName}`,
+                                cappedTime,
+                              });
+                            } else {
+                              adminCheckIn({
+                                variables: {
+                                  input: {
+                                    userId: row.user.id,
+                                    eventId,
+                                    status: "ON_TIME",
+                                    checkInTime: now.toISOString(),
+                                  },
                                 },
-                              },
-                            }).then(() => refetch());
+                              }).then(() => refetch());
+                            }
                           }}
                           className="px-2.5 py-1 text-xs font-medium rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/35 transition-colors whitespace-nowrap"
                         >
@@ -873,6 +910,51 @@ export default function EventDetailPage() {
         />
       )}
 
+      {/* Early Check-In Warning Modal */}
+      {earlyCheckInWarning && (
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 shadow-2xl p-6 w-full max-w-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-yellow-600/20 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5 text-yellow-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-white">Early Check-In</h2>
+            </div>
+            <p className="text-white/70 text-sm mb-2">
+              You are checking in <span className="text-white font-medium">{earlyCheckInWarning.name}</span> more than 30 minutes before the event starts.
+            </p>
+            <p className="text-white/55 text-sm mb-6">
+              The check-in time will be set to <span className="text-yellow-400 font-medium">{earlyCheckInWarning.cappedTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span> (30 minutes before start) so hours are counted correctly. Do you want to proceed?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setEarlyCheckInWarning(null)}
+                className="px-4 py-2 text-white/55 hover:text-white transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  adminCheckIn({
+                    variables: {
+                      input: {
+                        userId: earlyCheckInWarning.userId,
+                        eventId,
+                        status: "ON_TIME",
+                        checkInTime: earlyCheckInWarning.cappedTime.toISOString(),
+                      },
+                    },
+                  }).then(() => { refetch(); setEarlyCheckInWarning(null); });
+                }}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium"
+              >
+                Confirm Check-In
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Athlete Modal */}
       {showAddAthleteModal && event && selectedOrganizationId && (
         <AddAthleteModal
@@ -997,8 +1079,8 @@ function ModifyAttendanceModal({
             eventId,
             status,
             note: note.trim() || undefined,
-            checkInTime: checkInTimeValue ? new Date(checkInTimeValue).toISOString() : undefined,
-            checkOutTime: checkOutTimeValue ? new Date(checkOutTimeValue).toISOString() : undefined,
+            checkInTime: checkInTimeValue ? new Date(checkInTimeValue).toISOString() : null,
+            checkOutTime: checkOutTimeValue ? new Date(checkOutTimeValue).toISOString() : null,
           },
         },
       });

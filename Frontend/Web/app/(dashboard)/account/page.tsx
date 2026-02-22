@@ -5,6 +5,7 @@ import { useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { UPDATE_USER, GENERATE_UPLOAD_URL } from "@/lib/graphql";
 import { Loader2, Camera } from "lucide-react";
+import { formatPhone, sanitizePhone } from "@/lib/utils";
 
 export default function AccountPage() {
   const { user, refetch } = useAuth();
@@ -35,7 +36,7 @@ export default function AccountPage() {
     if (user) {
       setFirstName(user.firstName || "");
       setLastName(user.lastName || "");
-      setPhone(user.phone || "");
+      setPhone(formatPhone(user.phone));
       setAddress(user.address || "");
       setCity(user.city || "");
       setCountry(user.country || "");
@@ -122,7 +123,7 @@ export default function AccountPage() {
           input: {
             firstName,
             lastName,
-            phone: phone || undefined,
+            phone: sanitizePhone(phone) || undefined,
             address: address || undefined,
             city: city || undefined,
             country: country || undefined,

@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { formatPhone, sanitizePhone } from "@/lib/utils";
 import { UPDATE_USER, GENERATE_UPLOAD_URL, REMOVE_GUARDIAN, DELETE_MY_ACCOUNT, CREATE_EMERGENCY_CONTACT, UPDATE_EMERGENCY_CONTACT, DELETE_EMERGENCY_CONTACT, UPSERT_MEDICAL_INFO } from "@/lib/graphql/mutations";
 import { GET_MY_GUARDIANS, GET_MY_LINKED_ATHLETES, GET_MY_HEALTH_DATA } from "@/lib/graphql/queries";
 import { useMutation, useQuery } from "@apollo/client";
@@ -245,7 +246,7 @@ export default function Profile() {
         const contactInput = {
           name: healthContactName.trim(),
           relationship: healthContactRelationship.trim(),
-          phone: healthContactPhone.trim(),
+          phone: sanitizePhone(healthContactPhone.trim()),
           email: healthContactEmail.trim() || undefined,
           isPrimary: healthContactIsPrimary,
         };
@@ -275,7 +276,8 @@ export default function Profile() {
       } else {
         let input: Record<string, string> = {};
         if (modalMode.type === "single") {
-          input = { [modalMode.key]: editValue };
+          const value = modalMode.key === "phone" ? sanitizePhone(editValue) : editValue;
+          input = { [modalMode.key]: value };
         } else if (modalMode.type === "name") {
           input = { firstName: editFirstName, lastName: editLastName };
         } else if (modalMode.type === "location") {
@@ -690,7 +692,7 @@ export default function Profile() {
                 <Text
                   style={[styles.fieldValue, !user.phone && styles.fieldValueEmpty]}
                 >
-                  {user.phone || "Not set"}
+                  {user.phone ? formatPhone(user.phone) : "Not set"}
                 </Text>
               </View>
               <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
@@ -877,7 +879,7 @@ export default function Profile() {
                           <Text style={styles.fieldLabel}>{contact.name}</Text>
                           {contact.isPrimary && <Text style={styles.primaryBadge}>PRIMARY</Text>}
                         </View>
-                        <Text style={styles.fieldValue}>{contact.relationship} · {contact.phone}</Text>
+                        <Text style={styles.fieldValue}>{contact.relationship} · {formatPhone(contact.phone)}</Text>
                         {contact.email ? <Text style={styles.fieldValue}>{contact.email}</Text> : null}
                       </View>
                       <View style={{ flexDirection: "row", gap: 8 }}>

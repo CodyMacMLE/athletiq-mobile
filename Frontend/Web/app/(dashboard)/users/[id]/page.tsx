@@ -1,5 +1,6 @@
 "use client";
 
+import { formatPhone, sanitizePhone } from "@/lib/utils";
 import { useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@apollo/client/react";
@@ -536,7 +537,7 @@ export default function UserDetailPage() {
               {member.user.phone && (
                 <div className="flex items-center gap-3">
                   <Phone className="w-4 h-4 text-white/40 shrink-0" />
-                  <span className="text-white/80 text-sm">{member.user.phone}</span>
+                  <span className="text-white/80 text-sm">{formatPhone(member.user.phone)}</span>
                 </div>
               )}
               {(member.user.address || member.user.city || member.user.country) && (
@@ -846,7 +847,7 @@ export default function UserDetailPage() {
                         {link.guardian.phone && (
                           <div className="flex items-center gap-2">
                             <Phone className="w-3.5 h-3.5 text-white/40" />
-                            <span className="text-white/70 text-sm">{link.guardian.phone}</span>
+                            <span className="text-white/70 text-sm">{formatPhone(link.guardian.phone)}</span>
                           </div>
                         )}
                       </div>
@@ -896,7 +897,7 @@ export default function UserDetailPage() {
                       </p>
                       <p className="text-white/55 text-xs">{link.guardian.email}</p>
                       {link.guardian.phone && (
-                        <p className="text-white/40 text-xs">{link.guardian.phone}</p>
+                        <p className="text-white/40 text-xs">{formatPhone(link.guardian.phone)}</p>
                       )}
                     </div>
                   </div>
@@ -968,7 +969,7 @@ export default function UserDetailPage() {
                               <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-[#6c5ce7]/30 text-[#a78bfa]">PRIMARY</span>
                             )}
                           </div>
-                          <p className="text-white/55 text-sm">{contact.relationship} · {contact.phone}</p>
+                          <p className="text-white/55 text-sm">{contact.relationship} · {formatPhone(contact.phone)}</p>
                           {contact.email && <p className="text-white/40 text-sm">{contact.email}</p>}
                         </div>
                         {canEdit && (
@@ -1473,7 +1474,7 @@ function EmergencyContactModal({
     if (!name.trim() || !relationship.trim() || !phone.trim()) return;
     setSaving(true);
     try {
-      await onSave({ name: name.trim(), relationship: relationship.trim(), phone: phone.trim(), email: email.trim() || undefined, isPrimary });
+      await onSave({ name: name.trim(), relationship: relationship.trim(), phone: sanitizePhone(phone.trim()), email: email.trim() || undefined, isPrimary });
     } finally {
       setSaving(false);
     }
