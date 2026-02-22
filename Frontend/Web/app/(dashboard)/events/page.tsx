@@ -122,7 +122,9 @@ export default function Events() {
   const { selectedOrganizationId, canEdit } = useAuth();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [deleteConfirmEvent, setDeleteConfirmEvent] = useState<Event | null>(null);
   const [deleteDialogEvent, setDeleteDialogEvent] = useState<Event | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabKey>("PRACTICE");
@@ -289,20 +291,22 @@ export default function Events() {
 
   // Delete handlers
   const handleDeleteClick = (event: Event) => {
+    setDeleteError(null);
     if (event.recurringEvent) {
       setDeleteDialogEvent(event);
     } else {
-      handleDeleteSingleEvent(event.id);
+      setDeleteConfirmEvent(event);
     }
   };
 
-  const handleDeleteSingleEvent = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this event?")) return;
+  const handleConfirmDeleteSingle = async () => {
+    if (!deleteConfirmEvent) return;
     try {
-      await deleteEvent({ variables: { id } });
+      await deleteEvent({ variables: { id: deleteConfirmEvent.id } });
+      setDeleteConfirmEvent(null);
       refetch();
-    } catch (error) {
-      console.error("Failed to delete event:", error);
+    } catch (error: any) {
+      setDeleteError(error?.message || "Failed to delete event");
     }
   };
 
@@ -311,8 +315,8 @@ export default function Events() {
       await deleteRecurringEvent({ variables: { id: recurringEventId } });
       setDeleteDialogEvent(null);
       refetch();
-    } catch (error) {
-      console.error("Failed to delete recurring event:", error);
+    } catch (error: any) {
+      setDeleteError(error?.message || "Failed to delete series");
     }
   };
 
@@ -321,8 +325,8 @@ export default function Events() {
       await deleteEvent({ variables: { id: eventId } });
       setDeleteDialogEvent(null);
       refetch();
-    } catch (error) {
-      console.error("Failed to delete event:", error);
+    } catch (error: any) {
+      setDeleteError(error?.message || "Failed to delete event");
     }
   };
 
@@ -582,29 +586,83 @@ export default function Events() {
         />
       )}
 
-      {/* Delete Recurring Event Dialog */}
+      {/* Delete Single Event Modal */}
+      {deleteConfirmEvent && (
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#1a1630] rounded-xl w-full max-w-sm p-6 border border-white/10 shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-600/15 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Delete Event</h3>
+            </div>
+            <p className="text-white/55 text-sm mb-1">
+              Are you sure you want to delete{" "}
+              <span className="text-white font-medium">"{deleteConfirmEvent.title}"</span>?
+            </p>
+            <p className="text-white/40 text-xs mb-6">
+              All check-in records for this event will also be removed.
+            </p>
+            {deleteError && (
+              <p className="text-red-400 text-xs mb-4 bg-red-600/10 rounded-lg px-3 py-2">{deleteError}</p>
+            )}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => { setDeleteConfirmEvent(null); setDeleteError(null); }}
+                className="flex-1 px-4 py-2 bg-white/8 text-white rounded-lg hover:bg-white/12 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteSingle}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+              >
+                Delete Event
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Recurring Event Modal */}
       {deleteDialogEvent && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white/8 rounded-xl w-full max-w-sm p-6 border border-white/8">
-            <h3 className="text-lg font-bold text-white mb-2">Delete Recurring Event</h3>
+          <div className="bg-[#1a1630] rounded-xl w-full max-w-sm p-6 border border-white/10 shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-600/15 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Delete Recurring Event</h3>
+            </div>
             <p className="text-white/55 text-sm mb-6">
-              This event is part of a recurring series. What would you like to do?
+              <span className="text-white font-medium">"{deleteDialogEvent.title}"</span> is part of
+              a recurring series. What would you like to delete?
             </p>
+            {deleteError && (
+              <p className="text-red-400 text-xs mb-4 bg-red-600/10 rounded-lg px-3 py-2">{deleteError}</p>
+            )}
             <div className="space-y-3">
               <button
+                type="button"
                 onClick={() => handleDeleteThisOnly(deleteDialogEvent.id)}
-                className="w-full px-4 py-2 bg-white/8 text-white rounded-lg hover:bg-white/12 transition-colors text-sm"
+                className="w-full px-4 py-2 bg-white/8 text-white rounded-lg hover:bg-white/12 transition-colors text-sm text-left"
               >
-                Delete this event only
+                <span className="font-medium">This event only</span>
+                <span className="block text-white/40 text-xs mt-0.5">Remove just this occurrence</span>
               </button>
               <button
+                type="button"
                 onClick={() => handleDeleteSeries(deleteDialogEvent.recurringEvent!.id)}
-                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                className="w-full px-4 py-2 bg-red-600/15 text-red-400 border border-red-600/30 rounded-lg hover:bg-red-600/25 transition-colors text-sm text-left"
               >
-                Delete all events in series
+                <span className="font-medium">All events in series</span>
+                <span className="block text-white/40 text-xs mt-0.5">Remove every occurrence in this series</span>
               </button>
               <button
-                onClick={() => setDeleteDialogEvent(null)}
+                type="button"
+                onClick={() => { setDeleteDialogEvent(null); setDeleteError(null); }}
                 className="w-full px-4 py-2 text-white/55 hover:text-white transition-colors text-sm"
               >
                 Cancel

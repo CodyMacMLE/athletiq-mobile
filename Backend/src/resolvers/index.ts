@@ -1600,7 +1600,12 @@ export const resolvers = {
     },
 
     deleteEvent: async (_: unknown, { id }: { id: string }) => {
-      await prisma.event.delete({ where: { id } });
+      await prisma.$transaction(async (tx) => {
+        await tx.checkIn.deleteMany({ where: { eventId: id } });
+        await tx.excuseRequest.deleteMany({ where: { eventId: id } });
+        await tx.eventRsvp.deleteMany({ where: { eventId: id } });
+        await tx.event.delete({ where: { id } });
+      });
       return true;
     },
 
@@ -1699,6 +1704,7 @@ export const resolvers = {
 
         await tx.checkIn.deleteMany({ where: { eventId: { in: eventIds } } });
         await tx.excuseRequest.deleteMany({ where: { eventId: { in: eventIds } } });
+        await tx.eventRsvp.deleteMany({ where: { eventId: { in: eventIds } } });
         await tx.event.deleteMany({ where: { recurringEventId: id } });
         await tx.recurringEvent.delete({ where: { id } });
       });
