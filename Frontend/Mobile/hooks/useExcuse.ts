@@ -24,7 +24,7 @@ export function useExcuseRequests() {
 }
 
 export function useExcuseMutations() {
-  const { user, selectedOrganization } = useAuth();
+  const { user, targetUserId, selectedOrganization } = useAuth();
 
   const [createExcuseMutation, { loading: creating }] = useMutation(CREATE_EXCUSE_REQUEST, {
     refetchQueries: [
@@ -41,12 +41,12 @@ export function useExcuseMutations() {
   });
 
   const createExcuseRequest = async (eventId: string, reason: string) => {
-    if (!user) throw new Error("User not logged in");
+    if (!targetUserId) throw new Error("User not logged in");
 
     const result = await createExcuseMutation({
       variables: {
         input: {
-          userId: user.id,
+          userId: targetUserId,
           eventId,
           reason,
         },

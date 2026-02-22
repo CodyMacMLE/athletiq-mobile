@@ -587,6 +587,28 @@ export const GET_USER_HEALTH = gql`
   }
 `;
 
+export const GET_GUARDIAN_ATHLETES = gql`
+  query GetGuardianAthletes($organizationId: ID!) {
+    myLinkedAthletes(organizationId: $organizationId) {
+      id
+      athlete {
+        id
+        firstName
+        lastName
+        image
+        memberships {
+          id
+          role
+          team {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const GET_PENDING_AD_HOC_CHECK_INS = gql`
   query GetPendingAdHocCheckIns($organizationId: ID!) {
     pendingAdHocCheckIns(organizationId: $organizationId) {

@@ -2571,8 +2571,16 @@ export const resolvers = {
     // Excuse mutations
     createExcuseRequest: async (
       _: unknown,
-      { input }: { input: { userId: string; eventId: string; reason: string } }
+      { input }: { input: { userId: string; eventId: string; reason: string } },
+      context: { userId?: string }
     ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      if (input.userId !== context.userId) {
+        const guardianLink = await prisma.guardianLink.findFirst({
+          where: { guardianId: context.userId, athleteId: input.userId },
+        });
+        if (!guardianLink) throw new Error("Not authorized to submit excuse for this user");
+      }
       return prisma.excuseRequest.create({ data: input });
     },
 
@@ -2686,8 +2694,16 @@ export const resolvers = {
     // RSVP mutations
     upsertRsvp: async (
       _: unknown,
-      { input }: { input: { userId: string; eventId: string; status: RsvpStatus; note?: string } }
+      { input }: { input: { userId: string; eventId: string; status: RsvpStatus; note?: string } },
+      context: { userId?: string }
     ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      if (input.userId !== context.userId) {
+        const guardianLink = await prisma.guardianLink.findFirst({
+          where: { guardianId: context.userId, athleteId: input.userId },
+        });
+        if (!guardianLink) throw new Error("Not authorized to RSVP for this user");
+      }
       const { userId, eventId, status, note } = input;
       const prev = await prisma.eventRsvp.findUnique({
         where: { userId_eventId: { userId, eventId } },

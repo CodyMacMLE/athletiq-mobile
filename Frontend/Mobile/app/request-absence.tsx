@@ -43,7 +43,7 @@ function formatDate(isoDate: string): string {
 
 export default function RequestAbsence() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, targetUserId } = useAuth();
   const params = useLocalSearchParams<{
     eventId: string;
     eventTitle: string;
@@ -60,13 +60,13 @@ export default function RequestAbsence() {
   });
 
   const handleSubmit = async () => {
-    if (!reason.trim() || !user?.id || !params.eventId) return;
+    if (!reason.trim() || !targetUserId || !params.eventId) return;
 
     try {
       await createExcuse({
         variables: {
           input: {
-            userId: user.id,
+            userId: targetUserId,
             eventId: params.eventId,
             reason: reason.trim(),
           },
