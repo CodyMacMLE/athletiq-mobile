@@ -361,6 +361,12 @@ export const CHECK_OUT = gql`
   }
 `;
 
+export const DELETE_CHECK_IN = gql`
+  mutation DeleteCheckIn($userId: ID!, $eventId: ID!) {
+    deleteCheckIn(userId: $userId, eventId: $eventId)
+  }
+`;
+
 export const MARK_ABSENT_FOR_PAST_EVENTS = gql`
   mutation MarkAbsentForPastEvents($organizationId: ID!) {
     markAbsentForPastEvents(organizationId: $organizationId)

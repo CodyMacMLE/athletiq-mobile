@@ -2348,6 +2348,11 @@ export const resolvers = {
       });
     },
 
+    deleteCheckIn: async (_: unknown, { userId, eventId }: { userId: string; eventId: string }) => {
+      await prisma.checkIn.deleteMany({ where: { userId, eventId } });
+      return true;
+    },
+
     markAbsent: async (_: unknown, { userId, eventId }: { userId: string; eventId: string }) => {
       return prisma.checkIn.upsert({
         where: { userId_eventId: { userId, eventId } },

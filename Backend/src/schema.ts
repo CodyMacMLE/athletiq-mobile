@@ -940,6 +940,7 @@ export const typeDefs = `#graphql
     checkOut(input: CheckOutInput!): CheckIn!
     markAbsent(userId: ID!, eventId: ID!): CheckIn!
     adminCheckIn(input: AdminCheckInInput!): CheckIn!
+    deleteCheckIn(userId: ID!, eventId: ID!): Boolean!
 
     # Invite mutations
     createInvite(input: CreateInviteInput!): Invite!

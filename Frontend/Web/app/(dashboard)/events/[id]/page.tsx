@@ -16,6 +16,7 @@ import {
   DELETE_RECURRING_EVENT,
   ADMIN_CHECK_IN,
   CHECK_OUT,
+  DELETE_CHECK_IN,
   ADD_ATHLETE_TO_EVENT,
   REMOVE_ATHLETE_FROM_EVENT,
   EXCLUDE_ATHLETE_FROM_EVENT,
@@ -1066,8 +1067,22 @@ function ModifyAttendanceModal({
   const [checkInTimeValue, setCheckInTimeValue] = useState(toLocalDatetimeValue(existingCheckIn?.checkInTime));
   const [checkOutTimeValue, setCheckOutTimeValue] = useState(toLocalDatetimeValue(existingCheckIn?.checkOutTime));
   const [saving, setSaving] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const [adminCheckIn] = useMutation<any>(ADMIN_CHECK_IN);
+  const [deleteCheckIn] = useMutation<any>(DELETE_CHECK_IN);
+
+  const handleClear = async () => {
+    setClearing(true);
+    try {
+      await deleteCheckIn({ variables: { userId, eventId } });
+      onSuccess();
+    } catch (error) {
+      console.error("Failed to clear attendance:", error);
+    } finally {
+      setClearing(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -1169,20 +1184,33 @@ function ModifyAttendanceModal({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-white/55 hover:text-white transition-colors text-sm"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors text-sm disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
+        <div className="flex items-center justify-between gap-3">
+          {existingCheckIn ? (
+            <button
+              onClick={handleClear}
+              disabled={clearing || saving}
+              className="px-4 py-2 text-red-400 hover:text-red-300 hover:bg-red-600/10 rounded-lg transition-colors text-sm disabled:opacity-50"
+            >
+              {clearing ? "Clearing..." : "Clear Status"}
+            </button>
+          ) : (
+            <div />
+          )}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-white/55 hover:text-white transition-colors text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || clearing}
+              className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors text-sm disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
