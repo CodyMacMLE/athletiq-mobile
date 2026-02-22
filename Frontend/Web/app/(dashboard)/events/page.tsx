@@ -5,6 +5,7 @@ import { useQuery, useMutation, useApolloClient } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   GET_EVENTS,
+  GET_EVENTS_COUNT,
   GET_TEAMS,
   GET_ORGANIZATION_VENUES,
   GET_ORGANIZATION_USERS,
@@ -81,12 +82,13 @@ type Event = {
   location?: string;
   description?: string;
   venue?: Venue | null;
-  team?: { id: string; name: string; members: TeamMemberBasic[] };
-  participatingTeams: { id: string; name: string; members: TeamMemberBasic[] }[];
+  team?: { id: string; name: string };
+  participatingTeams: { id: string; name: string }[];
   checkIns: { id: string; status: string }[];
   recurringEvent?: { id: string } | null;
-  includedAthletes: AthleteUser[];
-  excludedAthletes: AthleteUser[];
+  // included/excluded not fetched in list — only in detail view
+  includedAthletes?: AthleteUser[];
+  excludedAthletes?: AthleteUser[];
 };
 
 type TabKey = "PRACTICE" | "MEETING" | "EVENT";
@@ -189,10 +191,40 @@ export default function Events() {
   // Reset page when filter or page size changes
   useEffect(() => {
     setPage(0);
-  }, [timeFilter, pageSize, teamFilter]);
+  }, [timeFilter, pageSize, teamFilter, activeTab]);
+
+  // Convert time filter to date range strings for server-side filtering
+  const timeFilterDates = useMemo(() => {
+    if (timeFilter === "ALL") return { startDate: undefined, endDate: undefined };
+    const range = getDateRange(timeFilter);
+    if (!range) return { startDate: undefined, endDate: undefined };
+    return {
+      startDate: range.start.toISOString(),
+      endDate: range.end.toISOString(),
+    };
+  }, [timeFilter]);
+
+  const eventsVariables = useMemo(() => ({
+    organizationId: selectedOrganizationId,
+    type: activeTab,
+    teamId: teamFilter !== "ALL" ? teamFilter : undefined,
+    startDate: timeFilterDates.startDate,
+    endDate: timeFilterDates.endDate,
+    limit: pageSize,
+    offset: page * pageSize,
+  }), [selectedOrganizationId, activeTab, teamFilter, timeFilterDates, pageSize, page]);
 
   const { data, loading, refetch } = useQuery<any>(GET_EVENTS, {
-    variables: { organizationId: selectedOrganizationId },
+    variables: eventsVariables,
+    skip: !selectedOrganizationId,
+  });
+
+  // Lightweight count query for tab badges (re-fetches when teamFilter changes)
+  const { data: countData, refetch: refetchCount } = useQuery<any>(GET_EVENTS_COUNT, {
+    variables: {
+      organizationId: selectedOrganizationId,
+      teamId: teamFilter !== "ALL" ? teamFilter : undefined,
+    },
     skip: !selectedOrganizationId,
   });
 
@@ -239,40 +271,16 @@ export default function Events() {
   const [deleteEvent] = useMutation<any>(DELETE_EVENT);
   const [deleteRecurringEvent] = useMutation<any>(DELETE_RECURRING_EVENT);
 
-  const allEvents: Event[] = data?.events || [];
-  const allTeams: { id: string; name: string }[] = teamsData?.teams || [];
+  // Server returns exactly the current page, already filtered and sorted
+  const paginatedEvents: Event[] = data?.events || [];
+  const allTeams: { id: string; name: string; members?: TeamMemberBasic[] }[] = teamsData?.teams || [];
+  const eventCounts = countData?.eventsCount ?? { PRACTICE: 0, MEETING: 0, EVENT: 0 };
 
-  // Filter by type, then by time range, then by team, then sort by date desc
-  const filteredEvents = useMemo(() => {
-    let result = allEvents.filter((e) => e.type === activeTab);
+  // Total count for current tab (used for pagination math)
+  const totalCount = eventCounts[activeTab] ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-    const range = getDateRange(timeFilter);
-    if (range) {
-      result = result.filter((e) => {
-        const d = parseDate(e.date);
-        return d >= range.start && d <= range.end;
-      });
-    }
-
-    if (teamFilter !== "ALL") {
-      result = result.filter(
-        (e) =>
-          e.team?.id === teamFilter ||
-          e.participatingTeams?.some((t) => t.id === teamFilter)
-      );
-    }
-
-    // Sort: newest first
-    result.sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
-    return result;
-  }, [allEvents, activeTab, timeFilter, teamFilter]);
-
-  // Pagination derived values
-  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
-  const paginatedEvents = filteredEvents.slice(page * pageSize, (page + 1) * pageSize);
-
-  // Separate into upcoming and past for display within the current page
-  // Use UTC boundary for local today to match how event dates are stored/displayed
+  // Split current page into upcoming / past for display
   const now = new Date();
   const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
@@ -284,7 +292,7 @@ export default function Events() {
     .filter((e) => parseDate(e.date) < today)
     .sort((a, b) => parseDate(b.date).getTime() - parseDate(a.date).getTime());
 
-  // Grouped events by team (when groupByTeam is enabled)
+  // Grouped events by team (when groupByTeam is enabled) — operates on current page
   const groupedEvents = useMemo(() => {
     if (!groupByTeam) return null;
 
@@ -360,6 +368,7 @@ export default function Events() {
       });
       setEditingEvent(null);
       refetch();
+      refetchCount();
     } catch (error) {
       console.error("Failed to update event:", error);
     }
@@ -381,6 +390,7 @@ export default function Events() {
       await deleteEvent({ variables: { id: deleteConfirmEvent.id } });
       setDeleteConfirmEvent(null);
       refetch();
+      refetchCount();
     } catch (error: any) {
       setDeleteError(error?.message || "Failed to delete event");
     }
@@ -391,6 +401,7 @@ export default function Events() {
       await deleteRecurringEvent({ variables: { id: recurringEventId } });
       setDeleteDialogEvent(null);
       refetch();
+      refetchCount();
     } catch (error: any) {
       setDeleteError(error?.message || "Failed to delete series");
     }
@@ -401,6 +412,7 @@ export default function Events() {
       await deleteEvent({ variables: { id: eventId } });
       setDeleteDialogEvent(null);
       refetch();
+      refetchCount();
     } catch (error: any) {
       setDeleteError(error?.message || "Failed to delete event");
     }
@@ -447,7 +459,7 @@ export default function Events() {
       {/* Tabs */}
       <div className="flex gap-1 mb-4">
         {TAB_CONFIG.map(({ key, label }) => {
-          const count = allEvents.filter((e) => e.type === key).length;
+          const count = eventCounts[key] ?? 0;
           return (
             <button
               key={key}
@@ -520,7 +532,7 @@ export default function Events() {
         </button>
 
         <span className="text-white/30 text-xs ml-2">
-          {filteredEvents.length} {filteredEvents.length === 1 ? "event" : "events"}
+          {totalCount} {totalCount === 1 ? "event" : "events"}
         </span>
       </div>
 
@@ -601,7 +613,7 @@ export default function Events() {
             </Link>
           ))}
 
-          {filteredEvents.length === 0 && (
+          {paginatedEvents.length === 0 && (
             <div className="text-center py-12">
               <Calendar className="w-12 h-12 text-white/30 mx-auto mb-4" />
               <p className="text-white/55">No {EVENT_TYPE_LABELS[activeTab]?.toLowerCase() || "event"}s found</p>
@@ -611,7 +623,7 @@ export default function Events() {
       )}
 
       {/* Pagination */}
-      {filteredEvents.length > 0 && (
+      {totalCount > 0 && (
         <div className="mt-4 bg-white/8 rounded-xl border border-white/8 px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-white/40 text-xs">Show</span>
@@ -625,8 +637,8 @@ export default function Events() {
               <option value={100}>100</option>
             </select>
             <span className="text-white/40 text-xs">
-              &middot; {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredEvents.length)} of{" "}
-              {filteredEvents.length}
+              &middot; {page * pageSize + 1}–{Math.min((page + 1) * pageSize, totalCount)} of{" "}
+              {totalCount}
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -659,6 +671,7 @@ export default function Events() {
           onSuccess={() => {
             setIsCreateModalOpen(false);
             refetch();
+            refetchCount();
           }}
         />
       )}
@@ -668,6 +681,7 @@ export default function Events() {
         <EventModal
           organizationId={selectedOrganizationId!}
           editingEvent={editingEvent}
+          parentTeams={allTeams}
           onClose={() => setEditingEvent(null)}
           onUpdate={handleUpdateEvent}
         />
@@ -932,12 +946,14 @@ function formatDateForInput(dateStr: string): string {
 function EventModal({
   organizationId,
   editingEvent,
+  parentTeams,
   onClose,
   onSuccess,
   onUpdate,
 }: {
   organizationId: string;
   editingEvent?: Event;
+  parentTeams?: { id: string; name: string; members?: TeamMemberBasic[] }[];
   onClose: () => void;
   onSuccess?: () => void;
   onUpdate?: (data: EventFormData) => void;
@@ -1050,29 +1066,37 @@ function EventModal({
   const [createEvent] = useMutation<any>(CREATE_EVENT);
   const [createRecurringEvent] = useMutation<any>(CREATE_RECURRING_EVENT);
 
-  const allTeams: { id: string; name: string }[] = teamsData?.teams || [];
+  const modalTeams: { id: string; name: string }[] = teamsData?.teams || [];
 
   // Compute sets for include/exclude pickers (only relevant in edit mode)
   const allOrgAthletes: AthleteUser[] = (orgUsersData?.organization?.members || [])
     .filter((m: any) => m.role === "ATHLETE")
     .map((m: any) => m.user);
+
+  // Resolve team members from parentTeams (passed from parent, which has full member lists)
+  const editingTeamIds = [
+    editingEvent?.team?.id,
+    ...(editingEvent?.participatingTeams?.map(t => t.id) || []),
+  ].filter(Boolean);
+  const teamAthletes: AthleteUser[] = (parentTeams || [])
+    .filter(t => editingTeamIds.includes(t.id) && t.members)
+    .flatMap(t => (t.members || [])
+      .filter((m: TeamMemberBasic) => m.role === "MEMBER" || m.role === "CAPTAIN")
+      .map((m: TeamMemberBasic) => m.user)
+    )
+    .filter((u, i, arr) => arr.findIndex(x => x.id === u.id) === i);
+
   const currentAthleteIds = new Set([
     ...localIncluded.map(u => u.id),
-    // Also include team member IDs from the editing event
-    ...(editingEvent?.team?.members.filter(m => m.role === "MEMBER" || m.role === "CAPTAIN").map(m => m.user.id) || []),
-    ...(editingEvent?.participatingTeams.flatMap(t => t.members.filter(m => m.role === "MEMBER" || m.role === "CAPTAIN").map(m => m.user.id)) || []),
+    ...teamAthletes.map(u => u.id),
   ]);
   const currentExcludedIds = new Set(localExcluded.map(u => u.id));
   // Candidates for "Add (include)": org athletes not already in event and not excluded
   const includeCandidates = allOrgAthletes.filter(u => !currentAthleteIds.has(u.id) && !currentExcludedIds.has(u.id));
   // Candidates for "Exclude": current team members not already excluded
-  const teamAthletes: AthleteUser[] = [
-    ...(editingEvent?.team?.members.filter(m => m.role === "MEMBER" || m.role === "CAPTAIN").map(m => m.user) || []),
-    ...(editingEvent?.participatingTeams.flatMap(t => t.members.filter(m => m.role === "MEMBER" || m.role === "CAPTAIN").map(m => m.user)) || []),
-  ].filter((u, i, arr) => arr.findIndex(x => x.id === u.id) === i);
   const excludeCandidates = teamAthletes.filter(u => !currentExcludedIds.has(u.id));
 
-  const filteredTeams = allTeams.filter(
+  const filteredTeams = modalTeams.filter(
     (team) =>
       !selectedTeams.some((s) => s.id === team.id) &&
       team.name.toLowerCase().includes(teamSearch.toLowerCase())

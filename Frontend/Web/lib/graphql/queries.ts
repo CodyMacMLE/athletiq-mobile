@@ -212,56 +212,37 @@ export const GET_TEAM = gql`
 `;
 
 export const GET_EVENTS = gql`
-  query GetEvents($organizationId: ID!, $startDate: String, $endDate: String) {
-    events(organizationId: $organizationId, startDate: $startDate, endDate: $endDate) {
+  query GetEvents($organizationId: ID!, $type: EventType, $teamId: ID, $startDate: String, $endDate: String, $limit: Int, $offset: Int) {
+    events(organizationId: $organizationId, type: $type, teamId: $teamId, startDate: $startDate, endDate: $endDate, limit: $limit, offset: $offset) {
       ...EventFields
       team {
         id
         name
-        members {
-          id
-          role
-          user {
-            id
-            firstName
-            lastName
-            image
-          }
-        }
       }
       participatingTeams {
         id
         name
-        members {
-          id
-          role
-          user {
-            id
-            firstName
-            lastName
-            image
-          }
-        }
       }
       checkIns {
         id
         status
       }
-      includedAthletes {
+      recurringEvent {
         id
-        firstName
-        lastName
-        image
-      }
-      excludedAthletes {
-        id
-        firstName
-        lastName
-        image
       }
     }
   }
   ${EVENT_FRAGMENT}
+`;
+
+export const GET_EVENTS_COUNT = gql`
+  query GetEventsCount($organizationId: ID!, $teamId: ID) {
+    eventsCount(organizationId: $organizationId, teamId: $teamId) {
+      PRACTICE
+      MEETING
+      EVENT
+    }
+  }
 `;
 
 export const GET_EVENT_ATTENDANCE = gql`

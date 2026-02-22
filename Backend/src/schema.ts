@@ -506,6 +506,12 @@ export const typeDefs = `#graphql
     eventCount: Int!
   }
 
+  type EventsCount {
+    PRACTICE: Int!
+    MEETING: Int!
+    EVENT: Int!
+  }
+
   # ============================================
   # Input Types
   # ============================================
@@ -767,7 +773,8 @@ export const typeDefs = `#graphql
 
     # Event queries
     event(id: ID!): Event
-    events(organizationId: ID!, startDate: String, endDate: String): [Event!]!
+    events(organizationId: ID!, type: EventType, teamId: ID, startDate: String, endDate: String, limit: Int, offset: Int): [Event!]!
+    eventsCount(organizationId: ID!, teamId: ID): EventsCount!
     upcomingEvents(organizationId: ID!, limit: Int): [Event!]!
 
     # Check-in queries
