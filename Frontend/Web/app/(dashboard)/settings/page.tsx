@@ -319,9 +319,8 @@ export default function SettingsPage() {
             type="text"
             value={venueForm.name}
             onChange={(e) => setVenueForm(f => ({ ...f, name: e.target.value }))}
-            placeholder="e.g., Main Gym, North Field"
+            placeholder="Main Gym"
             className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-            autoFocus
           />
         </div>
         <div>
@@ -330,7 +329,7 @@ export default function SettingsPage() {
             type="text"
             value={venueForm.address}
             onChange={(e) => setVenueForm(f => ({ ...f, address: e.target.value }))}
-            placeholder="123 Main St"
+            placeholder="123 Main St."
             className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
@@ -340,7 +339,7 @@ export default function SettingsPage() {
             type="text"
             value={venueForm.city}
             onChange={(e) => setVenueForm(f => ({ ...f, city: e.target.value }))}
-            placeholder="Springfield"
+            placeholder="Toronto"
             className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
@@ -350,7 +349,7 @@ export default function SettingsPage() {
             type="text"
             value={venueForm.state}
             onChange={(e) => setVenueForm(f => ({ ...f, state: e.target.value }))}
-            placeholder="IL"
+            placeholder="ON"
             className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
@@ -360,7 +359,7 @@ export default function SettingsPage() {
             type="text"
             value={venueForm.country}
             onChange={(e) => setVenueForm(f => ({ ...f, country: e.target.value }))}
-            placeholder="USA"
+            placeholder="Canada"
             className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
