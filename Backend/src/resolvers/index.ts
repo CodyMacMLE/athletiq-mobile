@@ -5,7 +5,7 @@ import { generateProfilePictureUploadUrl } from "../s3.js";
 import { parseTimeString } from "../utils/time.js";
 import { markAbsentForEndedEvents } from "../services/markAbsent.js";
 import { CognitoIdentityProviderClient, AdminDeleteUserCommand, ListUsersCommand } from "@aws-sdk/client-cognito-identity-provider";
-import { registerPushToken } from "../notifications/sns.js";
+import { registerPushToken, sendPushToEndpoint } from "../notifications/sns.js";
 import { sendPushNotification } from "../notifications/pushNotifications.js";
 import { broadcastAnnouncement } from "../notifications/announcements.js";
 import { generateGuardianReport } from "../notifications/emailReports.js";
@@ -2170,22 +2170,49 @@ export const resolvers = {
         }).catch((err) => console.error("Failed to send guardian invite email:", err));
       }
 
-      // If the invited guardian already has an account, send a push notification
-      const guardianUser = await prisma.user.findUnique({ where: { email } });
+      // If the invited guardian already has an account, deliver an in-app notification
+      // and attempt a push notification to all their registered devices
+      const guardianUser = await prisma.user.findFirst({
+        where: { email: { equals: email, mode: "insensitive" } },
+      });
       if (guardianUser) {
         const athleteName = `${self!.firstName} ${self!.lastName}`;
         const orgName = org?.name ?? "your organization";
-        sendPushNotification(
-          guardianUser.id,
-          "Guardian Invite",
-          `${athleteName} has invited you to be their guardian in ${orgName}`,
-          {
+        const notifTitle = "Guardian Invite";
+        const notifMessage = `${athleteName} has invited you to be their guardian in ${orgName}`;
+        const notifMeta = {
+          type: "GUARDIAN_INVITE",
+          inviteToken: invite.token,
+          athleteName,
+          organizationName: orgName,
+        };
+
+        // Always create the in-app delivery record so it shows in the notifications screen
+        await prisma.notificationDelivery.create({
+          data: {
+            userId: guardianUser.id,
             type: "GUARDIAN_INVITE",
-            inviteToken: invite.token,
-            athleteName,
-            organizationName: orgName,
-          }
-        ).catch((err) => console.error("Failed to send guardian invite push:", err));
+            channel: "PUSH",
+            title: notifTitle,
+            message: notifMessage,
+            metadata: notifMeta,
+            status: "SENT",
+            sentAt: new Date(),
+          },
+        });
+
+        // Best-effort SNS push to any registered devices (don't use sendPushNotification
+        // here — that would create duplicate NotificationDelivery records per device)
+        prisma.deviceToken
+          .findMany({ where: { userId: guardianUser.id, isActive: true } })
+          .then((tokens) =>
+            Promise.allSettled(
+              tokens
+                .filter((t) => !!t.endpoint)
+                .map((t) => sendPushToEndpoint(t.endpoint!, notifTitle, notifMessage, notifMeta))
+            )
+          )
+          .catch((err) => console.error("Failed to send guardian invite push:", err));
       }
 
       return invite;
