@@ -639,3 +639,31 @@ export const UNEXCLUDE_ATHLETE_FROM_EVENT = gql`
     }
   }
 `;
+
+// ============================================
+// Athlete Status & Profile Mutations
+// ============================================
+
+export const UPDATE_ATHLETE_STATUS = gql`
+  mutation UpdateAthleteStatus($userId: ID!, $organizationId: ID!, $status: AthleteStatus!, $note: String) {
+    updateAthleteStatus(userId: $userId, organizationId: $organizationId, status: $status, note: $note) {
+      id
+      athleteStatus
+    }
+  }
+`;
+
+export const UPSERT_GYMNASTICS_PROFILE = gql`
+  mutation UpsertGymnasticsProfile($userId: ID!, $organizationId: ID!, $level: String, $discipline: String, $apparatus: [String!], $notes: String) {
+    upsertGymnasticsProfile(userId: $userId, organizationId: $organizationId, level: $level, discipline: $discipline, apparatus: $apparatus, notes: $notes) {
+      id
+      userId
+      organizationId
+      level
+      discipline
+      apparatus
+      notes
+      updatedAt
+    }
+  }
+`;

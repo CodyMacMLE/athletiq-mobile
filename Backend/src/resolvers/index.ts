@@ -544,6 +544,30 @@ export const resolvers = {
       });
     },
 
+    athleteStatusHistory: async (
+      _: unknown,
+      { userId, organizationId }: { userId: string; organizationId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      return prisma.athleteStatusRecord.findMany({
+        where: { userId, organizationId },
+        include: { changedByUser: true },
+        orderBy: { createdAt: "desc" },
+      });
+    },
+
+    gymnasticsProfile: async (
+      _: unknown,
+      { userId, organizationId }: { userId: string; organizationId: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      return prisma.gymnasticsProfile.findUnique({
+        where: { userId_organizationId: { userId, organizationId } },
+      });
+    },
+
     // NFC queries
     organizationNfcTags: async (_: unknown, { organizationId }: { organizationId: string }) => {
       return prisma.nfcTag.findMany({ where: { organizationId, isActive: true } });
@@ -1522,6 +1546,53 @@ export const resolvers = {
       return prisma.organizationMember.update({
         where: { userId_organizationId: { userId, organizationId } },
         data: { role },
+      });
+    },
+
+    updateAthleteStatus: async (
+      _: unknown,
+      { userId, organizationId, status, note }: { userId: string; organizationId: string; status: string; note?: string },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      // Only OWNER, ADMIN, MANAGER can change athlete status
+      const viewer = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId } },
+      });
+      if (!viewer || !["OWNER", "ADMIN", "MANAGER"].includes(viewer.role)) {
+        throw new Error("Only admins and managers can update athlete status");
+      }
+      const [updated] = await prisma.$transaction([
+        prisma.organizationMember.update({
+          where: { userId_organizationId: { userId, organizationId } },
+          data: { athleteStatus: status as any },
+        }),
+        prisma.athleteStatusRecord.create({
+          data: { userId, organizationId, status: status as any, note: note || null, changedByUserId: context.userId },
+        }),
+      ]);
+      return updated;
+    },
+
+    upsertGymnasticsProfile: async (
+      _: unknown,
+      { userId, organizationId, level, discipline, apparatus, notes }: {
+        userId: string; organizationId: string; level?: string; discipline?: string;
+        apparatus?: string[]; notes?: string;
+      },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      const viewer = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId } },
+      });
+      if (!viewer || !["OWNER", "ADMIN", "MANAGER", "COACH"].includes(viewer.role)) {
+        throw new Error("Only admins, managers, and coaches can update athlete profiles");
+      }
+      return prisma.gymnasticsProfile.upsert({
+        where: { userId_organizationId: { userId, organizationId } },
+        create: { userId, organizationId, level, discipline, apparatus: apparatus || [], notes },
+        update: { level, discipline, apparatus: apparatus ?? undefined, notes },
       });
     },
 
@@ -3904,6 +3975,16 @@ export const resolvers = {
     organization: (parent: { organizationId: string }) =>
       prisma.organization.findUnique({ where: { id: parent.organizationId } }),
     createdAt: (parent: any) => toISO(parent.createdAt),
+  },
+
+  AthleteStatusRecord: {
+    changedByUser: (parent: { changedByUserId: string }) =>
+      prisma.user.findUnique({ where: { id: parent.changedByUserId } }),
+    createdAt: (parent: any) => toISO(parent.createdAt),
+  },
+
+  GymnasticsProfile: {
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
   DeviceToken: {

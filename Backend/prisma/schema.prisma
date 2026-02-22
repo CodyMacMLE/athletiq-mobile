@@ -43,6 +43,9 @@ model User {
   eventExcludes            EventAthleteExclude[]
   recurringEventIncludes   RecurringEventAthleteInclude[]
   recurringEventExcludes   RecurringEventAthleteExclude[]
+  athleteStatusRecords     AthleteStatusRecord[] @relation("AthleteStatusRecordUser")
+  athleteStatusChanges     AthleteStatusRecord[] @relation("AthleteStatusRecordChanger")
+  gymnasticsProfile        GymnasticsProfile[]
 }
 
 // ============================================
@@ -74,14 +77,16 @@ model Organization {
   coachHealthAccess CoachHealthAccess @default(TEAM_ONLY)
 
   // Relations
-  teams              Team[]
-  events             Event[]
-  members            OrganizationMember[]
-  recurringEvents    RecurringEvent[]
-  invites            Invite[]
-  nfcTags            NfcTag[]
-  guardianLinks      GuardianLink[]
-  seasons            OrgSeason[]
+  teams                Team[]
+  events               Event[]
+  members              OrganizationMember[]
+  recurringEvents      RecurringEvent[]
+  invites              Invite[]
+  nfcTags              NfcTag[]
+  guardianLinks        GuardianLink[]
+  seasons              OrgSeason[]
+  athleteStatusRecords AthleteStatusRecord[]
+  gymnasticsProfiles   GymnasticsProfile[]
   announcements      Announcement[]
   emailReportConfigs EmailReportConfig[]
   emergencyContacts  EmergencyContact[]
@@ -160,18 +165,61 @@ enum OrgRole {
   GUARDIAN
 }
 
+enum AthleteStatus {
+  ACTIVE
+  SUSPENDED
+  QUIT
+  RETIRED
+}
+
 model OrganizationMember {
-  id             String       @id @default(cuid())
+  id             String        @id @default(cuid())
   userId         String
-  user           User         @relation(fields: [userId], references: [id])
+  user           User          @relation(fields: [userId], references: [id])
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  role           OrgRole      @default(ATHLETE)
-  joinedAt       DateTime     @default(now())
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  role           OrgRole       @default(ATHLETE)
+  athleteStatus  AthleteStatus @default(ACTIVE)
+  joinedAt       DateTime      @default(now())
 
   @@unique([userId, organizationId])
   @@index([organizationId])
   @@index([userId])
+}
+
+// Audit log of every athlete status change
+model AthleteStatusRecord {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation("AthleteStatusRecordUser", fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status         AthleteStatus
+  note           String?
+  changedByUserId String
+  changedByUser  User          @relation("AthleteStatusRecordChanger", fields: [changedByUserId], references: [id])
+  createdAt      DateTime      @default(now())
+
+  @@index([userId, organizationId])
+  @@index([organizationId])
+}
+
+// Gymnastics-specific athlete profile (one per org membership)
+model GymnasticsProfile {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  level          String?  // e.g. "Level 4", "Xcel Gold", "Elite"
+  discipline     String?  // e.g. "Women's Artistic", "Men's Artistic", "Rhythmic"
+  apparatus      String[] // primary apparatus focus, e.g. ["Vault", "Floor"]
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
 }
 
 // ============================================

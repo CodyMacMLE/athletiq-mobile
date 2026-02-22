@@ -237,12 +237,39 @@ export const typeDefs = `#graphql
     joinedAt: String!
   }
 
+  enum AthleteStatus {
+    ACTIVE
+    SUSPENDED
+    QUIT
+    RETIRED
+  }
+
   type OrganizationMember {
     id: ID!
     user: User!
     organization: Organization!
     role: OrgRole!
+    athleteStatus: AthleteStatus!
     joinedAt: String!
+  }
+
+  type AthleteStatusRecord {
+    id: ID!
+    status: AthleteStatus!
+    note: String
+    changedByUser: User!
+    createdAt: String!
+  }
+
+  type GymnasticsProfile {
+    id: ID!
+    userId: ID!
+    organizationId: ID!
+    level: String
+    discipline: String
+    apparatus: [String!]!
+    notes: String
+    updatedAt: String!
   }
 
   type Venue {
@@ -816,6 +843,10 @@ export const typeDefs = `#graphql
     myLinkedAthletes(organizationId: ID!): [GuardianLink!]!
     athleteGuardians(userId: ID!, organizationId: ID!): [GuardianLink!]!
 
+    # Athlete status & profile queries
+    athleteStatusHistory(userId: ID!, organizationId: ID!): [AthleteStatusRecord!]!
+    gymnasticsProfile(userId: ID!, organizationId: ID!): GymnasticsProfile
+
     # Attendance log queries
     attendanceLog(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
     absentExcusedLog(organizationId: ID!, limit: Int, offset: Int): [CheckIn!]!
@@ -860,6 +891,10 @@ export const typeDefs = `#graphql
     removeOrgMember(userId: ID!, organizationId: ID!): Boolean!
     leaveOrganization(organizationId: ID!): Boolean!
     transferOwnership(organizationId: ID!, newOwnerId: ID!): Boolean!
+
+    # Athlete status & profile mutations
+    updateAthleteStatus(userId: ID!, organizationId: ID!, status: AthleteStatus!, note: String): OrganizationMember!
+    upsertGymnasticsProfile(userId: ID!, organizationId: ID!, level: String, discipline: String, apparatus: [String!], notes: String): GymnasticsProfile!
 
     # Season mutations
     createOrgSeason(input: CreateOrgSeasonInput!): OrgSeason!

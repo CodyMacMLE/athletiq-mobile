@@ -331,6 +331,7 @@ export const GET_ORGANIZATION_USERS = gql`
       members {
         id
         role
+        athleteStatus
         user {
           ...UserFields
           memberships {
@@ -696,6 +697,37 @@ export const GET_ORGANIZATION_VENUES = gql`
 export const EXPORT_CALENDAR = gql`
   query ExportCalendar($organizationId: ID!, $teamId: ID, $startDate: String, $endDate: String) {
     exportCalendar(organizationId: $organizationId, teamId: $teamId, startDate: $startDate, endDate: $endDate)
+  }
+`;
+
+export const GET_ATHLETE_STATUS_HISTORY = gql`
+  query GetAthleteStatusHistory($userId: ID!, $organizationId: ID!) {
+    athleteStatusHistory(userId: $userId, organizationId: $organizationId) {
+      id
+      status
+      note
+      createdAt
+      changedByUser {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
+
+export const GET_GYMNASTICS_PROFILE = gql`
+  query GetGymnasticsProfile($userId: ID!, $organizationId: ID!) {
+    gymnasticsProfile(userId: $userId, organizationId: $organizationId) {
+      id
+      userId
+      organizationId
+      level
+      discipline
+      apparatus
+      notes
+      updatedAt
+    }
   }
 `;
 
