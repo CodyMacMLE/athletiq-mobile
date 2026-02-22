@@ -2037,6 +2037,17 @@ export const resolvers = {
 
         // For guardian invites, create a GuardianLink instead of team memberships
         if (invite.role === "GUARDIAN" && invite.athleteId) {
+          // Hard-enforce no circular guardian relationships (org-independent):
+          // Reject if the athlete being guarded is already a guardian of the acceptor.
+          const circularLink = await tx.guardianLink.findFirst({
+            where: { guardianId: invite.athleteId, athleteId: context.userId! },
+          });
+          if (circularLink) {
+            throw new Error(
+              "Mutual guardian relationships are not allowed. This athlete is already your guardian."
+            );
+          }
+
           await tx.guardianLink.upsert({
             where: {
               guardianId_athleteId_organizationId: {
@@ -2129,6 +2140,23 @@ export const resolvers = {
       const self = await prisma.user.findUnique({ where: { id: context.userId } });
       if (self && self.email.toLowerCase() === email.toLowerCase()) {
         throw new Error("You cannot invite yourself as a guardian");
+      }
+
+      // Prevent mutual/circular guardian relationships:
+      // If the invitee already has an account and the current user is already
+      // their guardian, reject early (org-independent check).
+      const invitee = await prisma.user.findFirst({
+        where: { email: { equals: email, mode: "insensitive" } },
+      });
+      if (invitee) {
+        const circularLink = await prisma.guardianLink.findFirst({
+          where: { guardianId: context.userId, athleteId: invitee.id },
+        });
+        if (circularLink) {
+          throw new Error(
+            "Mutual guardian relationships are not allowed. You are already a guardian for this person."
+          );
+        }
       }
 
       const expiresAt = new Date();
