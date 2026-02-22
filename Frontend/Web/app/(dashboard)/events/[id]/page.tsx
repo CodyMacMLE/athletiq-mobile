@@ -156,7 +156,7 @@ export default function EventDetailPage() {
   const params = useParams();
   const eventId = params.id as string;
   const router = useRouter();
-  const { canEdit, selectedOrganizationId } = useAuth();
+  const { canEdit, isOwner, isAdmin, isManager, isCoach, user: currentUser, selectedOrganizationId } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -175,6 +175,8 @@ export default function EventDetailPage() {
 
   const event: EventDetail | undefined = data?.event;
 
+  const [adminCheckIn] = useMutation<any>(ADMIN_CHECK_IN);
+  const [checkOut] = useMutation<any>(CHECK_OUT);
   const [updateEvent] = useMutation<any>(UPDATE_EVENT);
   const [deleteEvent] = useMutation<any>(DELETE_EVENT);
   const [deleteRecurringEvent] = useMutation<any>(DELETE_RECURRING_EVENT);
@@ -377,6 +379,12 @@ export default function EventDetailPage() {
   }, [attendanceRows, searchQuery]);
 
   const checkedInCount = attendanceRows.filter((r) => r.checkIn && r.checkIn.status !== "ABSENT").length;
+
+  // Coaches can only manage attendance for teams they coach
+  const coachIds = new Set(coaches.map((c) => c.id));
+  const canManageAttendance = canEdit && (isCoach && !isOwner && !isAdmin && !isManager
+    ? coachIds.has(currentUser?.id || "")
+    : true);
 
   if (loading) {
     return (
@@ -601,15 +609,14 @@ export default function EventDetailPage() {
         </div>
 
         {/* Table Header */}
-        <div className="grid grid-cols-13 gap-2 px-3 py-2 text-xs font-medium text-white/40 uppercase tracking-wider border-b border-white/8" style={{ gridTemplateColumns: "repeat(13, minmax(0, 1fr))" }}>
+        <div className="grid gap-2 px-3 py-2 text-xs font-medium text-white/40 uppercase tracking-wider border-b border-white/8" style={{ gridTemplateColumns: "repeat(13, minmax(0, 1fr))" }}>
           <div className="col-span-3">Name</div>
           <div className="col-span-2">Status</div>
           <div className="col-span-1">RSVP</div>
           <div className="col-span-2">Check In</div>
           <div className="col-span-2">Check Out</div>
           <div className="col-span-1">Hours</div>
-          <div className="col-span-1">Note</div>
-          <div className="col-span-1"></div>
+          <div className="col-span-2"></div>
         </div>
 
         {/* Rows */}
@@ -719,13 +726,54 @@ export default function EventDetailPage() {
                     : "—"}
                 </div>
 
-                {/* Note */}
-                <div className="col-span-1 text-white/40 truncate">
-                  {row.checkIn?.note || "—"}
-                </div>
-
-                {/* Actions */}
-                <div className="col-span-1 flex justify-end">
+                {/* Check In / Check Out button + exclude action */}
+                <div className="col-span-2 flex items-center justify-end gap-1.5">
+                  {canManageAttendance && (() => {
+                    const hasCheckIn = row.checkIn && row.checkIn.status !== "ABSENT";
+                    const hasCheckOut = !!row.checkIn?.checkOutTime;
+                    if (!hasCheckIn) {
+                      return (
+                        <button
+                          title="Check in"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            adminCheckIn({
+                              variables: {
+                                input: {
+                                  userId: row.user.id,
+                                  eventId,
+                                  status: "ON_TIME",
+                                  checkInTime: new Date().toISOString(),
+                                },
+                              },
+                            }).then(() => refetch());
+                          }}
+                          className="px-2.5 py-1 text-xs font-medium rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/35 transition-colors whitespace-nowrap"
+                        >
+                          Check In
+                        </button>
+                      );
+                    }
+                    if (!hasCheckOut) {
+                      return (
+                        <button
+                          title="Check out"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            checkOut({
+                              variables: {
+                                input: { checkInId: row.checkIn!.id },
+                              },
+                            }).then(() => refetch());
+                          }}
+                          className="px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/35 transition-colors whitespace-nowrap"
+                        >
+                          Check Out
+                        </button>
+                      );
+                    }
+                    return null;
+                  })()}
                   {canEdit && (
                     isIncludedAthlete ? (
                       <button
