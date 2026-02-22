@@ -1,6 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { UPDATE_USER, GENERATE_UPLOAD_URL, REMOVE_GUARDIAN, DELETE_MY_ACCOUNT, CREATE_EMERGENCY_CONTACT, UPDATE_EMERGENCY_CONTACT, DELETE_EMERGENCY_CONTACT, UPSERT_MEDICAL_INFO } from "@/lib/graphql/mutations";
-import { GET_MY_GUARDIANS, GET_MY_HEALTH_DATA } from "@/lib/graphql/queries";
+import { GET_MY_GUARDIANS, GET_MY_LINKED_ATHLETES, GET_MY_HEALTH_DATA } from "@/lib/graphql/queries";
 import { useMutation, useQuery } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -54,7 +54,7 @@ type ModalMode =
 
 export default function Profile() {
   const router = useRouter();
-  const { user, logout, isOrgAdmin, refetchUser, selectedOrganization } = useAuth();
+  const { user, logout, isOrgAdmin, refetchUser, selectedOrganization, selectedAthlete, setSelectedAthlete } = useAuth();
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode | null>(null);
 
@@ -100,12 +100,18 @@ export default function Profile() {
     skip: !selectedOrganization?.id,
   });
 
+  const { data: linkedAthletesData, refetch: refetchLinkedAthletes } = useQuery(GET_MY_LINKED_ATHLETES, {
+    variables: { organizationId: selectedOrganization?.id },
+    skip: !selectedOrganization?.id,
+  });
+
   const { data: healthData, refetch: refetchHealth } = useQuery(GET_MY_HEALTH_DATA, {
     variables: { userId: user?.id, organizationId: selectedOrganization?.id },
     skip: !user?.id || !selectedOrganization?.id,
   });
 
   const guardians = guardiansData?.myGuardians || [];
+  const linkedAthletes = linkedAthletesData?.myLinkedAthletes || [];
   const emergencyContacts: EmergencyContact[] = healthData?.user?.emergencyContacts || [];
   const medicalInfo: MedicalInfo | null = healthData?.user?.medicalInfo || null;
 
@@ -266,10 +272,14 @@ export default function Profile() {
     }
   };
 
-  const handleRemoveGuardian = (linkId: string, name: string) => {
+  const handleRemoveGuardian = (linkId: string, name: string, asSelf = false) => {
+    const title = asSelf ? "Remove Yourself" : "Remove Guardian";
+    const message = asSelf
+      ? `Remove yourself as guardian for ${name}?`
+      : `Remove ${name} as your guardian?`;
     Alert.alert(
-      "Remove Guardian",
-      `Remove ${name} as your guardian?`,
+      title,
+      message,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -279,6 +289,7 @@ export default function Profile() {
             try {
               await removeGuardian({ variables: { guardianLinkId: linkId } });
               refetchGuardians();
+              refetchLinkedAthletes();
             } catch (err: any) {
               Alert.alert("Error", err.message || "Failed to remove guardian");
             }
@@ -645,51 +656,99 @@ export default function Profile() {
         </View>
 
         {/* Family — only show when in an org */}
-        {selectedOrganization && (
+        {selectedOrganization && (linkedAthletes.length > 0 || guardians.length > 0 || true) && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Family</Text>
             <View style={styles.fieldList}>
-              {guardians.map((link: any, index: number) => (
-                <View
-                  key={link.id}
-                  style={[
-                    styles.guardianItem,
-                    (index < guardians.length - 1 || true) && styles.fieldItemBorder,
-                  ]}
-                >
-                  <View style={styles.guardianAvatar}>
-                    {link.guardian.image ? (
-                      <Image
-                        source={{ uri: link.guardian.image }}
-                        style={styles.guardianAvatarImage}
-                        contentFit="cover"
-                      />
-                    ) : (
-                      <Text style={styles.guardianAvatarText}>
-                        {link.guardian.firstName.charAt(0)}
-                        {link.guardian.lastName.charAt(0)}
-                      </Text>
-                    )}
-                  </View>
-                  <View style={styles.fieldContent}>
-                    <Text style={styles.fieldLabel}>
-                      {link.guardian.firstName} {link.guardian.lastName}
-                    </Text>
-                    <Text style={styles.fieldValue}>{link.guardian.email}</Text>
-                  </View>
-                  <Pressable
-                    onPress={() =>
-                      handleRemoveGuardian(
-                        link.id,
-                        `${link.guardian.firstName} ${link.guardian.lastName}`
-                      )
-                    }
-                    hitSlop={8}
-                  >
-                    <Feather name="x" size={18} color="rgba(255,255,255,0.4)" />
-                  </Pressable>
-                </View>
-              ))}
+
+              {/* My Athletes — people I am a guardian for */}
+              {linkedAthletes.length > 0 && (
+                <>
+                  <Text style={styles.familySubLabel}>My Athletes</Text>
+                  {linkedAthletes.map((link: any) => {
+                    const isActive = selectedAthlete?.id === link.athlete.id;
+                    return (
+                      <Pressable
+                        key={link.id}
+                        style={({ pressed }) => [
+                          styles.guardianItem,
+                          styles.fieldItemBorder,
+                          isActive && styles.guardianItemActive,
+                          pressed && { opacity: 0.8 },
+                        ]}
+                        onPress={() => setSelectedAthlete({ id: link.athlete.id, firstName: link.athlete.firstName, lastName: link.athlete.lastName, image: link.athlete.image })}
+                      >
+                        <View style={styles.guardianAvatar}>
+                          {link.athlete.image ? (
+                            <Image
+                              source={{ uri: link.athlete.image }}
+                              style={styles.guardianAvatarImage}
+                              contentFit="cover"
+                            />
+                          ) : (
+                            <Text style={styles.guardianAvatarText}>
+                              {link.athlete.firstName.charAt(0)}
+                              {link.athlete.lastName.charAt(0)}
+                            </Text>
+                          )}
+                        </View>
+                        <View style={styles.fieldContent}>
+                          <Text style={styles.fieldLabel}>
+                            {link.athlete.firstName} {link.athlete.lastName}
+                          </Text>
+                          {isActive && (
+                            <Text style={styles.viewingBadge}>Viewing as this athlete</Text>
+                          )}
+                        </View>
+                        <View style={styles.familyAthleteActions}>
+                          <Feather name="log-in" size={16} color={isActive ? "#a855f7" : "rgba(255,255,255,0.35)"} />
+                          <Pressable
+                            onPress={() => handleRemoveGuardian(link.id, `${link.athlete.firstName} ${link.athlete.lastName}`, true)}
+                            hitSlop={8}
+                            style={{ marginLeft: 14 }}
+                          >
+                            <Feather name="x" size={18} color="rgba(255,255,255,0.4)" />
+                          </Pressable>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* My Guardians — people watching over me (read-only for athlete) */}
+              {guardians.length > 0 && (
+                <>
+                  <Text style={[styles.familySubLabel, linkedAthletes.length > 0 && { marginTop: 12 }]}>My Guardians</Text>
+                  {guardians.map((link: any) => (
+                    <View
+                      key={link.id}
+                      style={[styles.guardianItem, styles.fieldItemBorder]}
+                    >
+                      <View style={styles.guardianAvatar}>
+                        {link.guardian.image ? (
+                          <Image
+                            source={{ uri: link.guardian.image }}
+                            style={styles.guardianAvatarImage}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <Text style={styles.guardianAvatarText}>
+                            {link.guardian.firstName.charAt(0)}
+                            {link.guardian.lastName.charAt(0)}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={styles.fieldContent}>
+                        <Text style={styles.fieldLabel}>
+                          {link.guardian.firstName} {link.guardian.lastName}
+                        </Text>
+                        <Text style={styles.fieldValue}>{link.guardian.email}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
 
               <Pressable
                 style={({ pressed }) => [
@@ -1056,12 +1115,35 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
 
-  // Guardian items
+  // Guardian / Family items
   guardianItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
+  },
+  guardianItemActive: {
+    backgroundColor: "rgba(168,85,247,0.08)",
+  },
+  familySubLabel: {
+    color: "rgba(255,255,255,0.35)",
+    fontSize: 11,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  familyAthleteActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  viewingBadge: {
+    color: "#a855f7",
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 2,
   },
   guardianAvatar: {
     width: GUARDIAN_AVATAR_SIZE,

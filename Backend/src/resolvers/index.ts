@@ -2228,14 +2228,14 @@ export const resolvers = {
       const link = await prisma.guardianLink.findUnique({ where: { id: guardianLinkId } });
       if (!link) throw new Error("Guardian link not found");
 
-      // Only the athlete or an org admin can remove
-      const isAthlete = link.athleteId === context.userId;
-      if (!isAthlete) {
+      // Only the guardian (removing themselves) or an org admin can remove
+      const isGuardian = link.guardianId === context.userId;
+      if (!isGuardian) {
         const orgMembership = await prisma.organizationMember.findUnique({
           where: { userId_organizationId: { userId: context.userId, organizationId: link.organizationId } },
         });
         if (!orgMembership || !["OWNER", "ADMIN", "MANAGER"].includes(orgMembership.role)) {
-          throw new Error("Only the athlete or an org admin can remove a guardian");
+          throw new Error("Only the guardian or an org admin can remove a guardian link");
         }
       }
 
