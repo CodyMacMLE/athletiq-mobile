@@ -52,9 +52,12 @@ export default function RequestAbsence() {
     eventEndTime: string;
     eventType: string;
     teamName: string;
+    attemptCount: string;
   }>();
 
   const [reason, setReason] = useState("");
+  const currentAttempt = params.attemptCount ? parseInt(params.attemptCount) + 1 : 1;
+  const attemptsRemaining = 3 - (currentAttempt - 1);
   const [createExcuse, { loading }] = useMutation(CREATE_EXCUSE_REQUEST, {
     refetchQueries: ["GetMyExcuseRequests"],
   });
@@ -139,6 +142,14 @@ export default function RequestAbsence() {
                 </View>
               ) : null}
             </View>
+          </View>
+
+          {/* Attempt indicator */}
+          <View style={styles.attemptBadge}>
+            <Feather name="alert-circle" size={13} color="rgba(255,255,255,0.4)" />
+            <Text style={styles.attemptText}>
+              Request {currentAttempt} of 3 · {attemptsRemaining} remaining
+            </Text>
           </View>
 
           {/* Reason Input */}
@@ -255,6 +266,23 @@ const styles = StyleSheet.create({
   eventDetailText: {
     color: "rgba(255,255,255,0.6)",
     fontSize: 14,
+  },
+
+  attemptBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  attemptText: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 13,
   },
 
   // Input

@@ -567,7 +567,12 @@ export default function Attendance() {
                       </div>
                     )}
                   </div>
-                  <p className="text-white/75 text-sm mt-2 ml-[52px]">{excuse.reason}</p>
+                  <div className="flex items-center gap-3 mt-2 ml-[52px]">
+                    <p className="text-white/75 text-sm">{excuse.reason}</p>
+                    <span className="shrink-0 text-xs text-white/30 bg-white/[0.06] px-2 py-0.5 rounded-full">
+                      Request {excuse.attemptCount}/3
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

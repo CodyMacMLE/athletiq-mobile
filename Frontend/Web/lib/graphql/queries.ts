@@ -279,6 +279,7 @@ export const GET_PENDING_EXCUSE_REQUESTS = gql`
       id
       reason
       status
+      attemptCount
       createdAt
       user {
         id

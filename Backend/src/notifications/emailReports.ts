@@ -72,12 +72,13 @@ async function calculateAthleteStats(
     },
   });
 
-  // Calculate stats
-  const totalEvents = checkIns.length;
+  // Calculate stats — EXCUSED events are void: excluded from rate but shown in summary
   const onTimeCount = checkIns.filter((c) => c.status === "ON_TIME").length;
   const lateCount = checkIns.filter((c) => c.status === "LATE").length;
   const absentCount = checkIns.filter((c) => c.status === "ABSENT").length;
   const excusedCount = checkIns.filter((c) => c.status === "EXCUSED").length;
+  const scheduledEvents = checkIns.filter((c) => c.status !== "EXCUSED");
+  const totalEvents = scheduledEvents.length;
 
   const attendedCount = onTimeCount + lateCount;
   const attendanceRate = totalEvents > 0 ? (attendedCount / totalEvents) * 100 : 0;

@@ -348,15 +348,16 @@ model EventAthleteExclude {
 }
 
 model ExcuseRequest {
-  id        String              @id @default(cuid())
-  userId    String
-  user      User                @relation(fields: [userId], references: [id])
-  eventId   String
-  event     Event               @relation(fields: [eventId], references: [id])
-  reason    String
-  status    ExcuseRequestStatus @default(PENDING)
-  createdAt DateTime            @default(now())
-  updatedAt DateTime            @updatedAt
+  id           String              @id @default(cuid())
+  userId       String
+  user         User                @relation(fields: [userId], references: [id])
+  eventId      String
+  event        Event               @relation(fields: [eventId], references: [id])
+  reason       String
+  status       ExcuseRequestStatus @default(PENDING)
+  attemptCount Int                 @default(1)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
 
   @@unique([userId, eventId])
   @@index([userId])

@@ -379,6 +379,7 @@ export const GET_MY_EXCUSE_REQUESTS = gql`
       id
       reason
       status
+      attemptCount
       event {
         ...EventFields
       }

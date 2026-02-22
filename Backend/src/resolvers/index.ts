@@ -3145,7 +3145,28 @@ export const resolvers = {
         });
         if (!guardianLink) throw new Error("Not authorized to submit excuse for this user");
       }
-      return prisma.excuseRequest.create({ data: input });
+
+      const existing = await prisma.excuseRequest.findUnique({
+        where: { userId_eventId: { userId: input.userId, eventId: input.eventId } },
+      });
+
+      if (!existing) {
+        return prisma.excuseRequest.create({ data: { ...input, attemptCount: 1 } });
+      }
+      if (existing.status === "PENDING") {
+        throw new Error("You already have a pending excuse request for this event.");
+      }
+      if (existing.status === "APPROVED") {
+        throw new Error("Your excuse for this event has already been approved.");
+      }
+      // DENIED — allow resubmission up to 3 attempts
+      if (existing.attemptCount >= 3) {
+        throw new Error("You have reached the maximum of 3 excuse requests for this event.");
+      }
+      return prisma.excuseRequest.update({
+        where: { id: existing.id },
+        data: { status: "PENDING", reason: input.reason, attemptCount: existing.attemptCount + 1 },
+      });
     },
 
     updateExcuseRequest: async (
@@ -3174,9 +3195,15 @@ export const resolvers = {
             userId: updated.userId,
             eventId: updated.eventId,
             status: "EXCUSED",
+            checkInTime: null,
+            checkOutTime: null,
+            hoursLogged: 0,
           },
           update: {
             status: "EXCUSED",
+            checkInTime: null,
+            checkOutTime: null,
+            hoursLogged: 0,
           },
         });
       }

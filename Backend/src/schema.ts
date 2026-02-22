@@ -352,6 +352,7 @@ export const typeDefs = `#graphql
     event: Event!
     reason: String!
     status: ExcuseRequestStatus!
+    attemptCount: Int!
     createdAt: String!
     updatedAt: String!
   }
