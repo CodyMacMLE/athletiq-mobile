@@ -312,7 +312,7 @@ export default function UserDetailPage() {
               <select
                 value={member.role}
                 onChange={(e) => handleOrgRoleChange(e.target.value)}
-                className="px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               >
                 {getAvailableOrgRoles().map((role) => (
                   <option key={role} value={role}>
@@ -362,7 +362,7 @@ export default function UserDetailPage() {
                         <select
                           value={membership.role}
                           onChange={(e) => handleTeamRoleChange(membership.team.id, e.target.value)}
-                          className="px-3 py-1.5 text-sm bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                          className="px-3 py-1.5 text-sm bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                         >
                           {TEAM_ROLES.map((role) => (
                             <option key={role} value={role}>
@@ -613,7 +613,7 @@ function AddToTeamModal({
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white/8 rounded-xl w-full max-w-md p-6 border border-white/8" ref={dropdownRef}>
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-md p-6 border border-white/15 shadow-2xl" ref={dropdownRef}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">Add to Team</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -627,7 +627,7 @@ function AddToTeamModal({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
+            className="w-full pl-9 pr-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
             placeholder="Search teams..."
             autoFocus
           />

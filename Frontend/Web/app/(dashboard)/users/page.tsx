@@ -442,7 +442,7 @@ function InviteUserModal({
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white/8 rounded-xl w-full max-w-md p-6 border border-white/8">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-md p-6 border border-white/15 shadow-2xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">Invite User</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -465,7 +465,7 @@ function InviteUserModal({
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="user@example.com"
             />
           </div>
@@ -476,7 +476,7 @@ function InviteUserModal({
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             >
               <option value="ATHLETE">Athlete</option>
               <option value="COACH">Coach</option>
@@ -522,7 +522,7 @@ function InviteUserModal({
                     setShowTeamDropdown(true);
                   }}
                   onFocus={() => setShowTeamDropdown(true)}
-                  className="w-full pl-9 pr-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
+                  className="w-full pl-9 pr-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
                   placeholder="Search teams..."
                 />
               </div>

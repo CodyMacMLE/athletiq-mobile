@@ -504,7 +504,7 @@ export default function Teams() {
       {/* Archive / Delete Confirmation Modal */}
       {deletingTeam && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-white/8 rounded-xl w-full max-w-sm p-6 border border-white/8">
+          <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-sm p-6 border border-white/15 shadow-2xl">
             <h3 className="text-lg font-bold text-white mb-2">Remove Team</h3>
             <p className="text-white/55 text-sm mb-6">
               What would you like to do with <span className="text-white font-medium">{deletingTeam.name}</span>?
@@ -618,7 +618,7 @@ function TeamModal({
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white/8 rounded-xl w-full max-w-md p-6 border border-white/8">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-md p-6 border border-white/15 shadow-2xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">{title}</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -635,7 +635,7 @@ function TeamModal({
               required
               value={form.name}
               onChange={handleChange}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Varsity, Junior Elite"
               autoFocus
             />
@@ -649,7 +649,7 @@ function TeamModal({
                   name="orgSeasonId"
                   value={form.orgSeasonId}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 >
                   <option value="">Select season...</option>
                   {orgSeasons.map((s) => (
@@ -663,7 +663,7 @@ function TeamModal({
                   name="seasonYear"
                   value={form.seasonYear}
                   onChange={(e) => setForm(prev => ({ ...prev, seasonYear: Number(e.target.value) }))}
-                  className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 >
                   {yearOptions.map((y) => (
                     <option key={y} value={y}>{y}</option>
@@ -680,7 +680,7 @@ function TeamModal({
                 required
                 value={form.season}
                 onChange={handleChange}
-                className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="e.g., Spring 2026, Fall 2025"
               />
               <p className="text-xs text-white/40 mt-1">
@@ -696,7 +696,7 @@ function TeamModal({
               name="sport"
               value={form.sport}
               onChange={handleChange}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Basketball, Track & Field"
             />
           </div>
@@ -720,7 +720,7 @@ function TeamModal({
                 name="color"
                 value={form.color}
                 onChange={handleChange}
-                className="w-24 px-2 py-1 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="w-24 px-2 py-1 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="#hex"
               />
             </div>
@@ -733,7 +733,7 @@ function TeamModal({
               value={form.description}
               onChange={handleChange}
               rows={2}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
               placeholder="Optional notes about this team"
             />
           </div>

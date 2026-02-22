@@ -589,7 +589,7 @@ export default function Events() {
       {/* Delete Single Event Modal */}
       {deleteConfirmEvent && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#1a1630] rounded-xl w-full max-w-sm p-6 border border-white/10 shadow-xl">
+          <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-sm p-6 border border-white/15 shadow-2xl">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-red-600/15 flex items-center justify-center shrink-0">
                 <Trash2 className="w-5 h-5 text-red-500" />
@@ -629,7 +629,7 @@ export default function Events() {
       {/* Delete Recurring Event Modal */}
       {deleteDialogEvent && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#1a1630] rounded-xl w-full max-w-sm p-6 border border-white/10 shadow-xl">
+          <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-sm p-6 border border-white/15 shadow-2xl">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-red-600/15 flex items-center justify-center shrink-0">
                 <Trash2 className="w-5 h-5 text-red-500" />
@@ -981,7 +981,7 @@ function EventModal({
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-[#13102a] rounded-xl w-full max-w-2xl p-6 border border-white/15 max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-2xl p-6 border border-white/15 max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">{isEdit ? "Edit Event" : "Create Event"}</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -997,7 +997,7 @@ function EventModal({
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
               placeholder="e.g., Spring Tournament"
             />
           </div>
@@ -1007,7 +1007,7 @@ function EventModal({
             <select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as "PRACTICE" | "EVENT" | "MEETING" })}
-              className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
             >
               <option value="PRACTICE">Practice</option>
               <option value="EVENT">Tournament</option>
@@ -1024,7 +1024,7 @@ function EventModal({
               required
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
             />
           </div>
 
@@ -1082,7 +1082,7 @@ function EventModal({
                 <select
                   value={formData.frequency}
                   onChange={(e) => setFormData({ ...formData, frequency: e.target.value as "WEEKLY" | "BIWEEKLY" | "DAILY" })}
-                  className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
+                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
                 >
                   <option value="DAILY">Daily</option>
                   <option value="WEEKLY">Weekly</option>
@@ -1124,7 +1124,7 @@ function EventModal({
                   required
                   value={formData.recurringEndDate}
                   onChange={(e) => setFormData({ ...formData, recurringEndDate: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
+                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
                 />
               </div>
             </div>
@@ -1138,7 +1138,7 @@ function EventModal({
                 required
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
+                className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
               />
             </div>
           ) : (
@@ -1150,7 +1150,7 @@ function EventModal({
                   required
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
+                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
                   placeholder="6:00 PM"
                 />
               </div>
@@ -1161,7 +1161,7 @@ function EventModal({
                   required
                   value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
+                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
                   placeholder="8:00 PM"
                 />
               </div>
@@ -1174,7 +1174,7 @@ function EventModal({
               type="text"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/35"
               placeholder="e.g., Main Gym"
             />
           </div>
@@ -1211,7 +1211,7 @@ function EventModal({
                       setShowTeamDropdown(true);
                     }}
                     onFocus={() => setShowTeamDropdown(true)}
-                    className="w-full pl-9 pr-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm placeholder:text-white/35"
+                    className="w-full pl-9 pr-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm placeholder:text-white/35"
                     placeholder="Search teams..."
                   />
                 </div>
@@ -1263,7 +1263,7 @@ function EventModal({
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-4 py-2 bg-white/12 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none placeholder:text-white/35"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none placeholder:text-white/35"
               placeholder="Event details..."
             />
           </div>

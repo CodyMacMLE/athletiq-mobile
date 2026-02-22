@@ -647,7 +647,7 @@ export default function ProfilePage() {
       {/* Delete Account Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+          <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-white">Delete Account</h3>
               <button
@@ -684,7 +684,7 @@ export default function ProfilePage() {
       {/* Leave Organization Modal */}
       {leaveModalOrg && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+          <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Leave Organization</h2>
               <button onClick={() => setLeaveModalOrg(null)} className="text-gray-400 hover:text-white">
@@ -730,7 +730,7 @@ export default function ProfilePage() {
       {/* Transfer Ownership Modal */}
       {transferModalOrg && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+          <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Transfer Ownership</h2>
               <button onClick={() => setTransferModalOrg(null)} className="text-gray-400 hover:text-white">
@@ -816,7 +816,7 @@ export default function ProfilePage() {
       {/* Create Organization Modal */}
       {showCreateOrg && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+          <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Create Organization</h2>
               <button onClick={() => setShowCreateOrg(false)} className="text-gray-400 hover:text-white">
@@ -841,7 +841,7 @@ export default function ProfilePage() {
                     setNewOrgName(e.target.value);
                     setCreateOrgError("");
                   }}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  className="w-full px-3 py-2 bg-white/15 border border-white/25 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
                   placeholder="e.g. Westside Track Club"
                   autoFocus
                 />
@@ -884,7 +884,7 @@ export default function ProfilePage() {
       {/* Invite Guardian Modal */}
       {guardianModalOrg && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-gray-800 rounded-xl border border-gray-700 p-6 w-full max-w-md">
+          <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Invite Guardian</h2>
               <button onClick={() => setGuardianModalOrg(null)} className="text-gray-400 hover:text-white">
@@ -910,7 +910,7 @@ export default function ProfilePage() {
                     setGuardianEmail(e.target.value);
                     setGuardianError("");
                   }}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                  className="w-full px-3 py-2 bg-white/15 border border-white/25 rounded-lg text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
                   placeholder="parent@example.com"
                   autoFocus
                 />

@@ -245,7 +245,7 @@ export default function EmailReportsPage() {
 
         {/* Linked Athletes Info */}
         {linkedAthletes.length > 0 && (
-          <div className="bg-white/8 border border-white/8 rounded-lg p-4 mb-6">
+          <div className="bg-white/8 backdrop-blur-xl border border-white/15 rounded-xl shadow-2xl p-4 mb-6">
             <div className="flex items-center gap-2 mb-2">
               <Users className="w-4 h-4 text-[#a78bfa]" />
               <h3 className="font-medium">Your Athletes</h3>
@@ -287,7 +287,7 @@ export default function EmailReportsPage() {
             {configs.map((config: EmailReportConfig) => (
               <div
                 key={config.id}
-                className="bg-white/8 border border-white/8 rounded-lg p-6"
+                className="bg-white/8 backdrop-blur-xl border border-white/15 rounded-xl shadow-2xl p-6"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -315,7 +315,7 @@ export default function EmailReportsPage() {
                           onChange={(e) =>
                             setEditFrequency(e.target.value as ReportFrequency)
                           }
-                          className="w-full px-3 py-2 bg-transparent border border-white/8 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                          className="w-full px-3 py-2 bg-white/15 border border-white/25 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                         >
                           {FREQUENCY_OPTIONS.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -414,14 +414,14 @@ export default function EmailReportsPage() {
         {/* Create Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white/8 border border-white/8 rounded-lg max-w-md w-full p-6">
+            <div className="bg-white/8 backdrop-blur-xl border border-white/15 rounded-xl shadow-2xl max-w-md w-full p-6">
               <h2 className="text-xl font-bold mb-4">Create Email Report</h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
                     Organization
                   </label>
-                  <div className="px-3 py-2 bg-transparent border border-white/8 rounded-lg text-white/55">
+                  <div className="px-3 py-2 bg-white/15 border border-white/25 rounded-lg text-white/55">
                     {selectedOrg?.name}
                   </div>
                 </div>
@@ -434,7 +434,7 @@ export default function EmailReportsPage() {
                     onChange={(e) =>
                       setNewFrequency(e.target.value as ReportFrequency)
                     }
-                    className="w-full px-3 py-2 bg-transparent border border-white/8 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                    className="w-full px-3 py-2 bg-white/15 border border-white/25 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                   >
                     {FREQUENCY_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>

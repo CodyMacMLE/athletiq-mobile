@@ -386,7 +386,7 @@ export default function EventDetailPage() {
       </Link>
 
       {/* Event Summary */}
-      <div className="bg-white/8 rounded-xl border border-white/8 p-6 mb-6">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 shadow-2xl p-6 mb-6">
         <div className="flex items-start gap-3 mb-3">
           <span
             className={`px-3 py-1 rounded-lg text-xs font-medium ${
@@ -466,7 +466,7 @@ export default function EventDetailPage() {
 
       {/* Coaches Section */}
       {coaches.length > 0 && (
-        <div className="bg-white/8 rounded-xl border border-white/8 p-6 mb-6">
+        <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 shadow-2xl p-6 mb-6">
           <h2 className="text-sm font-medium text-white/55 uppercase tracking-wider mb-3">
             Coaches
           </h2>
@@ -518,7 +518,7 @@ export default function EventDetailPage() {
       )}
 
       {/* Attendance Table */}
-      <div className="bg-white/8 rounded-xl border border-white/8 p-6">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 shadow-2xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-white font-medium">
             Attendance{" "}
@@ -533,7 +533,7 @@ export default function EventDetailPage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search athletes..."
-              className="pl-9 pr-4 py-1.5 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] w-56"
+              className="pl-9 pr-4 py-1.5 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] w-56"
             />
           </div>
         </div>
@@ -695,7 +695,7 @@ export default function EventDetailPage() {
       {/* Delete Confirmation Dialog */}
       {deleteDialogOpen && event && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white/8 rounded-xl w-full max-w-sm p-6 border border-white/8">
+          <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-sm p-6 border border-white/15 shadow-2xl">
             <h3 className="text-lg font-bold text-white mb-2">
               {event.recurringEvent ? "Delete Recurring Event" : "Delete Event"}
             </h3>
@@ -814,7 +814,7 @@ function ModifyAttendanceModal({
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-      <div className="bg-white/8 rounded-xl border border-white/8 p-6 w-full max-w-md">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 shadow-2xl p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-white">Modify Attendance</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -854,7 +854,7 @@ function ModifyAttendanceModal({
             type="datetime-local"
             value={checkInTimeValue}
             onChange={(e) => setCheckInTimeValue(e.target.value)}
-            className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+            className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
 
@@ -865,7 +865,7 @@ function ModifyAttendanceModal({
             type="datetime-local"
             value={checkOutTimeValue}
             onChange={(e) => setCheckOutTimeValue(e.target.value)}
-            className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+            className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
           />
         </div>
 
@@ -876,7 +876,7 @@ function ModifyAttendanceModal({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+            className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
             placeholder="Add a note..."
           />
         </div>
@@ -959,7 +959,7 @@ function EditEventModal({
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white/8 rounded-xl w-full max-w-lg p-6 border border-white/8 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-lg p-6 border border-white/15 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">Edit Event</h2>
           <button onClick={onClose} className="text-white/55 hover:text-white">
@@ -975,7 +975,7 @@ function EditEventModal({
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Spring Tournament"
             />
           </div>
@@ -985,7 +985,7 @@ function EditEventModal({
             <select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as "PRACTICE" | "EVENT" | "MEETING" })}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             >
               <option value="PRACTICE">Practice</option>
               <option value="EVENT">Tournament</option>
@@ -1002,7 +1002,7 @@ function EditEventModal({
               required
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             />
           </div>
 
@@ -1035,7 +1035,7 @@ function EditEventModal({
                 required
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               />
             </div>
           ) : (
@@ -1047,7 +1047,7 @@ function EditEventModal({
                   required
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                   placeholder="6:00 PM"
                 />
               </div>
@@ -1058,7 +1058,7 @@ function EditEventModal({
                   required
                   value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                   placeholder="8:00 PM"
                 />
               </div>
@@ -1071,7 +1071,7 @@ function EditEventModal({
               type="text"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Main Gym"
             />
           </div>
@@ -1099,7 +1099,7 @@ function EditEventModal({
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className="w-full px-4 py-2 bg-white/8 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+              className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
               placeholder="Event details..."
             />
           </div>
