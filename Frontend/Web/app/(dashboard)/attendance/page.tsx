@@ -352,7 +352,7 @@ export default function Attendance() {
         <div className="bg-white/8 rounded-xl border border-white/8">
           {/* Toolbar */}
           <div className="px-6 py-4 border-b border-white/8 flex flex-col gap-3">
-            {/* Date filter pills */}
+            {/* Row 1: Date filter pills | date inputs */}
             <div className="flex items-center gap-2 flex-wrap">
               {(["ALL", "TODAY", "WEEK", "MONTH", "CUSTOM"] as const).map((v) => (
                 <button
@@ -367,27 +367,30 @@ export default function Attendance() {
                   {v === "ALL" ? "All Time" : v === "TODAY" ? "Today" : v === "WEEK" ? "This Week" : v === "MONTH" ? "This Month" : "Custom"}
                 </button>
               ))}
-              {dateFilter === "CUSTOM" && (
-                <>
-                  <input
-                    type="date"
-                    value={customStart}
-                    onChange={(e) => setCustomStart(e.target.value)}
-                    className="px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark]"
-                  />
-                  <span className="text-white/30 text-xs">—</span>
-                  <input
-                    type="date"
-                    value={customEnd}
-                    min={customStart || undefined}
-                    onChange={(e) => setCustomEnd(e.target.value)}
-                    className="px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs text-white/80 focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark]"
-                  />
-                </>
-              )}
+
+              <div className="h-4 w-px bg-white/8 mx-1" />
+
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => { setCustomStart(e.target.value); setDateFilter("CUSTOM"); }}
+                className={`px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark] transition-colors ${
+                  dateFilter === "CUSTOM" ? "text-white/80" : "text-white/30"
+                }`}
+              />
+              <span className="text-white/30 text-xs">—</span>
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart || undefined}
+                onChange={(e) => { setCustomEnd(e.target.value); setDateFilter("CUSTOM"); }}
+                className={`px-2 py-1.5 bg-white/8 border border-white/8 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-[#6c5ce7] [color-scheme:dark] transition-colors ${
+                  dateFilter === "CUSTOM" ? "text-white/80" : "text-white/30"
+                }`}
+              />
             </div>
 
-            {/* Search + dropdowns */}
+            {/* Row 2: Search + Team + Status */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
