@@ -10,7 +10,6 @@ import {
   GET_MY_EXCUSE_REQUESTS,
   GET_NOTIFICATION_HISTORY,
   GET_PENDING_AD_HOC_CHECK_INS,
-  GET_RECENT_ACTIVITY,
   GET_USER_STATS,
 } from "@/lib/graphql/queries";
 import { CHECK_OUT } from "@/lib/graphql/mutations";
@@ -35,6 +34,41 @@ const AVATAR_SIZE = 45;
 
 const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+const STATUS_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
+  ON_TIME:     { color: "#27ae60", icon: "check-circle", label: "On Time" },
+  LATE:        { color: "#f39c12", icon: "clock",        label: "Late" },
+  ABSENT:      { color: "#e74c3c", icon: "x-circle",     label: "Absent" },
+  EXCUSED:     { color: "#9b59b6", icon: "info",         label: "Excused" },
+  CHECKED_OUT: { color: "#3498db", icon: "log-out",      label: "Completed" },
+};
+
+const EVENT_TYPE_COLORS: Record<string, string> = {
+  PRACTICE: "#6c5ce7",
+  GAME:     "#e74c3c",
+  EVENT:    "#e74c3c",
+  MEETING:  "#f39c12",
+  REST:     "#27ae60",
+};
+
+function formatCheckInDate(raw: string | number): string {
+  if (!raw) return "";
+  const num = Number(raw);
+  const d = !isNaN(num) && String(raw).length > 8
+    ? new Date(num > 9999999999 ? num : num * 1000)
+    : (() => {
+        const s = String(raw);
+        const p = s.includes("T") ? s.split("T")[0] : s;
+        const [y, m, day] = p.split("-").map(Number);
+        return new Date(y, m - 1, day);
+      })();
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
 export default function Index() {
   const router = useRouter();
   const {
@@ -52,15 +86,7 @@ export default function Index() {
     skip: !targetUserId || !selectedOrganization?.id,
   });
 
-  const { data: activityData, loading: activityLoading } = useQuery(GET_RECENT_ACTIVITY, {
-    variables: {
-      organizationId: selectedOrganization?.id,
-      limit: 4,
-    },
-    skip: !selectedOrganization?.id,
-  });
-
-  const { data: activeCheckInData, refetch: refetchActiveCheckIn } = useQuery(GET_ACTIVE_CHECKIN, {
+  const { data: activeCheckInData } = useQuery(GET_ACTIVE_CHECKIN, {
     variables: { userId: isViewingAsGuardian ? targetUserId : undefined },
   });
 
@@ -156,7 +182,6 @@ export default function Index() {
   const pendingAdHocCount = pendingAdHocData?.pendingAdHocCheckIns?.length || 0;
 
   const stats = statsData?.userStats;
-  const recentActivity = activityData?.recentActivity || [];
 
   // Build weekly check-in dots: Sun–Sat with 6 states per day.
   //
@@ -247,11 +272,21 @@ export default function Index() {
     });
   }, [checkinData, weekEventsData, weekExcuseData]);
 
-  // Count today's activity
+  // Count today's attended events from personal check-in history
   const todayCount = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-    return recentActivity.filter((a: any) => a.date === today).length;
-  }, [recentActivity]);
+    const checkIns = checkinData?.checkInHistory || [];
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+    return checkIns.filter((ci: any) => {
+      if (ci.status === "ABSENT") return false;
+      const raw = ci.event?.date ?? ci.checkInTime;
+      if (!raw) return false;
+      const s = String(raw);
+      const p = s.includes("T") ? s.split("T")[0] : s;
+      const [y, m, d] = p.split("-").map(Number);
+      return `${y}-${m - 1}-${d}` === todayKey;
+    }).length;
+  }, [checkinData]);
 
   if (!user) return null;
   if (!selectedOrganization) return <NoOrgScreen title="Dashboard" />;
@@ -438,57 +473,66 @@ export default function Index() {
           </View>
         </View>
 
-        {/* Recent Activity */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <Pressable onPress={() => router.push("/activity")}>
-              <Text style={styles.seeAll}>See All</Text>
-            </Pressable>
-          </View>
-          {activityLoading ? (
-            <View style={[styles.activityList, { paddingVertical: 24 }]}>
-              <ActivityIndicator color="#a855f7" />
-            </View>
-          ) : recentActivity.length === 0 ? (
-            <View style={[styles.activityList, { paddingVertical: 24, alignItems: "center" }]}>
-              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
-                No recent activity
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.activityList}>
-              {recentActivity.map((item: any, i: number) => (
-                <View
-                  key={item.id}
-                  style={[
-                    styles.activityItem,
-                    i < recentActivity.length - 1 && styles.activityItemBorder,
-                  ]}
-                >
-                  <View style={styles.activityIcon}>
-                    <Feather
-                      name={item.type === "check-out" ? "log-out" : "log-in"}
-                      size={16}
-                      color="#a855f7"
-                    />
-                  </View>
-                  <View style={styles.activityInfo}>
-                    <Text style={styles.activityName}>
-                      {item.user.firstName} {item.user.lastName}
-                    </Text>
-                    <Text style={styles.activityTime}>{item.time}</Text>
-                  </View>
-                  <View style={styles.activityBadge}>
-                    <Text style={styles.activityBadgeText}>
-                      {item.type === "check-out" ? "Checked Out" : "Checked In"}
-                    </Text>
-                  </View>
+        {/* Recent Check-In History */}
+        {(() => {
+          const recentCheckIns = (checkinData?.checkInHistory || []).slice(0, 4);
+          return (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Recent Activity</Text>
+                <Pressable onPress={() => router.push("/checkin-history")}>
+                  <Text style={styles.seeAll}>See All</Text>
+                </Pressable>
+              </View>
+              {recentCheckIns.length === 0 ? (
+                <View style={[styles.activityList, { paddingVertical: 24, alignItems: "center" }]}>
+                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
+                    No recent activity
+                  </Text>
                 </View>
-              ))}
+              ) : (
+                <View style={styles.activityList}>
+                  {recentCheckIns.map((item: any, i: number) => {
+                    const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG["ON_TIME"];
+                    const eventColor = EVENT_TYPE_COLORS[item.event?.type] || "#6c5ce7";
+                    return (
+                      <Pressable
+                        key={item.id}
+                        onPress={() => router.push("/checkin-history")}
+                        style={({ pressed }) => [
+                          styles.activityItem,
+                          i < recentCheckIns.length - 1 && styles.activityItemBorder,
+                          pressed && { opacity: 0.7 },
+                        ]}
+                      >
+                        <View style={[styles.activityIcon, { backgroundColor: `${cfg.color}20` }]}>
+                          <Feather name={cfg.icon as any} size={16} color={cfg.color} />
+                        </View>
+                        <View style={styles.activityInfo}>
+                          <Text style={styles.activityName} numberOfLines={1}>
+                            {item.event?.title || "Event"}
+                          </Text>
+                          <View style={styles.activityMeta}>
+                            <View style={[styles.eventDot, { backgroundColor: eventColor }]} />
+                            <Text style={styles.activityTime}>
+                              {formatCheckInDate(item.event?.date ?? item.checkInTime)}
+                              {item.event?.startTime ? ` · ${item.event.startTime}` : ""}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={[styles.activityBadge, { backgroundColor: `${cfg.color}20` }]}>
+                          <Text style={[styles.activityBadgeText, { color: cfg.color }]}>
+                            {cfg.label}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
             </View>
-          )}
-        </View>
+          );
+        })()}
       </ScrollView>
     </LinearGradient>
   );
@@ -766,9 +810,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(168,85,247,0.15)",
     justifyContent: "center",
     alignItems: "center",
+    marginRight: 12,
   },
   activityInfo: {
     flex: 1,
@@ -778,19 +822,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "500",
   },
+  activityMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 2,
+  },
+  eventDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
   activityTime: {
     color: "rgba(255,255,255,0.45)",
     fontSize: 13,
-    marginTop: 2,
   },
   activityBadge: {
-    backgroundColor: "rgba(108,92,231,0.2)",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   activityBadgeText: {
-    color: "#a855f7",
     fontSize: 12,
     fontWeight: "600",
   },
