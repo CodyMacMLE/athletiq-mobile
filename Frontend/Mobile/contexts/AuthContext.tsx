@@ -16,6 +16,7 @@ type User = {
   email: string;
   firstName: string;
   lastName: string;
+  dateOfBirth?: string | null;
   phone?: string;
   address?: string;
   city?: string;

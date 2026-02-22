@@ -10,6 +10,7 @@ export const USER_FRAGMENT = gql`
     email
     firstName
     lastName
+    dateOfBirth
     phone
     address
     city

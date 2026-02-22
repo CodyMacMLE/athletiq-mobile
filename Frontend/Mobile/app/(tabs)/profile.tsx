@@ -8,6 +8,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   ActivityIndicator,
   Alert,
@@ -49,6 +50,7 @@ type ModalMode =
   | { type: "single"; key: string; label: string; placeholder: string; keyboardType?: "default" | "email-address" | "phone-pad" }
   | { type: "name" }
   | { type: "location" }
+  | { type: "dob" }
   | { type: "emergencyContact"; contact?: EmergencyContact }
   | { type: "medicalInfo" };
 
@@ -69,6 +71,10 @@ export default function Profile() {
   const [editAddress, setEditAddress] = useState("");
   const [editCity, setEditCity] = useState("");
   const [editCountry, setEditCountry] = useState("");
+
+  // DOB edit state
+  const [editDob, setEditDob] = useState<Date>(new Date());
+  const [showAndroidDobPicker, setShowAndroidDobPicker] = useState(false);
 
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -213,6 +219,19 @@ export default function Profile() {
     setEditModalVisible(true);
   };
 
+  const openDobModal = () => {
+    const existing = user.dateOfBirth
+      ? new Date(isNaN(Number(user.dateOfBirth)) ? user.dateOfBirth : Number(user.dateOfBirth))
+      : new Date(2000, 0, 1);
+    setEditDob(existing);
+    if (Platform.OS === "android") {
+      setShowAndroidDobPicker(true);
+    } else {
+      setModalMode({ type: "dob" });
+      setEditModalVisible(true);
+    }
+  };
+
   const openSingleModal = (key: string, label: string, placeholder: string, keyboardType?: "default" | "email-address" | "phone-pad") => {
     setModalMode({ type: "single", key, label, placeholder, keyboardType });
     setEditValue((user as Record<string, any>)[key] || "");
@@ -261,6 +280,8 @@ export default function Profile() {
           input = { firstName: editFirstName, lastName: editLastName };
         } else if (modalMode.type === "location") {
           input = { address: editAddress, city: editCity, country: editCountry };
+        } else if (modalMode.type === "dob") {
+          input = { dateOfBirth: editDob.toISOString() };
         }
         await updateUser({ variables: { id: user.id, input } });
         refetchUser();
@@ -444,6 +465,26 @@ export default function Profile() {
       );
     }
 
+    if (modalMode.type === "dob") {
+      return (
+        <>
+          <Text style={styles.editModalTitle}>Date of Birth</Text>
+          <View style={{ alignItems: "center", paddingVertical: 8 }}>
+            <DateTimePicker
+              value={editDob}
+              mode="date"
+              display="spinner"
+              maximumDate={new Date()}
+              onChange={(_, date) => { if (date) setEditDob(date); }}
+              textColor="white"
+              themeVariant="dark"
+              style={{ width: "100%" }}
+            />
+          </View>
+        </>
+      );
+    }
+
     if (modalMode.type === "medicalInfo") {
       return (
         <>
@@ -476,6 +517,27 @@ export default function Profile() {
       locations={[0.1, 0.6, 1]}
     >
       <StatusBar style="light" />
+
+      {/* Android DOB Picker (renders inline outside modal) */}
+      {showAndroidDobPicker && (
+        <DateTimePicker
+          value={editDob}
+          mode="date"
+          display="default"
+          maximumDate={new Date()}
+          onChange={async (_, date) => {
+            setShowAndroidDobPicker(false);
+            if (date) {
+              try {
+                await updateUser({ variables: { id: user.id, input: { dateOfBirth: date.toISOString() } } });
+                refetchUser();
+              } catch (err: any) {
+                Alert.alert("Error", err.message || "Failed to save date of birth");
+              }
+            }
+          }}
+        />
+      )}
 
       {/* Edit Modal */}
       <Modal
@@ -629,6 +691,31 @@ export default function Profile() {
                   style={[styles.fieldValue, !user.phone && styles.fieldValueEmpty]}
                 >
                   {user.phone || "Not set"}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
+            </Pressable>
+
+            {/* Date of Birth row */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.fieldItem,
+                styles.fieldItemBorder,
+                pressed && styles.fieldItemPressed,
+              ]}
+              onPress={openDobModal}
+            >
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldLabel}>Date of Birth</Text>
+                <Text style={[styles.fieldValue, !user.dateOfBirth && styles.fieldValueEmpty]}>
+                  {user.dateOfBirth
+                    ? (() => {
+                        const dob = new Date(isNaN(Number(user.dateOfBirth)) ? user.dateOfBirth : Number(user.dateOfBirth));
+                        const today = new Date();
+                        const age = today.getFullYear() - dob.getFullYear() - (today < new Date(today.getFullYear(), dob.getMonth(), dob.getDate()) ? 1 : 0);
+                        return `${dob.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} · ${age} yrs`;
+                      })()
+                    : "Not set"}
                 </Text>
               </View>
               <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.3)" />
