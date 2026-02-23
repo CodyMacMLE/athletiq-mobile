@@ -17,7 +17,6 @@ import {
   Menu,
   X,
   Megaphone,
-  Heart,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -149,38 +148,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
-
-          {currentOrgRole === "GUARDIAN" && (
-            <>
-              {!sidebarCollapsed && (
-                <div className="pt-4 pb-2">
-                  <p className="px-3 text-xs font-semibold text-white/40 uppercase">Guardian</p>
-                </div>
-              )}
-              {sidebarCollapsed && <div className="border-t border-white/8 my-2"></div>}
-              {[
-                { name: "My Athletes", href: "/guardian", icon: Heart },
-                { name: "Email Reports", href: "/guardian/email-reports", icon: Calendar },
-              ].map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      isActive
-                        ? "bg-[#6c5ce7] text-white"
-                        : "text-white/75 hover:bg-white/10 hover:text-white"
-                    } ${sidebarCollapsed ? "justify-center" : ""}`}
-                    title={sidebarCollapsed ? item.name : ""}
-                  >
-                    <item.icon className={`w-5 h-5 ${sidebarCollapsed ? "" : "mr-3"}`} />
-                    {!sidebarCollapsed && item.name}
-                  </Link>
-                );
-              })}
-            </>
-          )}
 
           {canEdit && (
             <>
