@@ -277,7 +277,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           sidebarCollapsed ? "pl-20" : "pl-64"
         }`}
       >
-        <main className="p-8">{children}</main>
+        <main className="p-8 overflow-x-hidden">{children}</main>
       </div>
     </div>
   );
