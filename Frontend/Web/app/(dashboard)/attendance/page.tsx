@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
 import {
   GET_PENDING_EXCUSE_REQUESTS,
   GET_ALL_ATTENDANCE_RECORDS,
@@ -11,6 +12,8 @@ import {
   GET_TEAMS,
   UPDATE_EXCUSE_REQUEST,
   CHECK_OUT,
+  ADMIN_CHECK_IN,
+  DELETE_CHECK_IN,
   MARK_ABSENT_FOR_PAST_EVENTS,
   APPROVE_AD_HOC_CHECK_IN,
   DENY_AD_HOC_CHECK_IN,
@@ -29,6 +32,8 @@ import {
   ArrowUpDown,
   Users,
   MessageCircle,
+  Edit2,
+  X,
 } from "lucide-react";
 
 // ============================================
@@ -100,7 +105,9 @@ function SortHeader({
 
 export default function Attendance() {
   const { selectedOrganizationId, canEdit } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"attendance" | "excuses" | "adhoc">("attendance");
+  const [modifyRecord, setModifyRecord] = useState<AttendanceRecord | null>(null);
   const autoAbsentFired = useRef(false);
 
   // Table state
@@ -492,7 +499,11 @@ export default function Attendance() {
                       (record.status === "ON_TIME" || record.status === "LATE");
 
                     return (
-                      <tr key={record.id} className="hover:bg-white/4 transition-colors">
+                      <tr
+                        key={record.id}
+                        onClick={() => router.push(`/events/${record.event.id}`)}
+                        className="hover:bg-white/4 transition-colors cursor-pointer"
+                      >
                         {/* Athlete */}
                         <td className="px-6 py-3">
                           <div className="flex items-center gap-3">
@@ -557,16 +568,25 @@ export default function Attendance() {
                         </td>
                         {/* Actions */}
                         {canEdit && (
-                          <td className="px-6 py-3">
-                            {canDoCheckOut && (
+                          <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
+                              {canDoCheckOut && (
+                                <button
+                                  onClick={() => handleCheckOut(record.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/20 text-orange-400 rounded-lg text-xs font-medium hover:bg-orange-500/30 transition-colors"
+                                >
+                                  <LogOut className="w-3.5 h-3.5" />
+                                  Check Out
+                                </button>
+                              )}
                               <button
-                                onClick={() => handleCheckOut(record.id)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/20 text-orange-400 rounded-lg text-xs font-medium hover:bg-orange-500/30 transition-colors"
+                                onClick={() => setModifyRecord(record)}
+                                className="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                title="Edit attendance"
                               >
-                                <LogOut className="w-3.5 h-3.5" />
-                                Check Out
+                                <Edit2 className="w-3.5 h-3.5" />
                               </button>
-                            )}
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -777,6 +797,208 @@ export default function Attendance() {
         </div>
       )}
 
+      {/* Modify Attendance Modal */}
+      {modifyRecord && (
+        <ModifyAttendanceModal
+          eventId={modifyRecord.event.id}
+          userId={modifyRecord.user.id}
+          athleteName={`${modifyRecord.user.firstName} ${modifyRecord.user.lastName}`}
+          existingCheckIn={modifyRecord}
+          onClose={() => setModifyRecord(null)}
+          onSuccess={() => {
+            setModifyRecord(null);
+            refetchRecords();
+            refetchCount();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// ModifyAttendanceModal
+// ============================================
+
+function toLocalDatetimeValue(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  const num = Number(dateStr);
+  const d = isNaN(num) ? new Date(dateStr) : new Date(num);
+  if (isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const mins = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${mins}`;
+}
+
+function ModifyAttendanceModal({
+  eventId,
+  userId,
+  athleteName,
+  existingCheckIn,
+  onClose,
+  onSuccess,
+}: {
+  eventId: string;
+  userId: string;
+  athleteName: string;
+  existingCheckIn?: { id: string; status: string; checkInTime?: string; checkOutTime?: string; note?: string };
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [status, setStatus] = useState<string>(existingCheckIn?.status || "ON_TIME");
+  const [note, setNote] = useState(existingCheckIn?.note || "");
+  const [checkInTimeValue, setCheckInTimeValue] = useState(toLocalDatetimeValue(existingCheckIn?.checkInTime));
+  const [checkOutTimeValue, setCheckOutTimeValue] = useState(toLocalDatetimeValue(existingCheckIn?.checkOutTime));
+  const [saving, setSaving] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  const [adminCheckIn] = useMutation<any>(ADMIN_CHECK_IN);
+  const [deleteCheckIn] = useMutation<any>(DELETE_CHECK_IN);
+
+  const handleClear = async () => {
+    setClearing(true);
+    try {
+      await deleteCheckIn({ variables: { userId, eventId } });
+      onSuccess();
+    } catch (error) {
+      console.error("Failed to clear attendance:", error);
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await adminCheckIn({
+        variables: {
+          input: {
+            userId,
+            eventId,
+            status,
+            note: note.trim() || undefined,
+            checkInTime: checkInTimeValue ? new Date(checkInTimeValue).toISOString() : null,
+            checkOutTime: checkOutTimeValue ? new Date(checkOutTimeValue).toISOString() : null,
+          },
+        },
+      });
+      onSuccess();
+    } catch (error) {
+      console.error("Failed to update attendance:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const STATUS_OPTIONS = [
+    { value: "ON_TIME", label: "On Time", color: "bg-green-600 hover:bg-green-700" },
+    { value: "LATE", label: "Late", color: "bg-yellow-600 hover:bg-yellow-700" },
+    { value: "ABSENT", label: "Absent", color: "bg-red-600 hover:bg-red-700" },
+    { value: "EXCUSED", label: "Excused", color: "bg-[#6c5ce7] hover:bg-[#5a4dd4]" },
+  ];
+
+  return (
+    <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+      <div className="bg-white/8 backdrop-blur-xl rounded-xl border border-white/15 shadow-2xl p-6 w-full max-w-md">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-white">Modify Attendance</h2>
+          <button onClick={onClose} className="text-white/55 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <p className="text-white/55 text-sm mb-4">
+          Updating attendance for <span className="text-white font-medium">{athleteName}</span>
+        </p>
+
+        {/* Status Buttons */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-white/55 mb-2">Status</label>
+          <div className="grid grid-cols-2 gap-2">
+            {STATUS_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setStatus(opt.value)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  status === opt.value
+                    ? `${opt.color} text-white`
+                    : "bg-white/8 text-white/55 hover:text-white"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Check-In Time */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-white/55 mb-1">Check-In Time</label>
+          <input
+            type="datetime-local"
+            value={checkInTimeValue}
+            onChange={(e) => setCheckInTimeValue(e.target.value)}
+            className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] [color-scheme:dark]"
+          />
+        </div>
+
+        {/* Check-Out Time */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-white/55 mb-1">Check-Out Time</label>
+          <input
+            type="datetime-local"
+            value={checkOutTimeValue}
+            onChange={(e) => setCheckOutTimeValue(e.target.value)}
+            className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] [color-scheme:dark]"
+          />
+        </div>
+
+        {/* Note */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-white/55 mb-1">Note (optional)</label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={2}
+            className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
+            placeholder="Add a note..."
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-between gap-3">
+          {existingCheckIn ? (
+            <button
+              onClick={handleClear}
+              disabled={clearing || saving}
+              className="px-4 py-2 text-red-400 hover:text-red-300 hover:bg-red-600/10 rounded-lg transition-colors text-sm disabled:opacity-50"
+            >
+              {clearing ? "Clearing..." : "Clear Status"}
+            </button>
+          ) : (
+            <div />
+          )}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-white/55 hover:text-white transition-colors text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || clearing}
+              className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors text-sm disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
