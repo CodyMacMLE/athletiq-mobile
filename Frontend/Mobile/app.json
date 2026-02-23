@@ -2,6 +2,7 @@
   "expo": {
     "name": "Athletiq",
     "slug": "athletiq",
+    "owner": "astral-tech-solutions",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -25,7 +26,7 @@
           "remote-notification"
         ]
       },
-      "bundleIdentifier": "com.anonymous.athletiq"
+      "bundleIdentifier": "com.astraltechsolutions.athletiq"
     },
     "android": {
       "permissions": [
@@ -40,7 +41,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.athletiq"
+      "package": "com.astraltechsolutions.athletiq"
     },
     "web": {
       "output": "static",
