@@ -94,6 +94,19 @@ model Organization {
   emergencyContacts  EmergencyContact[]
   medicalInfos       MedicalInfo[]
   venues             Venue[]
+  orgReportSendRecords OrgReportSendRecord[]
+}
+
+// Tracks when each org-level report frequency was last sent
+model OrgReportSendRecord {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  frequency      String
+  lastSentAt     DateTime
+
+  @@unique([organizationId, frequency])
+  @@index([organizationId])
 }
 
 model OrgSeason {
@@ -545,9 +558,11 @@ enum AnnouncementTarget {
 
 enum ReportFrequency {
   WEEKLY
+  BIMONTHLY
   MONTHLY
   QUARTERLY
   BIANNUALLY
+  ANNUALLY
 }
 
 enum NotificationType {
