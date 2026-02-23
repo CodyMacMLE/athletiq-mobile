@@ -648,7 +648,6 @@ export default function SettingsPage() {
             <div className="space-y-3">
               {[
                 { value: "WEEKLY", label: "Weekly", description: "Every week" },
-                { value: "BIMONTHLY", label: "Bi-monthly", description: "Twice a month" },
                 { value: "MONTHLY", label: "Monthly", description: "Once a month" },
                 { value: "QUARTERLY", label: "Quarterly", description: "Every 3 months" },
                 { value: "BIANNUALLY", label: "Bi-annually", description: "Twice a year" },

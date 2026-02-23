@@ -22,8 +22,6 @@ function isDueForSending(
   switch (frequency) {
     case "WEEKLY":
       return daysSinceLastSent >= 7;
-    case "BIMONTHLY":
-      return daysSinceLastSent >= 15;
     case "MONTHLY":
       return daysSinceLastSent >= 30;
     case "QUARTERLY":

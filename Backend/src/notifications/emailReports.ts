@@ -22,9 +22,6 @@ function getDateRange(frequency: string): { startDate: Date; endDate: Date } {
     case "WEEKLY":
       startDate.setDate(endDate.getDate() - 7);
       break;
-    case "BIMONTHLY":
-      startDate.setDate(endDate.getDate() - 15);
-      break;
     case "MONTHLY":
       startDate.setMonth(endDate.getMonth() - 1);
       break;
