@@ -659,7 +659,7 @@ model EmailReportConfig {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
-  @@unique([userId, organizationId])
+  @@unique([userId, organizationId, frequency])
   @@index([userId])
   @@index([organizationId])
   @@index([enabled, frequency])
