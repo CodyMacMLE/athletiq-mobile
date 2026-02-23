@@ -97,8 +97,8 @@ export default function EmailReportsPage() {
   const [sendTestReport] = useMutation(SEND_TEST_REPORT);
 
   const isGuardian = currentOrgRole === "GUARDIAN";
-  const configs: any[] = configsData?.myEmailReportConfigs || [];
-  const linkedAthletes: any[] = athletesData?.myLinkedAthletes || [];
+  const configs: any[] = (configsData as any)?.myEmailReportConfigs || [];
+  const linkedAthletes: any[] = (athletesData as any)?.myLinkedAthletes || [];
 
   // Build a map of frequency → config for the selected org
   const configsByFreq = new Map<string, any>(
