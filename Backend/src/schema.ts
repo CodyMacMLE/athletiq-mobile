@@ -195,6 +195,7 @@ export const typeDefs = `#graphql
     memberCount: Int!
     adminHealthAccess: AdminHealthAccess!
     coachHealthAccess: CoachHealthAccess!
+    reportFrequencies: [String!]!
   }
 
   type OrgSeason {
@@ -1000,6 +1001,6 @@ export const typeDefs = `#graphql
     updateEmergencyContact(id: ID!, input: UpdateEmergencyContactInput!): EmergencyContact!
     deleteEmergencyContact(id: ID!): Boolean!
     upsertMedicalInfo(input: UpsertMedicalInfoInput!): MedicalInfo!
-    updateOrganizationSettings(id: ID!, adminHealthAccess: AdminHealthAccess, coachHealthAccess: CoachHealthAccess): Organization!
+    updateOrganizationSettings(id: ID!, adminHealthAccess: AdminHealthAccess, coachHealthAccess: CoachHealthAccess, reportFrequencies: [String!]): Organization!
   }
 `;

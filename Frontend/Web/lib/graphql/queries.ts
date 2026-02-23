@@ -119,6 +119,7 @@ export const GET_ORGANIZATION = gql`
       memberCount
       adminHealthAccess
       coachHealthAccess
+      reportFrequencies
       teams {
         ...TeamFields
       }

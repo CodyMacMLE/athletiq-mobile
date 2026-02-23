@@ -3734,12 +3734,13 @@ export const resolvers = {
       });
     },
 
-    updateOrganizationSettings: async (_: unknown, { id, adminHealthAccess, coachHealthAccess }: { id: string; adminHealthAccess?: string; coachHealthAccess?: string }) => {
+    updateOrganizationSettings: async (_: unknown, { id, adminHealthAccess, coachHealthAccess, reportFrequencies }: { id: string; adminHealthAccess?: string; coachHealthAccess?: string; reportFrequencies?: string[] }) => {
       return prisma.organization.update({
         where: { id },
         data: {
           ...(adminHealthAccess !== undefined && { adminHealthAccess: adminHealthAccess as any }),
           ...(coachHealthAccess !== undefined && { coachHealthAccess: coachHealthAccess as any }),
+          ...(reportFrequencies !== undefined && { reportFrequencies }),
         },
       });
     },

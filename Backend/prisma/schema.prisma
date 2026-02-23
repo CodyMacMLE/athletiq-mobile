@@ -74,8 +74,9 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  adminHealthAccess AdminHealthAccess @default(ADMINS_ONLY)
-  coachHealthAccess CoachHealthAccess @default(TEAM_ONLY)
+  adminHealthAccess   AdminHealthAccess @default(ADMINS_ONLY)
+  coachHealthAccess   CoachHealthAccess @default(TEAM_ONLY)
+  reportFrequencies   String[]
 
   // Relations
   teams                Team[]

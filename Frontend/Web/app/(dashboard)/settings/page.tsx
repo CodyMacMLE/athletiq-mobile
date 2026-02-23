@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { GET_ORG_SEASONS, CREATE_ORG_SEASON, UPDATE_ORG_SEASON, DELETE_ORG_SEASON, GET_ORGANIZATION, UPDATE_ORGANIZATION_SETTINGS, GET_ORGANIZATION_VENUES, CREATE_VENUE, UPDATE_VENUE, DELETE_VENUE } from "@/lib/graphql";
-import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield, Heart, Building2 } from "lucide-react";
+import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield, Heart, Building2, Bell } from "lucide-react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -46,6 +46,9 @@ export default function SettingsPage() {
   const [coachHealthAccess, setCoachHealthAccess] = useState<string>("TEAM_ONLY");
   const [healthSaving, setHealthSaving] = useState(false);
   const [healthSaved, setHealthSaved] = useState(false);
+  const [reportFrequencies, setReportFrequencies] = useState<string[]>([]);
+  const [reportSaving, setReportSaving] = useState(false);
+  const [reportSaved, setReportSaved] = useState(false);
 
   // Venues
   const [showVenueForm, setShowVenueForm] = useState(false);
@@ -67,6 +70,7 @@ export default function SettingsPage() {
     if (orgData?.organization) {
       if (orgData.organization.adminHealthAccess) setAdminHealthAccess(orgData.organization.adminHealthAccess);
       if (orgData.organization.coachHealthAccess) setCoachHealthAccess(orgData.organization.coachHealthAccess);
+      if (orgData.organization.reportFrequencies) setReportFrequencies(orgData.organization.reportFrequencies);
     }
   }, [orgData]);
 
@@ -159,6 +163,28 @@ export default function SettingsPage() {
     } finally {
       setHealthSaving(false);
     }
+  };
+
+  const handleSaveReportFrequencies = async () => {
+    if (!selectedOrganizationId) return;
+    setReportSaving(true);
+    try {
+      await updateOrganizationSettings({
+        variables: { id: selectedOrganizationId, reportFrequencies },
+      });
+      setReportSaved(true);
+      setTimeout(() => setReportSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save report settings:", err);
+    } finally {
+      setReportSaving(false);
+    }
+  };
+
+  const toggleReportFrequency = (value: string) => {
+    setReportFrequencies((prev) =>
+      prev.includes(value) ? prev.filter((f) => f !== value) : [...prev, value]
+    );
   };
 
   const handleDelete = async (season: OrgSeason) => {
@@ -604,6 +630,64 @@ export default function SettingsPage() {
             )}
 
             {showVenueForm && <VenueForm isEditing={false} values={venueForm} onChange={setVenueForm} onCancel={resetVenueForm} onSubmit={handleCreateVenue} />}
+          </div>
+        </section>
+      )}
+
+      {/* Attendance Reports */}
+      {canManageOrg && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Bell className="w-5 h-5 text-[#a78bfa]" />
+            <h2 className="text-lg font-semibold text-white">Attendance Reports</h2>
+          </div>
+          <div className="bg-white/8 rounded-lg border border-white/8 p-4 space-y-5">
+            <p className="text-sm text-white/55">
+              Choose how often parents and guardians receive automated attendance reports for their athletes. Select all frequencies that apply — guardians will receive reports at each selected interval.
+            </p>
+            <div className="space-y-3">
+              {[
+                { value: "WEEKLY", label: "Weekly", description: "Every week" },
+                { value: "BIMONTHLY", label: "Bi-monthly", description: "Twice a month" },
+                { value: "MONTHLY", label: "Monthly", description: "Once a month" },
+                { value: "QUARTERLY", label: "Quarterly", description: "Every 3 months" },
+                { value: "BIANNUALLY", label: "Bi-annually", description: "Twice a year" },
+                { value: "ANNUALLY", label: "Annually", description: "Once a year" },
+              ].map((option) => {
+                const active = reportFrequencies.includes(option.value);
+                return (
+                  <div
+                    key={option.value}
+                    className="flex items-center justify-between px-3 py-2.5 bg-white/5 rounded-lg cursor-pointer hover:bg-white/8 transition-colors"
+                    onClick={() => toggleReportFrequency(option.value)}
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-white">{option.label}</p>
+                      <p className="text-xs text-white/40">{option.description}</p>
+                    </div>
+                    {/* Toggle switch */}
+                    <div
+                      className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
+                        active ? "bg-[#6c5ce7]" : "bg-white/15"
+                      }`}
+                    >
+                      <div
+                        className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                          active ? "translate-x-5" : "translate-x-0.5"
+                        }`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              onClick={handleSaveReportFrequencies}
+              disabled={reportSaving}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50"
+            >
+              {reportSaved ? <><Check className="w-4 h-4" /> Saved</> : reportSaving ? "Saving..." : <><Check className="w-4 h-4" /> Save</>}
+            </button>
           </div>
         </section>
       )}
