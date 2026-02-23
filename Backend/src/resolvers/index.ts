@@ -3741,6 +3741,11 @@ export const resolvers = {
     },
 
     updateOrganizationSettings: async (_: unknown, { id, adminHealthAccess, coachHealthAccess, reportFrequencies }: { id: string; adminHealthAccess?: string; coachHealthAccess?: string; reportFrequencies?: string[] }) => {
+      if (reportFrequencies !== undefined) {
+        await prisma.orgReportSendRecord.deleteMany({
+          where: { organizationId: id, frequency: { notIn: reportFrequencies } },
+        });
+      }
       return prisma.organization.update({
         where: { id },
         data: {
