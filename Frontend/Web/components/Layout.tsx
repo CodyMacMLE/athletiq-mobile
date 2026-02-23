@@ -65,7 +65,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen overflow-x-hidden"
       style={{ background: "linear-gradient(160deg, #302b6f 10%, #4d2a69 60%, #302b6f 100%)" }}
     >
       {/* Sidebar */}
@@ -277,7 +277,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           sidebarCollapsed ? "pl-20" : "pl-64"
         }`}
       >
-        <main className="p-8 overflow-x-hidden">{children}</main>
+        <main className="p-8">{children}</main>
       </div>
     </div>
   );
