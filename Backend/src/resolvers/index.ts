@@ -1679,10 +1679,13 @@ export const resolvers = {
       });
       const teamIds = orgTeams.map((t) => t.id);
 
-      // Remove user from all teams in this org, then remove org membership
+      // Remove user from all teams in this org, then remove org membership and report configs
       await prisma.$transaction([
         prisma.teamMember.deleteMany({
           where: { userId, teamId: { in: teamIds } },
+        }),
+        prisma.emailReportConfig.deleteMany({
+          where: { userId, organizationId },
         }),
         prisma.organizationMember.delete({
           where: { userId_organizationId: { userId, organizationId } },
@@ -1709,6 +1712,9 @@ export const resolvers = {
       await prisma.$transaction([
         prisma.teamMember.deleteMany({
           where: { userId: context.userId, teamId: { in: teamIds } },
+        }),
+        prisma.emailReportConfig.deleteMany({
+          where: { userId: context.userId, organizationId },
         }),
         prisma.organizationMember.delete({
           where: { userId_organizationId: { userId: context.userId, organizationId } },
