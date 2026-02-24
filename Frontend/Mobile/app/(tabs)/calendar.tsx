@@ -1517,7 +1517,7 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     width: Math.floor((SCREEN_WIDTH - 40) / 7),
-    height: 40,
+    height: 48,
     alignItems: "center",
     justifyContent: "flex-start",
   },
@@ -1543,7 +1543,7 @@ const styles = StyleSheet.create({
   eventDots: {
     flexDirection: "row",
     gap: 3,
-    marginTop: 2,
+    marginTop: 5,
   },
   eventDot: {
     width: 6,

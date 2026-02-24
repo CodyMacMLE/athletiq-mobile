@@ -746,7 +746,7 @@ const styles = StyleSheet.create({
   calendarGrid: { flexDirection: "row", flexWrap: "wrap" },
   dayCell: {
     width: Math.floor((SCREEN_WIDTH - 40) / 7),
-    height: 40,
+    height: 48,
     alignItems: "center",
     justifyContent: "flex-start",
   },
@@ -761,7 +761,7 @@ const styles = StyleSheet.create({
   dayNumberChecked: { backgroundColor: "rgba(108,92,231,0.4)", borderWidth: 1.5, borderColor: "#6c5ce7" },
   dayText: { color: "white", fontSize: 14, fontWeight: "500" },
   dayTextHighlighted: { fontWeight: "bold" },
-  eventDots: { flexDirection: "row", gap: 3, marginTop: 2 },
+  eventDots: { flexDirection: "row", gap: 3, marginTop: 5 },
   eventDot: { width: 6, height: 6, borderRadius: 3 },
 
   // Summary cards

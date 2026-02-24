@@ -14,34 +14,87 @@ import {
   UserCog,
   ClipboardList,
   ChevronDown,
+  ChevronRight,
   Menu,
   X,
   Megaphone,
   DollarSign,
+  Building2,
+  TrendingUp,
+  Briefcase,
+  FileCheck,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: Home },
-  { name: "Users", href: "/users", icon: Users },
-  { name: "Teams", href: "/teams", icon: UserCog },
-  { name: "Events", href: "/events", icon: Calendar },
-  { name: "Attendance", href: "/attendance", icon: ClipboardList },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "Announcements", href: "/announcements", icon: Megaphone },
+// ─── Nav definition ───────────────────────────────────────────────────────────
+
+type NavChild = {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+type NavGroup = {
+  type: "group";
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
+  children: NavChild[];
+};
+
+type NavItem = {
+  type: "item";
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
+};
+
+type NavEntry = NavItem | NavGroup;
+
+const NAV: NavEntry[] = [
+  { type: "item",  name: "Dashboard",     href: "/dashboard",     icon: Home },
+  { type: "item",  name: "Announcements", href: "/announcements", icon: Megaphone },
+  {
+    type: "group",
+    name: "Organization",
+    icon: Building2,
+    children: [
+      { name: "Users",   href: "/users",   icon: Users },
+      { name: "Teams",   href: "/teams",   icon: UserCog },
+      { name: "Events",  href: "/events",  icon: Calendar },
+    ],
+  },
+  {
+    type: "group",
+    name: "Athletes",
+    icon: TrendingUp,
+    children: [
+      { name: "Attendance", href: "/attendance", icon: ClipboardList },
+      { name: "Analytics",  href: "/analytics",  icon: BarChart3 },
+    ],
+  },
+  {
+    type: "group",
+    name: "Staff",
+    icon: Briefcase,
+    adminOnly: true,
+    children: [
+      { name: "Payroll",           href: "/payroll",           icon: DollarSign },
+      { name: "Absence Requests",  href: "/absence-requests",  icon: FileCheck },
+    ],
+  },
+  { type: "item", name: "Settings", href: "/settings", icon: Settings, adminOnly: true },
 ];
 
-const adminOnlyNavigation = [
-  { name: "Payroll", href: "/payroll", icon: DollarSign },
-  { name: "Settings", href: "/settings", icon: Settings },
-];
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { user, currentRole, isAdmin, canEdit, currentOrgRole, selectedOrganizationId, logout } = useAuth();
+  const { user, canEdit, selectedOrganizationId, logout } = useAuth();
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
   const teamOrgs = user?.memberships?.map((m) => m.team.organization) || [];
   const orgMemberOrgs = user?.organizationMemberships?.map((m) => m.organization) || [];
@@ -49,20 +102,126 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const uniqueOrgs = [...new Map(allOrgs.map((o) => [o.id, o])).values()];
   const selectedOrg = uniqueOrgs.find((o) => o.id === selectedOrganizationId);
 
-  // Handle responsive behavior
+  // Auto-expand the group whose child matches the current route
+  useEffect(() => {
+    const active = new Set<string>();
+    for (const entry of NAV) {
+      if (entry.type === "group") {
+        if (entry.children.some((c) => pathname.startsWith(c.href))) {
+          active.add(entry.name);
+        }
+      }
+    }
+    setOpenGroups(active);
+  }, [pathname]);
+
+  // Collapse sidebar on small screens
   useEffect(() => {
     const handleResize = () => {
-      const mobile = window.innerWidth < 1024; // lg breakpoint
-      setIsMobile(mobile);
-      if (mobile) {
-        setSidebarCollapsed(true);
-      }
+      if (window.innerWidth < 1024) setSidebarCollapsed(true);
     };
-
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const toggleGroup = (name: string) => {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      next.has(name) ? next.delete(name) : next.add(name);
+      return next;
+    });
+  };
+
+  const isChildActive = (entry: NavGroup) =>
+    entry.children.some((c) => pathname.startsWith(c.href));
+
+  // ─── Render helpers ─────────────────────────────────────────────────────────
+
+  function renderItem(item: NavItem) {
+    if (item.adminOnly && !canEdit) return null;
+    const active = pathname === item.href;
+    return (
+      <Link
+        key={item.name}
+        href={item.href}
+        title={sidebarCollapsed ? item.name : ""}
+        className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+          active ? "bg-[#6c5ce7] text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+        } ${sidebarCollapsed ? "justify-center" : ""}`}
+      >
+        <item.icon className={`w-5 h-5 shrink-0 ${sidebarCollapsed ? "" : "mr-3"}`} />
+        {!sidebarCollapsed && item.name}
+      </Link>
+    );
+  }
+
+  function renderGroup(group: NavGroup) {
+    if (group.adminOnly && !canEdit) return null;
+
+    const isOpen = openGroups.has(group.name);
+    const hasActiveChild = isChildActive(group);
+
+    if (sidebarCollapsed) {
+      // Collapsed: show group icon linking to first child
+      const firstHref = group.children[0]?.href ?? "#";
+      return (
+        <Link
+          key={group.name}
+          href={firstHref}
+          title={group.name}
+          className={`flex justify-center items-center px-3 py-2 rounded-lg transition-colors ${
+            hasActiveChild ? "bg-[#6c5ce7]/30 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <group.icon className="w-5 h-5 shrink-0" />
+        </Link>
+      );
+    }
+
+    return (
+      <div key={group.name}>
+        {/* Group header */}
+        <button
+          onClick={() => toggleGroup(group.name)}
+          className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+            hasActiveChild && !isOpen
+              ? "text-white bg-white/8"
+              : "text-white/70 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <group.icon className="w-5 h-5 shrink-0 mr-3" />
+          <span className="flex-1 text-left">{group.name}</span>
+          <ChevronRight
+            className={`w-4 h-4 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}
+          />
+        </button>
+
+        {/* Children */}
+        {isOpen && (
+          <div className="mt-0.5 ml-4 pl-3 border-l border-white/10 space-y-0.5">
+            {group.children.map((child) => {
+              const active = pathname.startsWith(child.href);
+              return (
+                <Link
+                  key={child.name}
+                  href={child.href}
+                  className={`flex items-center px-3 py-2 text-sm rounded-lg transition-colors ${
+                    active ? "bg-[#6c5ce7] text-white font-medium" : "text-white/60 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <child.icon className="w-4 h-4 shrink-0 mr-2.5" />
+                  {child.name}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── JSX ────────────────────────────────────────────────────────────────────
 
   return (
     <div
@@ -106,17 +265,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 className="w-full flex items-center justify-between px-3 py-2 text-sm bg-white/10 rounded-lg text-white hover:bg-white/12 transition-colors"
               >
                 <span className="truncate">{selectedOrg?.name || "Select Organization"}</span>
-                <ChevronDown className="w-4 h-4 ml-2" />
+                <ChevronDown className="w-4 h-4 ml-2 shrink-0" />
               </button>
               {orgDropdownOpen && uniqueOrgs.length > 1 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white/10 rounded-lg shadow-lg overflow-hidden z-10">
                   {uniqueOrgs.map((org) => (
                     <button
                       key={org.id}
-                      onClick={() => {
-                        // setSelectedOrganizationId(org.id);
-                        setOrgDropdownOpen(false);
-                      }}
+                      onClick={() => setOrgDropdownOpen(false)}
                       className={`w-full px-3 py-2 text-sm text-left hover:bg-white/12 transition-colors ${
                         org.id === selectedOrganizationId ? "text-[#a78bfa]" : "text-white"
                       }`}
@@ -131,53 +287,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                  isActive
-                    ? "bg-[#6c5ce7] text-white"
-                    : "text-white/75 hover:bg-white/10 hover:text-white"
-                } ${sidebarCollapsed ? "justify-center" : ""}`}
-                title={sidebarCollapsed ? item.name : ""}
-              >
-                <item.icon className={`w-5 h-5 ${sidebarCollapsed ? "" : "mr-3"}`} />
-                {!sidebarCollapsed && item.name}
-              </Link>
-            );
-          })}
-
-          {canEdit && (
-            <>
-              {!sidebarCollapsed && (
-                <div className="pt-4 pb-2">
-                  <p className="px-3 text-xs font-semibold text-white/40 uppercase">Admin</p>
-                </div>
-              )}
-              {sidebarCollapsed && <div className="border-t border-white/8 my-2"></div>}
-              {adminOnlyNavigation.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      isActive
-                        ? "bg-[#6c5ce7] text-white"
-                        : "text-white/75 hover:bg-white/10 hover:text-white"
-                    } ${sidebarCollapsed ? "justify-center" : ""}`}
-                    title={sidebarCollapsed ? item.name : ""}
-                  >
-                    <item.icon className={`w-5 h-5 ${sidebarCollapsed ? "" : "mr-3"}`} />
-                    {!sidebarCollapsed && item.name}
-                  </Link>
-                );
-              })}
-            </>
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          {NAV.map((entry) =>
+            entry.type === "item" ? renderItem(entry) : renderGroup(entry)
           )}
         </nav>
 
@@ -194,8 +306,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white font-medium shrink-0 group-hover:bg-[#a78bfa] transition-colors">
-                    {user?.firstName?.[0]}
-                    {user?.lastName?.[0]}
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
                   </div>
                 )}
               </Link>
@@ -218,8 +329,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-[#6c5ce7] flex items-center justify-center text-white font-medium shrink-0 group-hover:bg-[#a78bfa] transition-colors">
-                    {user?.firstName?.[0]}
-                    {user?.lastName?.[0]}
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
                   </div>
                 )}
                 <div className="ml-3 min-w-0">
@@ -241,11 +351,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main Content */}
-      <div
-        className={`transition-all duration-300 ${
-          sidebarCollapsed ? "pl-20" : "pl-64"
-        }`}
-      >
+      <div className={`transition-all duration-300 ${sidebarCollapsed ? "pl-20" : "pl-64"}`}>
         <main className="p-8">{children}</main>
       </div>
     </div>
