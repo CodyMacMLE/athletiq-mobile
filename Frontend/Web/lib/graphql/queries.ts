@@ -121,6 +121,16 @@ export const GET_ORGANIZATION = gql`
       coachHealthAccess
       allowCoachHourEdit
       reportFrequencies
+      payrollConfig {
+        payPeriod
+        defaultHourlyRate
+        deductions {
+          id
+          name
+          type
+          value
+        }
+      }
       teams {
         ...TeamFields
       }
@@ -830,7 +840,15 @@ export const GET_ORG_COACH_HOURS = gql`
         userId
         totalHours
         totalPay
+        grossPay
+        netPay
         hourlyRate
+        appliedDeductions {
+          name
+          type
+          value
+          amount
+        }
         user {
           id
           firstName

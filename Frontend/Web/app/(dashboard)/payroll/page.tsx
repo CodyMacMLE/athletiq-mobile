@@ -93,6 +93,7 @@ function RateCell({
 function CoachRow({ coach, organizationId, refetch }: { coach: any; organizationId: string; refetch: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const hasPay = coach.hourlyRate != null;
+  const hasDeductions = hasPay && coach.appliedDeductions?.length > 0;
 
   return (
     <div className="bg-white/5 rounded-xl border border-white/8 overflow-hidden">
@@ -134,10 +135,17 @@ function CoachRow({ coach, organizationId, refetch }: { coach: any; organization
           />
         </div>
 
-        {/* Pay */}
+        {/* Pay — shows net if deductions exist, gross otherwise */}
         <div className="text-right shrink-0 w-28">
           {hasPay ? (
-            <p className="text-emerald-400 font-medium">${coach.totalPay?.toFixed(2)}</p>
+            <div>
+              <p className="text-emerald-400 font-medium">
+                ${(hasDeductions ? coach.netPay : coach.grossPay)?.toFixed(2)}
+              </p>
+              {hasDeductions && (
+                <p className="text-white/35 text-xs line-through">${coach.grossPay?.toFixed(2)}</p>
+              )}
+            </div>
           ) : (
             <p className="text-white/25 text-sm italic">— set rate</p>
           )}
@@ -150,29 +158,57 @@ function CoachRow({ coach, organizationId, refetch }: { coach: any; organization
       </button>
 
       {/* Expanded entries */}
-      {expanded && coach.entries.length > 0 && (
-        <div className="border-t border-white/8 px-5 py-3 space-y-2">
-          <div className="grid grid-cols-4 gap-2 text-xs text-white/40 font-medium uppercase tracking-wide pb-1">
-            <span>Date</span>
-            <span>Event</span>
-            <span>Check-in / Check-out</span>
-            <span className="text-right">Hours</span>
-          </div>
-          {coach.entries.map((entry: any, idx: number) => (
-            <div key={entry.checkIn?.id ?? idx} className="grid grid-cols-4 gap-2 text-sm">
-              <span className="text-white/55">{formatEventDate(entry.event.date)}</span>
-              <span className="text-white truncate">{entry.event.title}</span>
-              <span className="text-white/55">
-                {formatTime(entry.checkIn?.checkInTime)} → {formatTime(entry.checkIn?.checkOutTime)}
-              </span>
-              <span className="text-right text-[#a78bfa]">{entry.hoursLogged.toFixed(2)} hrs</span>
+      {expanded && (
+        <div className="border-t border-white/8">
+          {coach.entries.length > 0 ? (
+            <div className="px-5 py-3 space-y-2">
+              <div className="grid grid-cols-4 gap-2 text-xs text-white/40 font-medium uppercase tracking-wide pb-1">
+                <span>Date</span>
+                <span>Event</span>
+                <span>Check-in / Check-out</span>
+                <span className="text-right">Hours</span>
+              </div>
+              {coach.entries.map((entry: any, idx: number) => (
+                <div key={entry.checkIn?.id ?? idx} className="grid grid-cols-4 gap-2 text-sm">
+                  <span className="text-white/55">{formatEventDate(entry.event.date)}</span>
+                  <span className="text-white truncate">{entry.event.title}</span>
+                  <span className="text-white/55">
+                    {formatTime(entry.checkIn?.checkInTime)} → {formatTime(entry.checkIn?.checkOutTime)}
+                  </span>
+                  <span className="text-right text-[#a78bfa]">{entry.hoursLogged.toFixed(2)} hrs</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-      {expanded && coach.entries.length === 0 && (
-        <div className="border-t border-white/8 px-5 py-3 text-sm text-white/35 italic">
-          No check-ins this month
+          ) : (
+            <div className="px-5 py-3 text-sm text-white/35 italic">No check-ins this month</div>
+          )}
+
+          {/* Pay breakdown */}
+          {hasPay && (
+            <div className="border-t border-white/8 px-5 py-3 space-y-1.5">
+              <div className="flex justify-between text-sm">
+                <span className="text-white/50">Gross Pay</span>
+                <span className="text-white">${coach.grossPay?.toFixed(2)}</span>
+              </div>
+              {coach.appliedDeductions?.map((d: any, i: number) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span className="text-white/50">
+                    {d.name}
+                    <span className="text-white/30 ml-1.5 text-xs">
+                      ({d.type === "PERCENT" ? `${d.value}%` : `$${d.value}`})
+                    </span>
+                  </span>
+                  <span className="text-red-400">−${d.amount.toFixed(2)}</span>
+                </div>
+              ))}
+              {hasDeductions && (
+                <div className="flex justify-between text-sm font-semibold pt-1 border-t border-white/8">
+                  <span className="text-white">Net Pay</span>
+                  <span className="text-emerald-400">${coach.netPay?.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -206,8 +242,10 @@ export default function PayrollPage() {
 
   const totalStaff = coaches.length;
   const totalHours = coaches.reduce((s: number, c: any) => s + c.totalHours, 0);
-  const totalPay = coaches.reduce((s: number, c: any) => s + (c.totalPay ?? 0), 0);
+  const totalGross = coaches.reduce((s: number, c: any) => s + (c.grossPay ?? 0), 0);
+  const totalNet = coaches.reduce((s: number, c: any) => s + (c.netPay ?? c.grossPay ?? 0), 0);
   const hasAnyRate = coaches.some((c: any) => c.hourlyRate != null);
+  const hasAnyDeductions = coaches.some((c: any) => c.appliedDeductions?.length > 0);
 
   function prevMonth() {
     if (month === 1) { setMonth(12); setYear(y => y - 1); } else setMonth(m => m - 1);
@@ -246,7 +284,7 @@ export default function PayrollPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className={`grid gap-4 ${hasAnyDeductions ? "grid-cols-4" : "grid-cols-3"}`}>
         <div className="bg-white/5 rounded-xl border border-white/8 p-5">
           <div className="flex items-center gap-2 text-white/50 text-sm mb-2">
             <Users className="w-4 h-4" />
@@ -264,12 +302,21 @@ export default function PayrollPage() {
         <div className="bg-white/5 rounded-xl border border-white/8 p-5">
           <div className="flex items-center gap-2 text-white/50 text-sm mb-2">
             <DollarSign className="w-4 h-4" />
-            Est. Total Pay
+            {hasAnyDeductions ? "Gross Pay" : "Est. Total Pay"}
           </div>
-          <p className={`text-2xl font-bold ${hasAnyRate ? "text-emerald-400" : "text-white/30"}`}>
-            {hasAnyRate ? `$${totalPay.toFixed(2)}` : "—"}
+          <p className={`text-2xl font-bold ${hasAnyRate ? "text-white" : "text-white/30"}`}>
+            {hasAnyRate ? `$${totalGross.toFixed(2)}` : "—"}
           </p>
         </div>
+        {hasAnyDeductions && (
+          <div className="bg-white/5 rounded-xl border border-white/8 p-5">
+            <div className="flex items-center gap-2 text-white/50 text-sm mb-2">
+              <DollarSign className="w-4 h-4" />
+              Est. Net Pay
+            </div>
+            <p className="text-2xl font-bold text-emerald-400">${totalNet.toFixed(2)}</p>
+          </div>
+        )}
       </div>
 
       {/* Coach table */}
@@ -289,7 +336,7 @@ export default function PayrollPage() {
             <div className="flex-1">Name</div>
             <div className="w-24 text-right">Hours</div>
             <div className="w-36 text-right">Hourly Rate</div>
-            <div className="w-28 text-right">Est. Pay</div>
+            <div className="w-28 text-right">{hasAnyDeductions ? "Net Pay" : "Est. Pay"}</div>
             <div className="w-4 shrink-0" />
           </div>
 

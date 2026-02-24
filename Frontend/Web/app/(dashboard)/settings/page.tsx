@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { GET_ORG_SEASONS, CREATE_ORG_SEASON, UPDATE_ORG_SEASON, DELETE_ORG_SEASON, GET_ORGANIZATION, UPDATE_ORGANIZATION_SETTINGS, GET_ORGANIZATION_VENUES, CREATE_VENUE, UPDATE_VENUE, DELETE_VENUE } from "@/lib/graphql";
-import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield, Heart, Building2, Bell } from "lucide-react";
+import { UPDATE_PAYROLL_CONFIG } from "@/lib/graphql/mutations";
+import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield, Heart, Building2, Bell, DollarSign, Percent } from "lucide-react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -53,6 +54,14 @@ export default function SettingsPage() {
   const [reportSaving, setReportSaving] = useState(false);
   const [reportSaved, setReportSaved] = useState(false);
 
+  // Payroll config
+  type Deduction = { id: string; name: string; type: "FLAT" | "PERCENT"; value: string };
+  const [payPeriod, setPayPeriod] = useState<string>("MONTHLY");
+  const [defaultHourlyRate, setDefaultHourlyRate] = useState<string>("");
+  const [deductions, setDeductions] = useState<Deduction[]>([]);
+  const [payrollSaving, setPayrollSaving] = useState(false);
+  const [payrollSaved, setPayrollSaved] = useState(false);
+
   // Venues
   const [showVenueForm, setShowVenueForm] = useState(false);
   const [editingVenue, setEditingVenue] = useState<Venue | null>(null);
@@ -71,10 +80,23 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (orgData?.organization) {
-      if (orgData.organization.adminHealthAccess) setAdminHealthAccess(orgData.organization.adminHealthAccess);
-      if (orgData.organization.coachHealthAccess) setCoachHealthAccess(orgData.organization.coachHealthAccess);
-      if (orgData.organization.allowCoachHourEdit !== undefined) setAllowCoachHourEdit(orgData.organization.allowCoachHourEdit);
-      if (orgData.organization.reportFrequencies) setReportFrequencies(orgData.organization.reportFrequencies);
+      const org = orgData.organization;
+      if (org.adminHealthAccess) setAdminHealthAccess(org.adminHealthAccess);
+      if (org.coachHealthAccess) setCoachHealthAccess(org.coachHealthAccess);
+      if (org.allowCoachHourEdit !== undefined) setAllowCoachHourEdit(org.allowCoachHourEdit);
+      if (org.reportFrequencies) setReportFrequencies(org.reportFrequencies);
+      if (org.payrollConfig) {
+        if (org.payrollConfig.payPeriod) setPayPeriod(org.payrollConfig.payPeriod);
+        if (org.payrollConfig.defaultHourlyRate != null) setDefaultHourlyRate(String(org.payrollConfig.defaultHourlyRate));
+        if (org.payrollConfig.deductions) {
+          setDeductions(org.payrollConfig.deductions.map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            type: d.type as "FLAT" | "PERCENT",
+            value: String(d.value),
+          })));
+        }
+      }
     }
   }, [orgData]);
 
@@ -82,6 +104,7 @@ export default function SettingsPage() {
   const [updateOrgSeason] = useMutation<any>(UPDATE_ORG_SEASON);
   const [deleteOrgSeason] = useMutation<any>(DELETE_ORG_SEASON);
   const [updateOrganizationSettings] = useMutation<any>(UPDATE_ORGANIZATION_SETTINGS);
+  const [updatePayrollConfig] = useMutation<any>(UPDATE_PAYROLL_CONFIG);
 
   const { data: venuesData, refetch: refetchVenues } = useQuery<any>(GET_ORGANIZATION_VENUES, {
     variables: { organizationId: selectedOrganizationId },
@@ -199,6 +222,41 @@ export default function SettingsPage() {
     } finally {
       setReportSaving(false);
     }
+  };
+
+  const handleSavePayrollConfig = async () => {
+    if (!selectedOrganizationId) return;
+    setPayrollSaving(true);
+    try {
+      await updatePayrollConfig({
+        variables: {
+          organizationId: selectedOrganizationId,
+          payPeriod,
+          defaultHourlyRate: defaultHourlyRate.trim() !== "" ? parseFloat(defaultHourlyRate) : null,
+          deductions: deductions
+            .filter((d) => d.name.trim() && d.value.trim() && !isNaN(parseFloat(d.value)))
+            .map((d) => ({ id: d.id, name: d.name.trim(), type: d.type, value: parseFloat(d.value) })),
+        },
+      });
+      setPayrollSaved(true);
+      setTimeout(() => setPayrollSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save payroll config:", err);
+    } finally {
+      setPayrollSaving(false);
+    }
+  };
+
+  const addDeduction = () => {
+    setDeductions((prev) => [...prev, { id: `new_${Date.now()}`, name: "", type: "PERCENT", value: "" }]);
+  };
+
+  const updateDeduction = (id: string, field: keyof Deduction, val: string) => {
+    setDeductions((prev) => prev.map((d) => (d.id === id ? { ...d, [field]: val } : d)));
+  };
+
+  const removeDeduction = (id: string) => {
+    setDeductions((prev) => prev.filter((d) => d.id !== id));
   };
 
   const toggleReportFrequency = (value: string) => {
@@ -584,32 +642,150 @@ export default function SettingsPage() {
             <p className="text-sm text-white/55">
               Control whether coaches can edit their own check-in and check-out times on mobile. When disabled, only Admins and Managers can modify hours on the web dashboard.
             </p>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  className="sr-only"
-                  checked={allowCoachHourEdit}
-                  onChange={(e) => setAllowCoachHourEdit(e.target.checked)}
-                />
-                <div
-                  onClick={() => setAllowCoachHourEdit(!allowCoachHourEdit)}
-                  className={`w-10 h-6 rounded-full transition-colors cursor-pointer ${allowCoachHourEdit ? "bg-[#6c5ce7]" : "bg-white/20"}`}
-                >
-                  <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${allowCoachHourEdit ? "translate-x-5" : "translate-x-1"}`} />
-                </div>
-              </div>
+            <div
+              className="flex items-center justify-between px-3 py-2.5 bg-white/5 rounded-lg cursor-pointer hover:bg-white/8 transition-colors"
+              onClick={() => setAllowCoachHourEdit(!allowCoachHourEdit)}
+            >
               <div>
                 <p className="text-sm font-medium text-white">Allow coaches to edit their hours</p>
                 <p className="text-xs text-white/40">Coaches can modify check-in/out times directly from the mobile app</p>
               </div>
-            </label>
+              <div className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ml-4 ${allowCoachHourEdit ? "bg-[#6c5ce7]" : "bg-white/15"}`}>
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${allowCoachHourEdit ? "translate-x-5" : "translate-x-0.5"}`} />
+              </div>
+            </div>
             <button
               onClick={handleSaveCoachHourEdit}
               disabled={coachHourSaving}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50"
             >
               {coachHourSaved ? <><Check className="w-4 h-4" /> Saved</> : coachHourSaving ? "Saving..." : <><Check className="w-4 h-4" /> Save</>}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Payroll Configuration */}
+      {canManageOrg && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <DollarSign className="w-5 h-5 text-[#a78bfa]" />
+            <h2 className="text-lg font-semibold text-white">Payroll Configuration</h2>
+          </div>
+          <div className="bg-white/8 rounded-lg border border-white/8 p-4 space-y-6">
+            <p className="text-sm text-white/55">
+              Configure pay periods, default rates, and deductions. These settings automatically apply to payroll calculations.
+            </p>
+
+            {/* Pay period + default rate */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-white/55 mb-1.5">Pay Period</label>
+                <select
+                  value={payPeriod}
+                  onChange={(e) => setPayPeriod(e.target.value)}
+                  className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                >
+                  <option value="WEEKLY">Weekly</option>
+                  <option value="BIWEEKLY">Bi-weekly</option>
+                  <option value="SEMI_MONTHLY">Semi-monthly</option>
+                  <option value="MONTHLY">Monthly</option>
+                </select>
+                <p className="text-xs text-white/35 mt-1">Used for display and reporting purposes</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white/55 mb-1.5">Default Hourly Rate ($)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={defaultHourlyRate}
+                  onChange={(e) => setDefaultHourlyRate(e.target.value)}
+                  placeholder="e.g. 20.00"
+                  className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] placeholder:text-white/25"
+                />
+                <p className="text-xs text-white/35 mt-1">Fallback rate for staff without individual rates set</p>
+              </div>
+            </div>
+
+            <div className="border-t border-white/8" />
+
+            {/* Deductions */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-semibold text-white">Deductions</p>
+                <button
+                  onClick={addDeduction}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-white/8 border border-white/10 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/12 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add
+                </button>
+              </div>
+              <p className="text-xs text-white/40 mb-3">
+                Applied to each staff member&apos;s gross pay. Percentage deductions are based on gross pay; flat amounts are a fixed dollar deduction.
+              </p>
+
+              {deductions.length === 0 ? (
+                <p className="text-white/30 text-sm italic py-2">No deductions configured.</p>
+              ) : (
+                <div className="space-y-2">
+                  {/* Header */}
+                  <div className="grid grid-cols-[1fr_100px_100px_32px] gap-2 px-1 text-xs font-medium text-white/35 uppercase tracking-wide">
+                    <span>Name</span>
+                    <span>Type</span>
+                    <span>Amount</span>
+                    <span />
+                  </div>
+                  {deductions.map((d) => (
+                    <div key={d.id} className="grid grid-cols-[1fr_100px_100px_32px] gap-2 items-center">
+                      <input
+                        type="text"
+                        value={d.name}
+                        onChange={(e) => updateDeduction(d.id, "name", e.target.value)}
+                        placeholder="e.g. Federal Tax"
+                        className="px-2.5 py-1.5 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#6c5ce7]/60 placeholder:text-white/25"
+                      />
+                      <select
+                        value={d.type}
+                        onChange={(e) => updateDeduction(d.id, "type", e.target.value)}
+                        className="px-2 py-1.5 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#6c5ce7]/60"
+                      >
+                        <option value="PERCENT">% Percent</option>
+                        <option value="FLAT">$ Flat</option>
+                      </select>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-white/40 text-xs pointer-events-none">
+                          {d.type === "PERCENT" ? "%" : "$"}
+                        </span>
+                        <input
+                          type="number"
+                          min="0"
+                          step={d.type === "PERCENT" ? "0.01" : "0.01"}
+                          value={d.value}
+                          onChange={(e) => updateDeduction(d.id, "value", e.target.value)}
+                          placeholder="0"
+                          className="w-full pl-5 pr-2 py-1.5 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#6c5ce7]/60 placeholder:text-white/25"
+                        />
+                      </div>
+                      <button
+                        onClick={() => removeDeduction(d.id)}
+                        className="p-1.5 text-white/35 hover:text-red-400 transition-colors rounded"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleSavePayrollConfig}
+              disabled={payrollSaving}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50"
+            >
+              {payrollSaved ? <><Check className="w-4 h-4" /> Saved</> : payrollSaving ? "Saving..." : <><Check className="w-4 h-4" /> Save</>}
             </button>
           </div>
         </section>

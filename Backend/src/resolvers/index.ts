@@ -1551,11 +1551,15 @@ export const resolvers = {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 1);
 
-      const staffRoles: OrgRole[] = ["OWNER", "ADMIN", "MANAGER", "COACH"];
-      const staffMembers = await prisma.organizationMember.findMany({
-        where: { organizationId, role: { in: staffRoles } },
-        include: { user: true },
-      });
+      const [orgData, staffMembers] = await Promise.all([
+        prisma.organization.findUnique({ where: { id: organizationId }, select: { payrollConfig: true } }),
+        prisma.organizationMember.findMany({
+          where: { organizationId, role: { in: ["OWNER", "ADMIN", "MANAGER", "COACH"] as OrgRole[] } },
+          include: { user: true },
+        }),
+      ]);
+
+      const payrollDeductions: any[] = (orgData?.payrollConfig as any)?.deductions ?? [];
 
       const coaches = await Promise.all(
         staffMembers.map(async (member: any) => {
@@ -1569,16 +1573,31 @@ export const resolvers = {
             orderBy: { event: { date: "asc" } },
           });
 
-          const totalHours = checkIns.reduce((s: number, c: any) => s + (c.hoursLogged ?? 0), 0);
+          const totalHours = Math.round(checkIns.reduce((s: number, c: any) => s + (c.hoursLogged ?? 0), 0) * 100) / 100;
           const hourlyRate = member.hourlyRate ?? null;
-          const totalPay = hourlyRate != null ? Math.round(totalHours * hourlyRate * 100) / 100 : null;
+          const grossPay = hourlyRate != null ? Math.round(totalHours * hourlyRate * 100) / 100 : null;
+
+          const appliedDeductions: any[] = [];
+          let netPay = grossPay;
+          if (grossPay != null) {
+            for (const d of payrollDeductions) {
+              const amount = d.type === "PERCENT"
+                ? Math.round(grossPay * d.value / 100 * 100) / 100
+                : Math.round(d.value * 100) / 100;
+              netPay = Math.round(((netPay ?? 0) - amount) * 100) / 100;
+              appliedDeductions.push({ name: d.name, type: d.type, value: d.value, amount });
+            }
+          }
 
           return {
             userId: member.userId,
             user: member.user,
-            totalHours: Math.round(totalHours * 100) / 100,
-            totalPay,
+            totalHours,
+            totalPay: grossPay,
+            grossPay,
+            netPay,
             hourlyRate,
+            appliedDeductions,
             entries: checkIns.map((c: any) => ({
               event: c.event,
               checkIn: c,
@@ -1804,6 +1823,51 @@ export const resolvers = {
         where: { userId_organizationId: { userId, organizationId } },
         data: { hourlyRate: hourlyRate ?? null },
         include: { user: true },
+      });
+    },
+
+    updatePayrollConfig: async (
+      _: unknown,
+      {
+        organizationId,
+        payPeriod,
+        defaultHourlyRate,
+        deductions,
+      }: {
+        organizationId: string;
+        payPeriod?: string;
+        defaultHourlyRate?: number | null;
+        deductions?: Array<{ id?: string; name: string; type: string; value: number }>;
+      },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      const viewer = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId } },
+      });
+      if (!viewer || !["OWNER", "ADMIN"].includes(viewer.role)) {
+        throw new Error("Not authorized");
+      }
+      // Merge with existing config to allow partial updates
+      const existing = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { payrollConfig: true },
+      });
+      const prev: any = existing?.payrollConfig ?? {};
+      const updated: any = { ...prev };
+      if (payPeriod !== undefined) updated.payPeriod = payPeriod;
+      if (defaultHourlyRate !== undefined) updated.defaultHourlyRate = defaultHourlyRate;
+      if (deductions !== undefined) {
+        updated.deductions = deductions.map((d, i) => ({
+          id: d.id || `ded_${Date.now()}_${i}`,
+          name: d.name,
+          type: d.type,
+          value: d.value,
+        }));
+      }
+      return prisma.organization.update({
+        where: { id: organizationId },
+        data: { payrollConfig: updated },
       });
     },
 
@@ -4085,6 +4149,20 @@ export const resolvers = {
       return prisma.teamMember.count({
         where: { team: { organizationId: parent.id, archivedAt: null }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
       });
+    },
+    payrollConfig: (parent: any) => {
+      const config = parent.payrollConfig as any;
+      if (!config) return { payPeriod: null, defaultHourlyRate: null, deductions: [] };
+      return {
+        payPeriod: config.payPeriod ?? null,
+        defaultHourlyRate: config.defaultHourlyRate ?? null,
+        deductions: (config.deductions ?? []).map((d: any) => ({
+          id: d.id ?? String(Math.random()),
+          name: d.name,
+          type: d.type,
+          value: d.value,
+        })),
+      };
     },
     createdAt: (parent: any) => toISO(parent.createdAt),
     updatedAt: (parent: any) => toISO(parent.updatedAt),

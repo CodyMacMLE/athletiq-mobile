@@ -197,6 +197,7 @@ export const typeDefs = `#graphql
     coachHealthAccess: CoachHealthAccess!
     allowCoachHourEdit: Boolean!
     reportFrequencies: [String!]!
+    payrollConfig: PayrollConfig
   }
 
   type OrgSeason {
@@ -515,13 +516,36 @@ export const typeDefs = `#graphql
     hoursLogged: Float!
   }
 
+  type AppliedDeduction {
+    name: String!
+    type: String!
+    value: Float!
+    amount: Float!
+  }
+
   type CoachMonthlyHours {
     userId: ID!
     user: User!
     totalHours: Float!
     totalPay: Float
+    grossPay: Float
+    netPay: Float
     hourlyRate: Float
+    appliedDeductions: [AppliedDeduction!]!
     entries: [CoachHoursEntry!]!
+  }
+
+  type PayrollDeduction {
+    id: ID!
+    name: String!
+    type: String!
+    value: Float!
+  }
+
+  type PayrollConfig {
+    payPeriod: String
+    defaultHourlyRate: Float
+    deductions: [PayrollDeduction!]!
   }
 
   type OrgCoachHoursSummary {
@@ -737,6 +761,13 @@ export const typeDefs = `#graphql
   input UpdateExcuseRequestInput {
     id: ID!
     status: ExcuseRequestStatus!
+  }
+
+  input PayrollDeductionInput {
+    id: String
+    name: String!
+    type: String!
+    value: Float!
   }
 
   input RegisterDeviceTokenInput {
@@ -1031,6 +1062,7 @@ export const typeDefs = `#graphql
 
     # Coach hours / payroll mutations
     updateCoachHourlyRate(organizationId: ID!, userId: ID!, hourlyRate: Float): OrganizationMember!
+    updatePayrollConfig(organizationId: ID!, payPeriod: String, defaultHourlyRate: Float, deductions: [PayrollDeductionInput!]): Organization!
 
     # Health & Safety mutations
     createEmergencyContact(input: CreateEmergencyContactInput!): EmergencyContact!

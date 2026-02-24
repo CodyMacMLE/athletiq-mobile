@@ -687,6 +687,19 @@ export const UPSERT_GYMNASTICS_PROFILE = gql`
   }
 `;
 
+export const UPDATE_PAYROLL_CONFIG = gql`
+  mutation UpdatePayrollConfig($organizationId: ID!, $payPeriod: String, $defaultHourlyRate: Float, $deductions: [PayrollDeductionInput!]) {
+    updatePayrollConfig(organizationId: $organizationId, payPeriod: $payPeriod, defaultHourlyRate: $defaultHourlyRate, deductions: $deductions) {
+      id
+      payrollConfig {
+        payPeriod
+        defaultHourlyRate
+        deductions { id name type value }
+      }
+    }
+  }
+`;
+
 export const UPDATE_COACH_HOURLY_RATE = gql`
   mutation UpdateCoachHourlyRate($organizationId: ID!, $userId: ID!, $hourlyRate: Float) {
     updateCoachHourlyRate(organizationId: $organizationId, userId: $userId, hourlyRate: $hourlyRate) {

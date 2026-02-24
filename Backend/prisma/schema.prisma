@@ -78,6 +78,7 @@ model Organization {
   coachHealthAccess   CoachHealthAccess @default(TEAM_ONLY)
   allowCoachHourEdit  Boolean           @default(false)
   reportFrequencies   String[]
+  payrollConfig       Json?
 
   // Relations
   teams                Team[]
