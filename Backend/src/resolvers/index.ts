@@ -766,28 +766,71 @@ export const resolvers = {
 
     orgExcuseRequests: async (
       _: unknown,
-      { organizationId, status, requesterType }: { organizationId: string; status?: string; requesterType?: string }
+      {
+        organizationId,
+        status,
+        requesterType,
+        search,
+        sortBy,
+        sortDir,
+        limit = 15,
+        offset = 0,
+      }: {
+        organizationId: string;
+        status?: string;
+        requesterType?: string;
+        search?: string;
+        sortBy?: string;
+        sortDir?: string;
+        limit?: number;
+        offset?: number;
+      }
     ) => {
       const STAFF_ROLES = ["OWNER", "ADMIN", "MANAGER", "COACH"] as any[];
-      let statusWhere: any = {};
+
+      const conditions: any[] = [{ event: { organizationId } }];
+
       if (status === "PENDING") {
-        statusWhere = { status: "PENDING" };
+        conditions.push({ status: "PENDING" });
       } else if (status === "HANDLED") {
-        statusWhere = { status: { in: ["APPROVED", "DENIED"] } };
+        conditions.push({ status: { in: ["APPROVED", "DENIED"] } });
       }
-      let userWhere: any = {};
+
       if (requesterType === "STAFF" || requesterType === "ATHLETE") {
         const roles: any[] = requesterType === "STAFF" ? STAFF_ROLES : ["ATHLETE"];
         const members = await prisma.organizationMember.findMany({
           where: { organizationId, role: { in: roles } },
           select: { userId: true },
         });
-        userWhere = { userId: { in: members.map((m: any) => m.userId) } };
+        conditions.push({ userId: { in: members.map((m: any) => m.userId) } });
       }
-      return prisma.excuseRequest.findMany({
-        where: { event: { organizationId }, ...statusWhere, ...userWhere },
-        orderBy: { createdAt: "desc" },
-      });
+
+      if (search && search.trim()) {
+        const q = search.trim();
+        conditions.push({
+          OR: [
+            { reason: { contains: q, mode: "insensitive" } },
+            { event: { title: { contains: q, mode: "insensitive" } } },
+            { user: { firstName: { contains: q, mode: "insensitive" } } },
+            { user: { lastName: { contains: q, mode: "insensitive" } } },
+          ],
+        });
+      }
+
+      const where: any = { AND: conditions };
+
+      const dir = sortDir === "asc" ? "asc" : "desc";
+      let orderBy: any = { createdAt: "desc" };
+      if (sortBy === "name") orderBy = { user: { lastName: dir } };
+      else if (sortBy === "event") orderBy = { event: { title: dir } };
+      else if (sortBy === "date") orderBy = { event: { date: dir } };
+
+      const [total, items] = await prisma.$transaction([
+        prisma.excuseRequest.count({ where }),
+        prisma.excuseRequest.findMany({ where, orderBy, take: limit, skip: offset }),
+      ]);
+
+      return { items, total };
     },
 
     // RSVP queries

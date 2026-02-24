@@ -302,31 +302,52 @@ export const GET_PENDING_EXCUSE_REQUESTS = gql`
 `;
 
 export const GET_ORG_EXCUSE_REQUESTS = gql`
-  query GetOrgExcuseRequests($organizationId: ID!, $status: String, $requesterType: String) {
-    orgExcuseRequests(organizationId: $organizationId, status: $status, requesterType: $requesterType) {
-      id
-      reason
-      status
-      attemptCount
-      createdAt
-      user {
+  query GetOrgExcuseRequests(
+    $organizationId: ID!
+    $status: String
+    $requesterType: String
+    $search: String
+    $sortBy: String
+    $sortDir: String
+    $limit: Int
+    $offset: Int
+  ) {
+    orgExcuseRequests(
+      organizationId: $organizationId
+      status: $status
+      requesterType: $requesterType
+      search: $search
+      sortBy: $sortBy
+      sortDir: $sortDir
+      limit: $limit
+      offset: $offset
+    ) {
+      total
+      items {
         id
-        firstName
-        lastName
-        image
-        organizationMemberships {
-          role
-          organization { id }
+        reason
+        status
+        attemptCount
+        createdAt
+        user {
+          id
+          firstName
+          lastName
+          image
+          organizationMemberships {
+            role
+            organization { id }
+          }
         }
-      }
-      event {
-        id
-        title
-        type
-        date
-        startTime
-        endTime
-        team { id name }
+        event {
+          id
+          title
+          type
+          date
+          startTime
+          endTime
+          team { id name }
+        }
       }
     }
   }

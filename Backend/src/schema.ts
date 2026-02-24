@@ -360,6 +360,11 @@ export const typeDefs = `#graphql
     updatedAt: String!
   }
 
+  type ExcuseRequestPage {
+    items: [ExcuseRequest!]!
+    total: Int!
+  }
+
   type EventRsvp {
     id: ID!
     userId: ID!
@@ -841,7 +846,7 @@ export const typeDefs = `#graphql
     excuseRequest(id: ID!): ExcuseRequest
     myExcuseRequests(userId: ID!): [ExcuseRequest!]!
     pendingExcuseRequests(organizationId: ID!): [ExcuseRequest!]!
-    orgExcuseRequests(organizationId: ID!, status: String, requesterType: String): [ExcuseRequest!]!
+    orgExcuseRequests(organizationId: ID!, status: String, requesterType: String, search: String, sortBy: String, sortDir: String, limit: Int, offset: Int): ExcuseRequestPage!
 
     # RSVP queries
     myRsvps(userId: ID!): [EventRsvp!]!
