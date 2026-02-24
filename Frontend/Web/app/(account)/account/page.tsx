@@ -30,9 +30,11 @@ import {
   Flame,
   Users,
   Send,
+  LayoutDashboard,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatPhone, sanitizePhone } from "@/lib/utils";
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
@@ -268,6 +270,7 @@ function OrgReportToggles({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AccountPage() {
+  const router = useRouter();
   const { user, refetch, logout, selectedOrganizationId, setSelectedOrganizationId } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -316,7 +319,7 @@ export default function AccountPage() {
   const navItems: { id: Section; label: string; icon: React.ElementType }[] = [
     { id: "profile",       label: "Profile",       icon: User },
     { id: "organizations", label: "Organizations", icon: Building2 },
-    ...(isGuardian ? [{ id: "guardian" as Section, label: "Family", icon: Heart }] : []),
+    { id: "guardian",      label: "Family",        icon: Heart },
   ];
 
   // ── Image upload ──────────────────────────────────────────────────────────
@@ -600,8 +603,9 @@ export default function AccountPage() {
                 ) : (
                   <div className="space-y-3">
                     {orgMemberships.map((m: any) => {
-                      const isActive = m.organization.id === selectedOrganizationId;
-                      const isOwner  = m.role === "OWNER";
+                      const isActive   = m.organization.id === selectedOrganizationId;
+                      const isOwner    = m.role === "OWNER";
+                      const canDash    = ["OWNER","ADMIN","MANAGER","COACH"].includes(m.role);
                       return (
                         <div
                           key={m.id}
@@ -628,7 +632,20 @@ export default function AccountPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0 ml-3">
-                              {!isActive && (
+                              {canDash && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedOrganizationId(m.organization.id);
+                                    router.push("/dashboard");
+                                  }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white/65 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                  title="Go to dashboard"
+                                >
+                                  <LayoutDashboard className="w-3.5 h-3.5" />
+                                  {isActive ? "Dashboard" : "Switch & Go"}
+                                </button>
+                              )}
+                              {!isActive && !canDash && (
                                 <button
                                   onClick={() => setSelectedOrganizationId(m.organization.id)}
                                   className="flex items-center gap-1 px-3 py-1.5 text-xs bg-[#6c5ce7] hover:bg-[#5a4dd4] text-white rounded-lg transition-colors"
@@ -656,9 +673,19 @@ export default function AccountPage() {
             )}
 
             {/* ── Family / Guardian ─────────────────────────────────────────── */}
-            {activeSection === "guardian" && isGuardian && (
+            {activeSection === "guardian" && (
               <div className="space-y-8">
                 <h1 className="text-xl font-bold text-white">Family</h1>
+
+                {guardianOrgs.length === 0 && (
+                  <div className="p-6 bg-white/5 rounded-xl border border-white/8 text-center">
+                    <Heart className="w-8 h-8 text-white/20 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-white/55">No guardian access yet</p>
+                    <p className="text-xs text-white/30 mt-1">
+                      Ask an organization admin to send you a guardian invite to link you to an athlete.
+                    </p>
+                  </div>
+                )}
 
                 {guardianOrgs.map((m: any) => {
                   const orgConfigs = allConfigs.filter((c: any) => c.organization.id === m.organization.id);

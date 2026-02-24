@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Athletiq",
+    "name": "Athletiq: Athlete Manager",
     "slug": "athletiq",
     "owner": "astral-tech-solutions",
     "version": "1.0.0",
@@ -15,12 +15,6 @@
       "supportsTablet": true,
       "infoPlist": {
         "NFCReaderUsageDescription": "This app uses NFC to check in to your gym",
-        "com.apple.developer.nfc.readersession.iso7816.select-identifiers": [
-          "",
-          "",
-          "",
-          ""
-        ],
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
           "remote-notification"
@@ -85,7 +79,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5b962328-12c3-475e-9902-edcca1128c5c"
+        "projectId": "706b1931-c3e2-44ac-b981-065838266cd7"
       }
     }
   }
