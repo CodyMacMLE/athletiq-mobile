@@ -90,7 +90,7 @@ function DetailModal({
             <Avatar user={excuse.user} />
             <div>
               <p className="text-white font-medium">{excuse.user.firstName} {excuse.user.lastName}</p>
-              <p className="text-white/50 text-xs">Staff Member</p>
+              <p className="text-white/50 text-xs">Athlete</p>
             </div>
             <div className="ml-auto">
               <StatusBadge status={excuse.status} />
@@ -162,7 +162,7 @@ function DetailModal({
 type SortKey = "date" | "name" | "event";
 type SortDir = "asc" | "desc";
 
-export default function StaffAbsenceRequestsPage() {
+export default function AthleteAbsenceRequestsPage() {
   const { selectedOrganizationId, canEdit } = useAuth();
 
   const [tab, setTab] = useState<"pending" | "handled">("pending");
@@ -175,7 +175,7 @@ export default function StaffAbsenceRequestsPage() {
   const status = tab === "pending" ? "PENDING" : "HANDLED";
 
   const { data, loading, refetch } = useQuery<any>(GET_ORG_EXCUSE_REQUESTS, {
-    variables: { organizationId: selectedOrganizationId, status, requesterType: "STAFF" },
+    variables: { organizationId: selectedOrganizationId, status, requesterType: "ATHLETE" },
     skip: !selectedOrganizationId,
     fetchPolicy: "cache-and-network",
   });
@@ -253,8 +253,8 @@ export default function StaffAbsenceRequestsPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Staff Absence Requests</h1>
-        <p className="text-white/50 text-sm mt-1">Review and manage staff time-off requests</p>
+        <h1 className="text-2xl font-bold text-white">Athlete Absence Requests</h1>
+        <p className="text-white/50 text-sm mt-1">Review and manage athlete time-off requests</p>
       </div>
 
       {/* Tabs + Search */}
@@ -294,7 +294,7 @@ export default function StaffAbsenceRequestsPage() {
         {/* Column headers */}
         <div className="grid grid-cols-[1fr_1fr_120px_100px_80px] gap-4 px-5 py-3 border-b border-white/8 text-xs font-medium text-white/40 uppercase tracking-wide">
           <button className="flex items-center gap-1 text-left hover:text-white/70 transition-colors" onClick={() => toggleSort("name")}>
-            Member <SortIcon k="name" />
+            Athlete <SortIcon k="name" />
           </button>
           <button className="flex items-center gap-1 text-left hover:text-white/70 transition-colors" onClick={() => toggleSort("event")}>
             Event <SortIcon k="event" />
@@ -327,7 +327,7 @@ export default function StaffAbsenceRequestsPage() {
                   className="grid grid-cols-[1fr_1fr_120px_100px_80px] gap-4 px-5 py-3.5 items-center hover:bg-white/4 cursor-pointer transition-colors"
                   onClick={() => setSelected(excuse)}
                 >
-                  {/* Member */}
+                  {/* Athlete */}
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Avatar user={excuse.user} />
                     <span className="text-white text-sm font-medium truncate">

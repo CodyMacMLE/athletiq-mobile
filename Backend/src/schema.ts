@@ -841,6 +841,7 @@ export const typeDefs = `#graphql
     excuseRequest(id: ID!): ExcuseRequest
     myExcuseRequests(userId: ID!): [ExcuseRequest!]!
     pendingExcuseRequests(organizationId: ID!): [ExcuseRequest!]!
+    orgExcuseRequests(organizationId: ID!, status: String, requesterType: String): [ExcuseRequest!]!
 
     # RSVP queries
     myRsvps(userId: ID!): [EventRsvp!]!

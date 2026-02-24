@@ -1,8 +1,9 @@
 "use client";
 
-import { useQuery } from "@apollo/client/react";
+import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { GET_ORGANIZATION, GET_ORGANIZATION_STATS, GET_PENDING_EXCUSE_REQUESTS, GET_PENDING_AD_HOC_CHECK_INS } from "@/lib/graphql";
+import { UPDATE_EXCUSE_REQUEST } from "@/lib/graphql/mutations";
 import { Users, Calendar, TrendingUp, AlertCircle, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -38,6 +39,9 @@ export default function Dashboard() {
   const { selectedOrganizationId, canEdit } = useAuth();
   const [rankingsPage, setRankingsPage] = useState(1);
   const [excusesPage, setExcusesPage] = useState(1);
+  const [updatingExcuseId, setUpdatingExcuseId] = useState<string | null>(null);
+
+  const STAFF_ROLES = ["OWNER", "ADMIN", "MANAGER", "COACH"];
 
   const { data: orgData, loading: orgLoading } = useQuery<any>(GET_ORGANIZATION, {
     variables: { id: selectedOrganizationId },
@@ -58,6 +62,17 @@ export default function Dashboard() {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
+
+  const [updateExcuse] = useMutation(UPDATE_EXCUSE_REQUEST, {
+    onCompleted: () => setUpdatingExcuseId(null),
+    onError: () => setUpdatingExcuseId(null),
+    refetchQueries: ["GetPendingExcuseRequests"],
+  });
+
+  const handleExcuseUpdate = (id: string, status: "APPROVED" | "DENIED") => {
+    setUpdatingExcuseId(id);
+    updateExcuse({ variables: { input: { id, status } } });
+  };
 
   const org = orgData?.organization;
   const teamRankings = statsData?.teamRankings || [];
@@ -262,15 +277,40 @@ export default function Dashboard() {
                                 <span className="text-white/35 ml-1.5">· {eventDate}</span>
                               )}
                             </p>
-                            <p className="text-white/40 text-xs mt-1 truncate max-w-xs">{excuse.reason}</p>
+                            {(() => {
+                              const isStaff = excuse.user?.organizationMemberships?.some(
+                                (m: any) => m.organization.id === selectedOrganizationId && STAFF_ROLES.includes(m.role)
+                              );
+                              return (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold mt-1 ${
+                                  isStaff
+                                    ? "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                    : "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                                }`}>
+                                  {isStaff ? "Coach" : "Athlete"}
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
                         {canEdit && (
                           <div className="flex space-x-2 shrink-0 ml-2">
-                            <button className="p-1.5 bg-green-600/20 text-green-500 rounded hover:bg-green-600/30 transition-colors">
-                              <CheckCircle className="w-4 h-4" />
+                            <button
+                              onClick={() => handleExcuseUpdate(excuse.id, "APPROVED")}
+                              disabled={updatingExcuseId === excuse.id}
+                              className="p-1.5 bg-green-600/20 text-green-500 rounded hover:bg-green-600/30 disabled:opacity-40 transition-colors"
+                            >
+                              {updatingExcuseId === excuse.id ? (
+                                <div className="w-4 h-4 border border-green-500/50 border-t-green-500 rounded-full animate-spin" />
+                              ) : (
+                                <CheckCircle className="w-4 h-4" />
+                              )}
                             </button>
-                            <button className="p-1.5 bg-red-600/20 text-red-500 rounded hover:bg-red-600/30 transition-colors">
+                            <button
+                              onClick={() => handleExcuseUpdate(excuse.id, "DENIED")}
+                              disabled={updatingExcuseId === excuse.id}
+                              className="p-1.5 bg-red-600/20 text-red-500 rounded hover:bg-red-600/30 disabled:opacity-40 transition-colors"
+                            >
                               <XCircle className="w-4 h-4" />
                             </button>
                           </div>

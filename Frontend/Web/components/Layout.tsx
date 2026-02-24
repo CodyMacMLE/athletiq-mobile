@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@apollo/client/react";
+import { GET_PENDING_EXCUSE_REQUESTS } from "@/lib/graphql";
 import {
   Users,
   Calendar,
@@ -70,8 +72,9 @@ const NAV: NavEntry[] = [
     name: "Athletes",
     icon: TrendingUp,
     children: [
-      { name: "Attendance", href: "/attendance", icon: ClipboardList },
-      { name: "Analytics",  href: "/analytics",  icon: BarChart3 },
+      { name: "Attendance",        href: "/attendance",               icon: ClipboardList },
+      { name: "Analytics",         href: "/analytics",                icon: BarChart3 },
+      { name: "Absence Requests",  href: "/athlete-absence-requests", icon: FileCheck },
     ],
   },
   {
@@ -95,6 +98,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+
+  const STAFF_ROLES = ["OWNER", "ADMIN", "MANAGER", "COACH"];
+
+  const { data: pendingExcuseData } = useQuery<any>(GET_PENDING_EXCUSE_REQUESTS, {
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId || !canEdit,
+  });
+
+  const pendingExcuses: any[] = pendingExcuseData?.pendingExcuseRequests || [];
+  const staffPendingCount = pendingExcuses.filter((e) =>
+    e.user?.organizationMemberships?.some(
+      (m: any) => m.organization.id === selectedOrganizationId && STAFF_ROLES.includes(m.role)
+    )
+  ).length;
+  const athletePendingCount = pendingExcuses.length - staffPendingCount;
+
+  const navBadges: Record<string, number> = {
+    "/absence-requests": staffPendingCount,
+    "/athlete-absence-requests": athletePendingCount,
+  };
 
   const teamOrgs = user?.memberships?.map((m) => m.team.organization) || [];
   const orgMemberOrgs = user?.organizationMemberships?.map((m) => m.organization) || [];
@@ -211,7 +234,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   }`}
                 >
                   <child.icon className="w-4 h-4 shrink-0 mr-2.5" />
-                  {child.name}
+                  <span className="flex-1">{child.name}</span>
+                  {(navBadges[child.href] ?? 0) > 0 && (
+                    <span className="ml-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-red-500 rounded-full text-white">
+                      {navBadges[child.href]}
+                    </span>
+                  )}
                 </Link>
               );
             })}

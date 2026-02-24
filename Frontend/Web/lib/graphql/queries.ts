@@ -288,6 +288,10 @@ export const GET_PENDING_EXCUSE_REQUESTS = gql`
         firstName
         lastName
         image
+        organizationMemberships {
+          role
+          organization { id }
+        }
       }
       event {
         ...EventFields
@@ -295,6 +299,37 @@ export const GET_PENDING_EXCUSE_REQUESTS = gql`
     }
   }
   ${EVENT_FRAGMENT}
+`;
+
+export const GET_ORG_EXCUSE_REQUESTS = gql`
+  query GetOrgExcuseRequests($organizationId: ID!, $status: String, $requesterType: String) {
+    orgExcuseRequests(organizationId: $organizationId, status: $status, requesterType: $requesterType) {
+      id
+      reason
+      status
+      attemptCount
+      createdAt
+      user {
+        id
+        firstName
+        lastName
+        image
+        organizationMemberships {
+          role
+          organization { id }
+        }
+      }
+      event {
+        id
+        title
+        type
+        date
+        startTime
+        endTime
+        team { id name }
+      }
+    }
+  }
 `;
 
 export const GET_TEAM_LEADERBOARD = gql`

@@ -764,6 +764,32 @@ export const resolvers = {
       });
     },
 
+    orgExcuseRequests: async (
+      _: unknown,
+      { organizationId, status, requesterType }: { organizationId: string; status?: string; requesterType?: string }
+    ) => {
+      const STAFF_ROLES = ["OWNER", "ADMIN", "MANAGER", "COACH"] as any[];
+      let statusWhere: any = {};
+      if (status === "PENDING") {
+        statusWhere = { status: "PENDING" };
+      } else if (status === "HANDLED") {
+        statusWhere = { status: { in: ["APPROVED", "DENIED"] } };
+      }
+      let userWhere: any = {};
+      if (requesterType === "STAFF" || requesterType === "ATHLETE") {
+        const roles: any[] = requesterType === "STAFF" ? STAFF_ROLES : ["ATHLETE"];
+        const members = await prisma.organizationMember.findMany({
+          where: { organizationId, role: { in: roles } },
+          select: { userId: true },
+        });
+        userWhere = { userId: { in: members.map((m: any) => m.userId) } };
+      }
+      return prisma.excuseRequest.findMany({
+        where: { event: { organizationId }, ...statusWhere, ...userWhere },
+        orderBy: { createdAt: "desc" },
+      });
+    },
+
     // RSVP queries
     myRsvps: async (_: unknown, { userId }: { userId: string }) => {
       return prisma.eventRsvp.findMany({
