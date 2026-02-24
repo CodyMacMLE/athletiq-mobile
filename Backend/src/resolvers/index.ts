@@ -1422,6 +1422,105 @@ export const resolvers = {
         take: limit || 100,
       });
     },
+
+    coachMyHours: async (
+      _: unknown,
+      { organizationId, month, year }: { organizationId: string; month: number; year: number },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 1);
+
+      const checkIns = await prisma.checkIn.findMany({
+        where: {
+          userId: context.userId,
+          event: { organizationId, date: { gte: startDate, lt: endDate } },
+          status: { in: ["ON_TIME", "LATE"] },
+        },
+        include: { event: true },
+        orderBy: { event: { date: "asc" } },
+      });
+
+      const membership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId } },
+      });
+
+      const totalHours = checkIns.reduce((s: number, c: any) => s + (c.hoursLogged ?? 0), 0);
+      const hourlyRate = membership?.hourlyRate ?? null;
+      const totalPay = hourlyRate != null ? Math.round(totalHours * hourlyRate * 100) / 100 : null;
+
+      return {
+        userId: context.userId,
+        user: await prisma.user.findUnique({ where: { id: context.userId } }),
+        totalHours: Math.round(totalHours * 100) / 100,
+        totalPay,
+        hourlyRate,
+        entries: checkIns.map((c: any) => ({
+          event: c.event,
+          checkIn: c,
+          hoursLogged: c.hoursLogged ?? 0,
+        })),
+      };
+    },
+
+    orgCoachHours: async (
+      _: unknown,
+      { organizationId, month, year }: { organizationId: string; month: number; year: number },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const callerMembership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId } },
+      });
+      if (!callerMembership || !["OWNER", "ADMIN", "MANAGER"].includes(callerMembership.role)) {
+        throw new Error("Not authorized");
+      }
+
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 1);
+
+      const staffRoles: OrgRole[] = ["OWNER", "ADMIN", "MANAGER", "COACH"];
+      const staffMembers = await prisma.organizationMember.findMany({
+        where: { organizationId, role: { in: staffRoles } },
+        include: { user: true },
+      });
+
+      const coaches = await Promise.all(
+        staffMembers.map(async (member: any) => {
+          const checkIns = await prisma.checkIn.findMany({
+            where: {
+              userId: member.userId,
+              event: { organizationId, date: { gte: startDate, lt: endDate } },
+              status: { in: ["ON_TIME", "LATE"] },
+            },
+            include: { event: true },
+            orderBy: { event: { date: "asc" } },
+          });
+
+          const totalHours = checkIns.reduce((s: number, c: any) => s + (c.hoursLogged ?? 0), 0);
+          const hourlyRate = member.hourlyRate ?? null;
+          const totalPay = hourlyRate != null ? Math.round(totalHours * hourlyRate * 100) / 100 : null;
+
+          return {
+            userId: member.userId,
+            user: member.user,
+            totalHours: Math.round(totalHours * 100) / 100,
+            totalPay,
+            hourlyRate,
+            entries: checkIns.map((c: any) => ({
+              event: c.event,
+              checkIn: c,
+              hoursLogged: c.hoursLogged ?? 0,
+            })),
+          };
+        })
+      );
+
+      return { coaches, month, year };
+    },
   },
 
   Mutation: {
@@ -1618,6 +1717,25 @@ export const resolvers = {
         }),
       ]);
       return updated;
+    },
+
+    updateCoachHourlyRate: async (
+      _: unknown,
+      { organizationId, userId, hourlyRate }: { organizationId: string; userId: string; hourlyRate?: number | null },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      const viewer = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId } },
+      });
+      if (!viewer || !["OWNER", "ADMIN", "MANAGER"].includes(viewer.role)) {
+        throw new Error("Not authorized");
+      }
+      return prisma.organizationMember.update({
+        where: { userId_organizationId: { userId, organizationId } },
+        data: { hourlyRate: hourlyRate ?? null },
+        include: { user: true },
+      });
     },
 
     upsertGymnasticsProfile: async (
@@ -3740,7 +3858,7 @@ export const resolvers = {
       });
     },
 
-    updateOrganizationSettings: async (_: unknown, { id, adminHealthAccess, coachHealthAccess, reportFrequencies }: { id: string; adminHealthAccess?: string; coachHealthAccess?: string; reportFrequencies?: string[] }) => {
+    updateOrganizationSettings: async (_: unknown, { id, adminHealthAccess, coachHealthAccess, allowCoachHourEdit, reportFrequencies }: { id: string; adminHealthAccess?: string; coachHealthAccess?: string; allowCoachHourEdit?: boolean; reportFrequencies?: string[] }) => {
       if (reportFrequencies !== undefined) {
         await prisma.orgReportSendRecord.deleteMany({
           where: { organizationId: id, frequency: { notIn: reportFrequencies } },
@@ -3751,8 +3869,52 @@ export const resolvers = {
         data: {
           ...(adminHealthAccess !== undefined && { adminHealthAccess: adminHealthAccess as any }),
           ...(coachHealthAccess !== undefined && { coachHealthAccess: coachHealthAccess as any }),
+          ...(allowCoachHourEdit !== undefined && { allowCoachHourEdit }),
           ...(reportFrequencies !== undefined && { reportFrequencies }),
         },
+      });
+    },
+
+    updateCheckInTimes: async (
+      _: unknown,
+      { checkInId, checkInTime, checkOutTime }: { checkInId: string; checkInTime?: string | null; checkOutTime?: string | null },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+
+      const checkIn = await prisma.checkIn.findUnique({
+        where: { id: checkInId },
+        include: { event: true },
+      });
+      if (!checkIn) throw new Error("Check-in not found");
+
+      const membership = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId: checkIn.event.organizationId } },
+      });
+      if (!membership) throw new Error("Not a member of this organization");
+
+      const isAdmin = ["OWNER", "ADMIN", "MANAGER"].includes(membership.role);
+      if (!isAdmin) {
+        if (checkIn.userId !== context.userId) throw new Error("Not authorized");
+        if (membership.role !== "COACH") throw new Error("Not authorized");
+        const org = await prisma.organization.findUnique({ where: { id: checkIn.event.organizationId } });
+        if (!org?.allowCoachHourEdit) throw new Error("Coach hour editing is not enabled for this organization");
+      }
+
+      let hoursLogged = checkIn.hoursLogged;
+      if (checkInTime && checkOutTime) {
+        const diffMs = new Date(checkOutTime).getTime() - new Date(checkInTime).getTime();
+        hoursLogged = Math.round((diffMs / (1000 * 60 * 60)) * 100) / 100;
+      }
+
+      return prisma.checkIn.update({
+        where: { id: checkInId },
+        data: {
+          ...(checkInTime !== undefined && { checkInTime: checkInTime ? new Date(checkInTime) : null }),
+          ...(checkOutTime !== undefined && { checkOutTime: checkOutTime ? new Date(checkOutTime) : null }),
+          ...(hoursLogged !== null && { hoursLogged }),
+        },
+        include: { user: true, event: true },
       });
     },
 

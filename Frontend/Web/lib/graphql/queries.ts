@@ -119,6 +119,7 @@ export const GET_ORGANIZATION = gql`
       memberCount
       adminHealthAccess
       coachHealthAccess
+      allowCoachHourEdit
       reportFrequencies
       teams {
         ...TeamFields
@@ -758,6 +759,43 @@ export const GET_PENDING_AD_HOC_CHECK_INS = gql`
         team {
           id
           name
+        }
+      }
+    }
+  }
+`;
+
+export const GET_ORG_COACH_HOURS = gql`
+  query OrgCoachHours($organizationId: ID!, $month: Int!, $year: Int!) {
+    orgCoachHours(organizationId: $organizationId, month: $month, year: $year) {
+      month
+      year
+      coaches {
+        userId
+        totalHours
+        totalPay
+        hourlyRate
+        user {
+          id
+          firstName
+          lastName
+          image
+        }
+        entries {
+          hoursLogged
+          event {
+            id
+            title
+            date
+            startTime
+            endTime
+          }
+          checkIn {
+            id
+            checkInTime
+            checkOutTime
+            status
+          }
         }
       }
     }

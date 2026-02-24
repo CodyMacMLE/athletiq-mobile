@@ -195,6 +195,7 @@ export const typeDefs = `#graphql
     memberCount: Int!
     adminHealthAccess: AdminHealthAccess!
     coachHealthAccess: CoachHealthAccess!
+    allowCoachHourEdit: Boolean!
     reportFrequencies: [String!]!
   }
 
@@ -252,6 +253,7 @@ export const typeDefs = `#graphql
     organization: Organization!
     role: OrgRole!
     athleteStatus: AthleteStatus!
+    hourlyRate: Float
     joinedAt: String!
   }
 
@@ -500,6 +502,27 @@ export const typeDefs = `#graphql
     orgSize: Int!
     currentStreak: Int!
     bestStreak: Int!
+  }
+
+  type CoachHoursEntry {
+    event: Event!
+    checkIn: CheckIn
+    hoursLogged: Float!
+  }
+
+  type CoachMonthlyHours {
+    userId: ID!
+    user: User!
+    totalHours: Float!
+    totalPay: Float
+    hourlyRate: Float
+    entries: [CoachHoursEntry!]!
+  }
+
+  type OrgCoachHoursSummary {
+    coaches: [CoachMonthlyHours!]!
+    month: Int!
+    year: Int!
   }
 
   type LeaderboardEntry {
@@ -866,6 +889,10 @@ export const typeDefs = `#graphql
     teamRankings(organizationId: ID!, timeRange: TimeRange): [TeamRanking!]!
     recentActivity(organizationId: ID!, limit: Int): [RecentActivity!]!
 
+    # Coach hours / payroll queries
+    coachMyHours(organizationId: ID!, month: Int!, year: Int!): CoachMonthlyHours!
+    orgCoachHours(organizationId: ID!, month: Int!, year: Int!): OrgCoachHoursSummary!
+
     # Notification queries
     myNotificationPreferences: NotificationPreferences
     myDeviceTokens: [DeviceToken!]!
@@ -996,11 +1023,15 @@ export const typeDefs = `#graphql
     deleteEmailReportConfig(id: ID!): Boolean!
     sendTestReport(configId: ID!): Boolean!
 
+    # Coach hours / payroll mutations
+    updateCoachHourlyRate(organizationId: ID!, userId: ID!, hourlyRate: Float): OrganizationMember!
+
     # Health & Safety mutations
     createEmergencyContact(input: CreateEmergencyContactInput!): EmergencyContact!
     updateEmergencyContact(id: ID!, input: UpdateEmergencyContactInput!): EmergencyContact!
     deleteEmergencyContact(id: ID!): Boolean!
     upsertMedicalInfo(input: UpsertMedicalInfoInput!): MedicalInfo!
-    updateOrganizationSettings(id: ID!, adminHealthAccess: AdminHealthAccess, coachHealthAccess: CoachHealthAccess, reportFrequencies: [String!]): Organization!
+    updateOrganizationSettings(id: ID!, adminHealthAccess: AdminHealthAccess, coachHealthAccess: CoachHealthAccess, allowCoachHourEdit: Boolean, reportFrequencies: [String!]): Organization!
+    updateCheckInTimes(checkInId: ID!, checkInTime: String, checkOutTime: String): CheckIn!
   }
 `;

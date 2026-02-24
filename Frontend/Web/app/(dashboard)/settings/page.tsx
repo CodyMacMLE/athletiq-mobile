@@ -44,8 +44,11 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [adminHealthAccess, setAdminHealthAccess] = useState<string>("ADMINS_ONLY");
   const [coachHealthAccess, setCoachHealthAccess] = useState<string>("TEAM_ONLY");
+  const [allowCoachHourEdit, setAllowCoachHourEdit] = useState(false);
   const [healthSaving, setHealthSaving] = useState(false);
   const [healthSaved, setHealthSaved] = useState(false);
+  const [coachHourSaving, setCoachHourSaving] = useState(false);
+  const [coachHourSaved, setCoachHourSaved] = useState(false);
   const [reportFrequencies, setReportFrequencies] = useState<string[]>([]);
   const [reportSaving, setReportSaving] = useState(false);
   const [reportSaved, setReportSaved] = useState(false);
@@ -70,6 +73,7 @@ export default function SettingsPage() {
     if (orgData?.organization) {
       if (orgData.organization.adminHealthAccess) setAdminHealthAccess(orgData.organization.adminHealthAccess);
       if (orgData.organization.coachHealthAccess) setCoachHealthAccess(orgData.organization.coachHealthAccess);
+      if (orgData.organization.allowCoachHourEdit !== undefined) setAllowCoachHourEdit(orgData.organization.allowCoachHourEdit);
       if (orgData.organization.reportFrequencies) setReportFrequencies(orgData.organization.reportFrequencies);
     }
   }, [orgData]);
@@ -162,6 +166,22 @@ export default function SettingsPage() {
       console.error("Failed to save health settings:", err);
     } finally {
       setHealthSaving(false);
+    }
+  };
+
+  const handleSaveCoachHourEdit = async () => {
+    if (!selectedOrganizationId) return;
+    setCoachHourSaving(true);
+    try {
+      await updateOrganizationSettings({
+        variables: { id: selectedOrganizationId, allowCoachHourEdit },
+      });
+      setCoachHourSaved(true);
+      setTimeout(() => setCoachHourSaved(false), 2000);
+    } catch (err) {
+      console.error("Failed to save coach hour setting:", err);
+    } finally {
+      setCoachHourSaving(false);
     }
   };
 
@@ -548,6 +568,48 @@ export default function SettingsPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50"
             >
               {healthSaved ? <><Check className="w-4 h-4" /> Saved</> : healthSaving ? "Saving..." : <><Check className="w-4 h-4" /> Save</>}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Coach Hours */}
+      {canManageOrg && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <HelpCircle className="w-5 h-5 text-[#a78bfa]" />
+            <h2 className="text-lg font-semibold text-white">Coach Hours</h2>
+          </div>
+          <div className="bg-white/8 rounded-lg border border-white/8 p-4 space-y-4">
+            <p className="text-sm text-white/55">
+              Control whether coaches can edit their own check-in and check-out times on mobile. When disabled, only Admins and Managers can modify hours on the web dashboard.
+            </p>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={allowCoachHourEdit}
+                  onChange={(e) => setAllowCoachHourEdit(e.target.checked)}
+                />
+                <div
+                  onClick={() => setAllowCoachHourEdit(!allowCoachHourEdit)}
+                  className={`w-10 h-6 rounded-full transition-colors cursor-pointer ${allowCoachHourEdit ? "bg-[#6c5ce7]" : "bg-white/20"}`}
+                >
+                  <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${allowCoachHourEdit ? "translate-x-5" : "translate-x-1"}`} />
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">Allow coaches to edit their hours</p>
+                <p className="text-xs text-white/40">Coaches can modify check-in/out times directly from the mobile app</p>
+              </div>
+            </label>
+            <button
+              onClick={handleSaveCoachHourEdit}
+              disabled={coachHourSaving}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50"
+            >
+              {coachHourSaved ? <><Check className="w-4 h-4" /> Saved</> : coachHourSaving ? "Saving..." : <><Check className="w-4 h-4" /> Save</>}
             </button>
           </div>
         </section>

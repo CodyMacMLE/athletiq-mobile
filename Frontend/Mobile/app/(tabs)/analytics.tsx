@@ -5,6 +5,7 @@ import { AthletePicker } from "@/components/AthletePicker";
 import { NoOrgScreen } from "@/components/NoOrgScreen";
 import { NotificationBell } from "@/components/NotificationBell";
 import { AthleteView } from "@/components/team/AthleteView";
+import { CoachHoursView } from "@/components/CoachHoursView";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
@@ -13,21 +14,16 @@ import { StyleSheet, Text, View } from "react-native";
 
 const AVATAR_SIZE = 45;
 
-export default function Analytics() {
-  const { user, selectedOrganization, isViewingAsGuardian, selectedAthlete } = useAuth();
+const STAFF_ROLES = ["OWNER", "ADMIN", "MANAGER", "COACH"];
+
+function AthleteAnalyticsView() {
+  const { user, isViewingAsGuardian, selectedAthlete } = useAuth();
   const [pickerVisible, setPickerVisible] = useState(false);
 
   if (!user) return null;
-  if (!selectedOrganization) return <NoOrgScreen title="Analytics" />;
 
   return (
-    <LinearGradient
-      colors={["#302b6f", "#4d2a69", "#302b6f"]}
-      style={styles.gradient}
-      locations={[0.1, 0.6, 1]}
-    >
-      <StatusBar style="light" />
-
+    <>
       <OrgTeamPicker visible={pickerVisible} onClose={() => setPickerVisible(false)} />
 
       {/* Header */}
@@ -59,6 +55,26 @@ export default function Analytics() {
 
       <AthletePicker />
       <AthleteView />
+    </>
+  );
+}
+
+export default function Analytics() {
+  const { user, selectedOrganization, orgRole } = useAuth();
+
+  if (!user) return null;
+  if (!selectedOrganization) return <NoOrgScreen title="Analytics" />;
+
+  const isStaff = STAFF_ROLES.includes(orgRole ?? "");
+
+  return (
+    <LinearGradient
+      colors={["#302b6f", "#4d2a69", "#302b6f"]}
+      style={styles.gradient}
+      locations={[0.1, 0.6, 1]}
+    >
+      <StatusBar style="light" />
+      {isStaff ? <CoachHoursView /> : <AthleteAnalyticsView />}
     </LinearGradient>
   );
 }

@@ -154,6 +154,29 @@ export const DENY_AD_HOC_CHECK_IN = gql`
   }
 `;
 
+export const ADMIN_CHECK_IN = gql`
+  mutation AdminCheckIn($input: AdminCheckInInput!) {
+    adminCheckIn(input: $input) {
+      id
+      status
+      checkInTime
+      checkOutTime
+      hoursLogged
+    }
+  }
+`;
+
+export const UPDATE_CHECK_IN_TIMES = gql`
+  mutation UpdateCheckInTimes($checkInId: ID!, $checkInTime: String, $checkOutTime: String) {
+    updateCheckInTimes(checkInId: $checkInId, checkInTime: $checkInTime, checkOutTime: $checkOutTime) {
+      id
+      checkInTime
+      checkOutTime
+      hoursLogged
+    }
+  }
+`;
+
 // ============================================
 // Guardian Mutations
 // ============================================

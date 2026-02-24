@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   Megaphone,
+  DollarSign,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -31,6 +32,7 @@ const navigation = [
 ];
 
 const adminOnlyNavigation = [
+  { name: "Payroll", href: "/payroll", icon: DollarSign },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

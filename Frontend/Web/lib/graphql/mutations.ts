@@ -511,12 +511,24 @@ export const UPSERT_MEDICAL_INFO = gql`
 `;
 
 export const UPDATE_ORGANIZATION_SETTINGS = gql`
-  mutation UpdateOrganizationSettings($id: ID!, $adminHealthAccess: AdminHealthAccess, $coachHealthAccess: CoachHealthAccess, $reportFrequencies: [String!]) {
-    updateOrganizationSettings(id: $id, adminHealthAccess: $adminHealthAccess, coachHealthAccess: $coachHealthAccess, reportFrequencies: $reportFrequencies) {
+  mutation UpdateOrganizationSettings($id: ID!, $adminHealthAccess: AdminHealthAccess, $coachHealthAccess: CoachHealthAccess, $allowCoachHourEdit: Boolean, $reportFrequencies: [String!]) {
+    updateOrganizationSettings(id: $id, adminHealthAccess: $adminHealthAccess, coachHealthAccess: $coachHealthAccess, allowCoachHourEdit: $allowCoachHourEdit, reportFrequencies: $reportFrequencies) {
       id
       adminHealthAccess
       coachHealthAccess
+      allowCoachHourEdit
       reportFrequencies
+    }
+  }
+`;
+
+export const UPDATE_CHECK_IN_TIMES = gql`
+  mutation UpdateCheckInTimes($checkInId: ID!, $checkInTime: String, $checkOutTime: String) {
+    updateCheckInTimes(checkInId: $checkInId, checkInTime: $checkInTime, checkOutTime: $checkOutTime) {
+      id
+      checkInTime
+      checkOutTime
+      hoursLogged
     }
   }
 `;
@@ -671,6 +683,20 @@ export const UPSERT_GYMNASTICS_PROFILE = gql`
       apparatus
       notes
       updatedAt
+    }
+  }
+`;
+
+export const UPDATE_COACH_HOURLY_RATE = gql`
+  mutation UpdateCoachHourlyRate($organizationId: ID!, $userId: ID!, $hourlyRate: Float) {
+    updateCoachHourlyRate(organizationId: $organizationId, userId: $userId, hourlyRate: $hourlyRate) {
+      id
+      hourlyRate
+      user {
+        id
+        firstName
+        lastName
+      }
     }
   }
 `;

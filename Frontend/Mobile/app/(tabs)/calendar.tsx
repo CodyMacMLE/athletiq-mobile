@@ -4,8 +4,8 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { OrgTeamPicker } from "@/components/OrgTeamPicker";
 import { OrgTeamSubtitle } from "@/components/OrgTeamSubtitle";
 import { AthletePicker } from "@/components/AthletePicker";
-import { GET_EVENTS, GET_CHECKIN_HISTORY, GET_MY_EXCUSE_REQUESTS, GET_MY_RSVPS } from "@/lib/graphql/queries";
-import { CANCEL_EXCUSE_REQUEST, UPSERT_RSVP, DELETE_RSVP } from "@/lib/graphql/mutations";
+import { GET_EVENTS, GET_CHECKIN_HISTORY, GET_MY_EXCUSE_REQUESTS, GET_MY_RSVPS, GET_ORGANIZATION } from "@/lib/graphql/queries";
+import { CANCEL_EXCUSE_REQUEST, UPSERT_RSVP, DELETE_RSVP, CREATE_EXCUSE_REQUEST, UPDATE_CHECK_IN_TIMES } from "@/lib/graphql/mutations";
 import { useQuery, useMutation } from "@apollo/client";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -25,6 +25,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -123,7 +124,10 @@ function formatRelativeDate(date: Date): string {
 }
 
 export default function Calendar() {
-  const { user, selectedOrganization, selectedTeamId, targetUserId, isViewingAsGuardian } = useAuth();
+  const { user, selectedOrganization, selectedTeamId, targetUserId, isViewingAsGuardian, orgRole } = useAuth();
+  const STAFF_ROLES = ["OWNER", "ADMIN", "MANAGER", "COACH"];
+  const isStaff = STAFF_ROLES.includes(orgRole ?? "");
+  const isOrgAdmin = ["OWNER", "ADMIN", "MANAGER"].includes(orgRole ?? "");
   const [pickerVisible, setPickerVisible] = useState(false);
   const today = new Date();
 
@@ -153,6 +157,14 @@ export default function Calendar() {
   const [eventsTab, setEventsTab] = useState<"upcoming" | "past">("upcoming");
   const [rsvpNote, setRsvpNote] = useState("");
   const [pendingRsvpStatus, setPendingRsvpStatus] = useState<"GOING" | "MAYBE" | "NOT_GOING" | null>(null);
+  // Coach time editing state
+  const [editingTimes, setEditingTimes] = useState(false);
+  const [editCheckInTime, setEditCheckInTime] = useState("");
+  const [editCheckOutTime, setEditCheckOutTime] = useState("");
+  const [timeSaving, setTimeSaving] = useState(false);
+  // Coach time-off request state
+  const [timeOffReason, setTimeOffReason] = useState("");
+  const [requestingTimeOff, setRequestingTimeOff] = useState(false);
   const router = useRouter();
 
   // Pan responder for horizontal swipe on calendar grid → month switching
@@ -259,8 +271,21 @@ export default function Calendar() {
     fetchPolicy: "cache-and-network",
   });
 
+  const { data: orgData } = useQuery(GET_ORGANIZATION, {
+    variables: { id: selectedOrganization?.id },
+    skip: !selectedOrganization?.id || !isStaff,
+  });
+  const allowCoachHourEdit = orgData?.organization?.allowCoachHourEdit ?? false;
+  const canEditTimes = isOrgAdmin || (orgRole === "COACH" && allowCoachHourEdit);
+
   const [cancelExcuse] = useMutation(CANCEL_EXCUSE_REQUEST, {
     refetchQueries: ["GetMyExcuseRequests"],
+  });
+  const [createExcuseRequest] = useMutation(CREATE_EXCUSE_REQUEST, {
+    refetchQueries: ["GetMyExcuseRequests"],
+  });
+  const [updateCheckInTimes] = useMutation(UPDATE_CHECK_IN_TIMES, {
+    refetchQueries: ["GetCheckInHistory"],
   });
 
   const [upsertRsvp] = useMutation(UPSERT_RSVP, {
@@ -390,6 +415,8 @@ export default function Calendar() {
     closeDayPicker(() => {
       setPendingRsvpStatus(null);
       setRsvpNote("");
+      setEditingTimes(false);
+      setTimeOffReason("");
       setSelectedEvent(event);
       setModalVisible(true);
     });
@@ -504,6 +531,52 @@ export default function Calendar() {
       setRsvpNote("");
     } catch (error: any) {
       Alert.alert("Error", error.message || "Failed to save RSVP.");
+    }
+  };
+
+  const handleSaveTimes = async () => {
+    if (!selectedCheckIn) return;
+    setTimeSaving(true);
+    try {
+      // Parse "6:00 PM" style times combined with event date
+      const eventDate = selectedEvent?.date;
+      function toISO(timeStr: string, date: Date): string {
+        const parts = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (!parts) return date.toISOString();
+        let h = parseInt(parts[1], 10);
+        const m = parseInt(parts[2], 10);
+        const period = parts[3].toUpperCase();
+        if (period === "PM" && h !== 12) h += 12;
+        if (period === "AM" && h === 12) h = 0;
+        const d = new Date(date);
+        d.setHours(h, m, 0, 0);
+        return d.toISOString();
+      }
+      const checkInISO = editCheckInTime ? toISO(editCheckInTime, eventDate!) : undefined;
+      const checkOutISO = editCheckOutTime ? toISO(editCheckOutTime, eventDate!) : undefined;
+      await updateCheckInTimes({
+        variables: { checkInId: selectedCheckIn.id, checkInTime: checkInISO, checkOutTime: checkOutISO },
+      });
+      setEditingTimes(false);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to save times.");
+    } finally {
+      setTimeSaving(false);
+    }
+  };
+
+  const handleRequestTimeOff = async () => {
+    if (!selectedEvent || !targetUserId || !timeOffReason.trim()) return;
+    setRequestingTimeOff(true);
+    try {
+      await createExcuseRequest({
+        variables: { input: { userId: targetUserId, eventId: selectedEvent.id, reason: timeOffReason.trim() } },
+      });
+      setTimeOffReason("");
+      setRequestingTimeOff(false);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Failed to submit time-off request.");
+      setRequestingTimeOff(false);
     }
   };
 
@@ -630,11 +703,11 @@ export default function Calendar() {
         visible={modalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => { setModalVisible(false); setPendingRsvpStatus(null); setRsvpNote(""); }}
+        onRequestClose={() => { setModalVisible(false); setPendingRsvpStatus(null); setRsvpNote(""); setEditingTimes(false); setTimeOffReason(""); }}
       >
         <Pressable
           style={styles.modalOverlay}
-          onPress={() => { setModalVisible(false); setPendingRsvpStatus(null); setRsvpNote(""); }}
+          onPress={() => { setModalVisible(false); setPendingRsvpStatus(null); setRsvpNote(""); setEditingTimes(false); setTimeOffReason(""); }}
         >
             <Pressable style={styles.eventModalContainer} onPress={(e) => e.stopPropagation()}>
             {selectedEvent && (
@@ -718,10 +791,12 @@ export default function Calendar() {
                     </Text>
                   )}
 
-                  {/* Past Event: Attendance Info */}
+                  {/* Past Event: Attendance / Hours Info */}
                   {isEventPast && (
                     <View style={styles.attendanceSection}>
-                      <Text style={styles.attendanceSectionTitle}>Your Attendance</Text>
+                      <Text style={styles.attendanceSectionTitle}>
+                        {isStaff ? "Your Hours" : "Your Attendance"}
+                      </Text>
 
                       {selectedCheckIn ? (
                         <View style={styles.attendanceCard}>
@@ -743,40 +818,96 @@ export default function Calendar() {
                                 {(STATUS_CONFIG[selectedCheckIn.status] || STATUS_CONFIG.ABSENT).label}
                               </Text>
                             </View>
+                            {/* Edit button for staff */}
+                            {isStaff && canEditTimes && !editingTimes && (
+                              <TouchableOpacity
+                                style={styles.editTimesBtn}
+                                onPress={() => {
+                                  const fmt = (iso: string | null) => iso
+                                    ? new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+                                    : "";
+                                  setEditCheckInTime(fmt(selectedCheckIn.checkInTime));
+                                  setEditCheckOutTime(fmt(selectedCheckIn.checkOutTime));
+                                  setEditingTimes(true);
+                                }}
+                              >
+                                <Feather name="edit-2" size={13} color="rgba(255,255,255,0.5)" />
+                                <Text style={styles.editTimesBtnText}>Edit</Text>
+                              </TouchableOpacity>
+                            )}
                           </View>
 
-                          {/* Check-in/out times */}
-                          {selectedCheckIn.checkInTime && (
-                            <View style={styles.attendanceDetailRow}>
-                              <Text style={styles.attendanceLabel}>Check-in</Text>
-                              <Text style={styles.attendanceValue}>
-                                {new Date(selectedCheckIn.checkInTime).toLocaleTimeString("en-US", {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
-                              </Text>
+                          {editingTimes ? (
+                            /* ── Edit mode ── */
+                            <View style={{ gap: 10 }}>
+                              <View style={styles.timeInputRow}>
+                                <Text style={styles.attendanceLabel}>Check-in</Text>
+                                <TextInput
+                                  style={styles.timeInput}
+                                  value={editCheckInTime}
+                                  onChangeText={setEditCheckInTime}
+                                  placeholder="6:00 PM"
+                                  placeholderTextColor="rgba(255,255,255,0.3)"
+                                  autoCapitalize="characters"
+                                />
+                              </View>
+                              <View style={styles.timeInputRow}>
+                                <Text style={styles.attendanceLabel}>Check-out</Text>
+                                <TextInput
+                                  style={styles.timeInput}
+                                  value={editCheckOutTime}
+                                  onChangeText={setEditCheckOutTime}
+                                  placeholder="8:00 PM"
+                                  placeholderTextColor="rgba(255,255,255,0.3)"
+                                  autoCapitalize="characters"
+                                />
+                              </View>
+                              <View style={{ flexDirection: "row", gap: 8 }}>
+                                <Pressable
+                                  style={({ pressed }) => [styles.saveTimesBtn, pressed && { opacity: 0.7 }]}
+                                  onPress={handleSaveTimes}
+                                  disabled={timeSaving}
+                                >
+                                  <Text style={styles.saveTimesBtnText}>
+                                    {timeSaving ? "Saving…" : "Save"}
+                                  </Text>
+                                </Pressable>
+                                <Pressable
+                                  style={({ pressed }) => [styles.cancelTimesBtn, pressed && { opacity: 0.7 }]}
+                                  onPress={() => setEditingTimes(false)}
+                                >
+                                  <Text style={styles.cancelTimesBtnText}>Cancel</Text>
+                                </Pressable>
+                              </View>
                             </View>
-                          )}
-
-                          {selectedCheckIn.checkOutTime && (
-                            <View style={styles.attendanceDetailRow}>
-                              <Text style={styles.attendanceLabel}>Check-out</Text>
-                              <Text style={styles.attendanceValue}>
-                                {new Date(selectedCheckIn.checkOutTime).toLocaleTimeString("en-US", {
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                })}
-                              </Text>
-                            </View>
-                          )}
-
-                          {selectedCheckIn.hoursLogged != null && selectedCheckIn.hoursLogged > 0 && (
-                            <View style={styles.attendanceDetailRow}>
-                              <Text style={styles.attendanceLabel}>Hours Logged</Text>
-                              <Text style={[styles.attendanceValue, { color: "#27ae60", fontWeight: "700" }]}>
-                                {selectedCheckIn.hoursLogged.toFixed(2)}h
-                              </Text>
-                            </View>
+                          ) : (
+                            /* ── Display mode ── */
+                            <>
+                              {selectedCheckIn.checkInTime && (
+                                <View style={styles.attendanceDetailRow}>
+                                  <Text style={styles.attendanceLabel}>Check-in</Text>
+                                  <Text style={styles.attendanceValue}>
+                                    {new Date(selectedCheckIn.checkInTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                  </Text>
+                                </View>
+                              )}
+                              {selectedCheckIn.checkOutTime && (
+                                <View style={styles.attendanceDetailRow}>
+                                  <Text style={styles.attendanceLabel}>Check-out</Text>
+                                  <Text style={styles.attendanceValue}>
+                                    {new Date(selectedCheckIn.checkOutTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                  </Text>
+                                </View>
+                              )}
+                              {selectedCheckIn.hoursLogged != null && selectedCheckIn.hoursLogged > 0 && (
+                                <View style={styles.attendanceDetailRow}>
+                                  <Text style={styles.attendanceLabel}>Hours Logged</Text>
+                                  <Text style={[styles.attendanceValue, { color: "#27ae60", fontWeight: "700" }]}>
+                                    {selectedCheckIn.hoursLogged.toFixed(2)}h
+                                  </Text>
+                                </View>
+                              )}
+                            </>
                           )}
                         </View>
                       ) : selectedExcuse ? (
@@ -800,7 +931,7 @@ export default function Calendar() {
                             <View style={[styles.attendanceStatusBadge, { backgroundColor: "rgba(231,76,60,0.2)" }]}>
                               <Feather name="x-circle" size={14} color="#e74c3c" />
                               <Text style={[styles.attendanceStatusText, { color: "#e74c3c" }]}>
-                                Absent
+                                {isStaff ? "No hours recorded" : "Absent"}
                               </Text>
                             </View>
                           </View>
@@ -810,8 +941,8 @@ export default function Calendar() {
                     </View>
                   )}
 
-                  {/* Upcoming Event: RSVP Widget */}
-                  {!isEventPast && !isViewingAsGuardian && (
+                  {/* Upcoming Event: RSVP Widget (athletes only) */}
+                  {!isEventPast && !isViewingAsGuardian && !isStaff && (
                     <View style={styles.attendanceSection}>
                       <Text style={styles.attendanceSectionTitle}>Are you going?</Text>
 
@@ -906,6 +1037,69 @@ export default function Calendar() {
                               <Text style={styles.cancelExcuseBtnText}>Cancel Request</Text>
                             </Pressable>
                           )}
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Upcoming Event: Request Time Off (staff only) */}
+                  {!isEventPast && !isViewingAsGuardian && isStaff && (
+                    <View style={styles.attendanceSection}>
+                      <Text style={styles.attendanceSectionTitle}>Time Off</Text>
+
+                      {selectedExcuse ? (
+                        /* Existing time-off request */
+                        <View style={styles.attendanceCard}>
+                          <View style={styles.attendanceStatusRow}>
+                            <View style={[styles.attendanceStatusBadge, { backgroundColor: "rgba(155,89,182,0.2)" }]}>
+                              <Feather
+                                name={selectedExcuse.status === "APPROVED" ? "check" : "clock"}
+                                size={14}
+                                color="#9b59b6"
+                              />
+                              <Text style={[styles.attendanceStatusText, { color: "#9b59b6" }]}>
+                                {selectedExcuse.status === "APPROVED" ? "Approved" : "Request Pending"}
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.excuseReasonBox}>
+                            <Text style={styles.excuseReasonLabel}>Reason</Text>
+                            <Text style={styles.excuseReasonText}>{selectedExcuse.reason}</Text>
+                          </View>
+                          {selectedExcuse.status === "PENDING" && (
+                            <Pressable
+                              style={({ pressed }) => [styles.cancelExcuseBtn, pressed && { opacity: 0.7 }]}
+                              onPress={() => handleCancelExcuse(selectedExcuse.id)}
+                            >
+                              <Text style={styles.cancelExcuseBtnText}>Cancel Request</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      ) : (
+                        /* Request time off form */
+                        <View style={{ gap: 10 }}>
+                          <TextInput
+                            style={styles.timeOffReasonInput}
+                            placeholder="Reason for time off…"
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                            value={timeOffReason}
+                            onChangeText={setTimeOffReason}
+                            multiline
+                          />
+                          <Pressable
+                            style={({ pressed }) => [
+                              styles.requestTimeOffBtn,
+                              !timeOffReason.trim() && { opacity: 0.4 },
+                              pressed && { opacity: 0.7 },
+                            ]}
+                            onPress={handleRequestTimeOff}
+                            disabled={!timeOffReason.trim() || requestingTimeOff}
+                          >
+                            <Feather name="send" size={14} color="#a855f7" />
+                            <Text style={styles.requestTimeOffBtnText}>
+                              {requestingTimeOff ? "Submitting…" : "Request Time Off"}
+                            </Text>
+                          </Pressable>
                         </View>
                       )}
                     </View>
@@ -1067,7 +1261,7 @@ export default function Calendar() {
                         {day}
                       </Text>
                     </View>
-                    {hasEvents && (
+                    {hasEvents && !isToday && (
                       <View style={styles.eventDots}>
                         <View
                           style={[
@@ -1554,6 +1748,8 @@ const styles = StyleSheet.create({
   },
   attendanceStatusRow: {
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 10,
   },
   attendanceStatusBadge: {
@@ -1625,6 +1821,95 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.4)",
     fontSize: 13,
     fontWeight: "500",
+  },
+
+  // Edit times (coach)
+  editTimesBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginLeft: "auto",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.07)",
+  },
+  editTimesBtnText: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  timeInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  timeInput: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: "white",
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    textAlign: "right",
+  },
+  saveTimesBtn: {
+    flex: 1,
+    backgroundColor: "rgba(108,92,231,0.35)",
+    borderRadius: 8,
+    paddingVertical: 9,
+    alignItems: "center",
+  },
+  saveTimesBtnText: {
+    color: "#a78bfa",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  cancelTimesBtn: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 8,
+    paddingVertical: 9,
+    alignItems: "center",
+  },
+  cancelTimesBtnText: {
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  // Request time off (coach)
+  timeOffReasonInput: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "white",
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    minHeight: 70,
+    textAlignVertical: "top",
+  },
+  requestTimeOffBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "rgba(168,85,247,0.15)",
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(168,85,247,0.25)",
+  },
+  requestTimeOffBtnText: {
+    color: "#a855f7",
+    fontSize: 14,
+    fontWeight: "600",
   },
 
   // RSVP

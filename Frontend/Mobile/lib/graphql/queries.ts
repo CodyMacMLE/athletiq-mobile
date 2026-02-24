@@ -122,6 +122,7 @@ export const GET_ORGANIZATION = gql`
       id
       name
       image
+      allowCoachHourEdit
       teams {
         id
         name
@@ -585,6 +586,33 @@ export const GET_MY_HEALTH_DATA = gql`
         insurancePolicyNumber
         insuranceGroupNumber
         notes
+      }
+    }
+  }
+`;
+
+export const GET_COACH_MY_HOURS = gql`
+  query CoachMyHours($organizationId: ID!, $month: Int!, $year: Int!) {
+    coachMyHours(organizationId: $organizationId, month: $month, year: $year) {
+      userId
+      totalHours
+      totalPay
+      hourlyRate
+      entries {
+        hoursLogged
+        event {
+          id
+          title
+          date
+          startTime
+          endTime
+        }
+        checkIn {
+          id
+          checkInTime
+          checkOutTime
+          status
+        }
       }
     }
   }

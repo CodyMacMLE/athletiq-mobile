@@ -76,6 +76,7 @@ model Organization {
 
   adminHealthAccess   AdminHealthAccess @default(ADMINS_ONLY)
   coachHealthAccess   CoachHealthAccess @default(TEAM_ONLY)
+  allowCoachHourEdit  Boolean           @default(false)
   reportFrequencies   String[]
 
   // Relations
@@ -195,6 +196,7 @@ model OrganizationMember {
   organization   Organization  @relation(fields: [organizationId], references: [id])
   role           OrgRole       @default(ATHLETE)
   athleteStatus  AthleteStatus @default(ACTIVE)
+  hourlyRate     Float?
   joinedAt       DateTime      @default(now())
 
   @@unique([userId, organizationId])
