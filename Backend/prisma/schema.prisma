@@ -198,6 +198,7 @@ model OrganizationMember {
   role           OrgRole       @default(ATHLETE)
   athleteStatus  AthleteStatus @default(ACTIVE)
   hourlyRate     Float?
+  salaryAmount   Float?
   joinedAt       DateTime      @default(now())
 
   @@unique([userId, organizationId])

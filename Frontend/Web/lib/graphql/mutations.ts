@@ -700,6 +700,17 @@ export const UPDATE_PAYROLL_CONFIG = gql`
   }
 `;
 
+export const UPDATE_COACH_PAY_RATE = gql`
+  mutation UpdateCoachPayRate($organizationId: ID!, $userId: ID!, $hourlyRate: Float, $salaryAmount: Float) {
+    updateCoachPayRate(organizationId: $organizationId, userId: $userId, hourlyRate: $hourlyRate, salaryAmount: $salaryAmount) {
+      id
+      hourlyRate
+      salaryAmount
+      user { id firstName lastName }
+    }
+  }
+`;
+
 export const UPDATE_COACH_HOURLY_RATE = gql`
   mutation UpdateCoachHourlyRate($organizationId: ID!, $userId: ID!, $hourlyRate: Float) {
     updateCoachHourlyRate(organizationId: $organizationId, userId: $userId, hourlyRate: $hourlyRate) {

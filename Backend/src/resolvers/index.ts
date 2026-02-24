@@ -1575,7 +1575,13 @@ export const resolvers = {
 
           const totalHours = Math.round(checkIns.reduce((s: number, c: any) => s + (c.hoursLogged ?? 0), 0) * 100) / 100;
           const hourlyRate = member.hourlyRate ?? null;
-          const grossPay = hourlyRate != null ? Math.round(totalHours * hourlyRate * 100) / 100 : null;
+          const salaryAmount = member.salaryAmount ?? null;
+          // Salary takes priority over hourly when both are set
+          const grossPay = salaryAmount != null
+            ? Math.round(salaryAmount * 100) / 100
+            : hourlyRate != null
+              ? Math.round(totalHours * hourlyRate * 100) / 100
+              : null;
 
           const appliedDeductions: any[] = [];
           let netPay = grossPay;
@@ -1597,6 +1603,7 @@ export const resolvers = {
             grossPay,
             netPay,
             hourlyRate,
+            salaryAmount,
             appliedDeductions,
             entries: checkIns.map((c: any) => ({
               event: c.event,
@@ -1822,6 +1829,36 @@ export const resolvers = {
       return prisma.organizationMember.update({
         where: { userId_organizationId: { userId, organizationId } },
         data: { hourlyRate: hourlyRate ?? null },
+        include: { user: true },
+      });
+    },
+
+    updateCoachPayRate: async (
+      _: unknown,
+      { organizationId, userId, hourlyRate, salaryAmount }: {
+        organizationId: string; userId: string; hourlyRate?: number | null; salaryAmount?: number | null;
+      },
+      context: { userId?: string }
+    ) => {
+      if (!context.userId) throw new Error("Authentication required");
+      const viewer = await prisma.organizationMember.findUnique({
+        where: { userId_organizationId: { userId: context.userId, organizationId } },
+      });
+      if (!viewer || !["OWNER", "ADMIN", "MANAGER"].includes(viewer.role)) {
+        throw new Error("Not authorized");
+      }
+      // Mutually exclusive: setting one clears the other
+      const data: any = {};
+      if (salaryAmount !== undefined) {
+        data.salaryAmount = salaryAmount ?? null;
+        data.hourlyRate = null; // clear hourly when salary is set
+      } else if (hourlyRate !== undefined) {
+        data.hourlyRate = hourlyRate ?? null;
+        data.salaryAmount = null; // clear salary when hourly is set
+      }
+      return prisma.organizationMember.update({
+        where: { userId_organizationId: { userId, organizationId } },
+        data,
         include: { user: true },
       });
     },

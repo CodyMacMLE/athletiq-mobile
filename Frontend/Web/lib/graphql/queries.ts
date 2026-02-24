@@ -843,6 +843,7 @@ export const GET_ORG_COACH_HOURS = gql`
         grossPay
         netPay
         hourlyRate
+        salaryAmount
         appliedDeductions {
           name
           type

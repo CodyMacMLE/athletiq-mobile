@@ -255,6 +255,7 @@ export const typeDefs = `#graphql
     role: OrgRole!
     athleteStatus: AthleteStatus!
     hourlyRate: Float
+    salaryAmount: Float
     joinedAt: String!
   }
 
@@ -531,6 +532,7 @@ export const typeDefs = `#graphql
     grossPay: Float
     netPay: Float
     hourlyRate: Float
+    salaryAmount: Float
     appliedDeductions: [AppliedDeduction!]!
     entries: [CoachHoursEntry!]!
   }
@@ -1062,6 +1064,7 @@ export const typeDefs = `#graphql
 
     # Coach hours / payroll mutations
     updateCoachHourlyRate(organizationId: ID!, userId: ID!, hourlyRate: Float): OrganizationMember!
+    updateCoachPayRate(organizationId: ID!, userId: ID!, hourlyRate: Float, salaryAmount: Float): OrganizationMember!
     updatePayrollConfig(organizationId: ID!, payPeriod: String, defaultHourlyRate: Float, deductions: [PayrollDeductionInput!]): Organization!
 
     # Health & Safety mutations
