@@ -13,6 +13,9 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "entitlements": {
+        "com.apple.developer.nfc.readersession.formats": ["TAG"]
+      },
       "infoPlist": {
         "NFCReaderUsageDescription": "This app uses NFC to check in to your gym",
         "ITSAppUsesNonExemptEncryption": false,
