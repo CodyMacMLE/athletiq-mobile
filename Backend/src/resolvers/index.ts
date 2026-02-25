@@ -1494,7 +1494,7 @@ export const resolvers = {
 
     coachMyHours: async (
       _: unknown,
-      { organizationId, month, year }: { organizationId: string; month: number; year: number },
+      { organizationId, month, year }: { organizationId?: string; month: number; year: number },
       context: { userId?: string }
     ) => {
       if (!context.userId) throw new Error("Authentication required");
@@ -1502,30 +1502,81 @@ export const resolvers = {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 1);
 
+      // Fetch check-ins — optionally scoped to one org, otherwise all orgs
       const checkIns = await prisma.checkIn.findMany({
         where: {
           userId: context.userId,
-          event: { organizationId, date: { gte: startDate, lt: endDate } },
-          status: { in: ["ON_TIME", "LATE"] },
+          event: {
+            ...(organizationId ? { organizationId } : {}),
+            date: { gte: startDate, lt: endDate },
+          },
+          status: { in: ["ON_TIME", "LATE"] as any[] },
         },
         include: { event: true },
         orderBy: { event: { date: "asc" } },
       });
 
-      const membership = await prisma.organizationMember.findUnique({
-        where: { userId_organizationId: { userId: context.userId, organizationId } },
-      });
+      // Aggregate pay across all orgs represented in the check-ins
+      const orgIds = organizationId
+        ? [organizationId]
+        : [...new Set(checkIns.map((c: any) => c.event.organizationId as string))];
+
+      let grossPay = 0;
+      let totalDeductions = 0;
+      const appliedDeductions: { name: string; type: string; value: number; amount: number }[] = [];
+      let firstHourlyRate: number | null = null;
+      let firstSalaryAmount: number | null = null;
+
+      await Promise.all(
+        orgIds.map(async (orgId) => {
+          const [membership, org] = await Promise.all([
+            prisma.organizationMember.findUnique({
+              where: { userId_organizationId: { userId: context.userId!, organizationId: orgId } },
+            }),
+            prisma.organization.findUnique({ where: { id: orgId } }),
+          ]);
+
+          const orgCheckIns = checkIns.filter((c: any) => c.event.organizationId === orgId);
+          const orgHours = orgCheckIns.reduce((s: number, c: any) => s + (c.hoursLogged ?? 0), 0);
+          const payrollConfig = (org?.payrollConfig as any) ?? {};
+          const deductions: any[] = payrollConfig?.deductions ?? [];
+
+          let orgGross = 0;
+          if (membership?.salaryAmount != null) {
+            orgGross = membership.salaryAmount;
+            firstSalaryAmount = firstSalaryAmount ?? membership.salaryAmount;
+          } else if (membership?.hourlyRate != null) {
+            orgGross = Math.round(orgHours * membership.hourlyRate * 100) / 100;
+            firstHourlyRate = firstHourlyRate ?? membership.hourlyRate;
+          }
+
+          grossPay += orgGross;
+
+          for (const ded of deductions) {
+            const amount =
+              ded.type === "FLAT"
+                ? ded.value
+                : Math.round((orgGross * ded.value) / 100 * 100) / 100;
+            totalDeductions += amount;
+            appliedDeductions.push({ name: ded.name, type: ded.type, value: ded.value, amount });
+          }
+        })
+      );
 
       const totalHours = checkIns.reduce((s: number, c: any) => s + (c.hoursLogged ?? 0), 0);
-      const hourlyRate = membership?.hourlyRate ?? null;
-      const totalPay = hourlyRate != null ? Math.round(totalHours * hourlyRate * 100) / 100 : null;
+      const roundedGross = Math.round(grossPay * 100) / 100;
+      const netPay = roundedGross > 0 ? Math.round((roundedGross - totalDeductions) * 100) / 100 : null;
 
       return {
         userId: context.userId,
         user: await prisma.user.findUnique({ where: { id: context.userId } }),
         totalHours: Math.round(totalHours * 100) / 100,
-        totalPay,
-        hourlyRate,
+        totalPay: netPay,
+        grossPay: roundedGross,
+        netPay,
+        hourlyRate: firstHourlyRate,
+        salaryAmount: firstSalaryAmount,
+        appliedDeductions,
         entries: checkIns.map((c: any) => ({
           event: c.event,
           checkIn: c,

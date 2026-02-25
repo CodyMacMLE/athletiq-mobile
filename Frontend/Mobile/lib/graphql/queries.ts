@@ -592,12 +592,21 @@ export const GET_MY_HEALTH_DATA = gql`
 `;
 
 export const GET_COACH_MY_HOURS = gql`
-  query CoachMyHours($organizationId: ID!, $month: Int!, $year: Int!) {
+  query CoachMyHours($organizationId: ID, $month: Int!, $year: Int!) {
     coachMyHours(organizationId: $organizationId, month: $month, year: $year) {
       userId
       totalHours
       totalPay
+      grossPay
+      netPay
       hourlyRate
+      salaryAmount
+      appliedDeductions {
+        name
+        type
+        value
+        amount
+      }
       entries {
         hoursLogged
         event {
@@ -606,6 +615,7 @@ export const GET_COACH_MY_HOURS = gql`
           date
           startTime
           endTime
+          organizationId
         }
         checkIn {
           id

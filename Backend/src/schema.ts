@@ -301,6 +301,7 @@ export const typeDefs = `#graphql
     endTime: String!
     location: String
     description: String
+    organizationId: ID!
     organization: Organization!
     team: Team
     venue: Venue
@@ -929,7 +930,7 @@ export const typeDefs = `#graphql
     recentActivity(organizationId: ID!, limit: Int): [RecentActivity!]!
 
     # Coach hours / payroll queries
-    coachMyHours(organizationId: ID!, month: Int!, year: Int!): CoachMonthlyHours!
+    coachMyHours(organizationId: ID, month: Int!, year: Int!): CoachMonthlyHours!
     orgCoachHours(organizationId: ID!, month: Int!, year: Int!): OrgCoachHoursSummary!
 
     # Notification queries
