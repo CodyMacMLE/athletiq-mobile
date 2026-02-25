@@ -121,6 +121,7 @@ export default function Index() {
   const { data: checkinData } = useQuery(GET_CHECKIN_HISTORY, {
     variables: {
       userId: targetUserId,
+      teamId: selectedTeamId || undefined,
       limit: 14,
     },
     skip: !targetUserId,
@@ -147,6 +148,7 @@ export default function Index() {
   const { data: weekEventsData } = useQuery(GET_EVENTS, {
     variables: {
       organizationId: selectedOrganization?.id,
+      teamId: selectedTeamId || undefined,
       startDate: weekStartStr,
       endDate: weekEndStr,
     },
@@ -262,15 +264,30 @@ export default function Index() {
 
         if (checkIn) return stateFromCheckIn(checkIn);
 
-        // Past day with no check-in record → no tracked event for this athlete
-        if (isPast) return "off";
+        if (isPast) {
+          // Coaches/admins: the backend does NOT auto-create ABSENT records for staff
+          // who miss events, so we check the events query directly for their team.
+          if (isCoachOrAdmin && selectedTeamId) {
+            const hadTeamEvent = scheduledEvents.some((ev: any) => {
+              if (toDateKey(ev.date) !== dateKey) return false;
+              return (
+                ev.team?.id === selectedTeamId ||
+                ev.participatingTeams?.some((t: any) => t.id === selectedTeamId)
+              );
+            });
+            return hadTeamEvent ? "absent" : "off";
+          }
+          // Athletes: ABSENT records are auto-created by the backend, so no
+          // check-in record on a past day means there was no tracked event.
+          return "off";
+        }
       }
 
       // Today (no check-in yet) or future: show "scheduled" if event exists in org this day
       const hasEvent = scheduledEvents.some((ev: any) => toDateKey(ev.date) === dateKey);
       return hasEvent ? "scheduled" : "off";
     });
-  }, [checkinData, weekEventsData, weekExcuseData]);
+  }, [checkinData, weekEventsData, weekExcuseData, isCoachOrAdmin, selectedTeamId]);
 
   // Count today's attended events from personal check-in history
   const todayCount = useMemo(() => {

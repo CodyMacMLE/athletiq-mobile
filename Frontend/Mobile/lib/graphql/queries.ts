@@ -142,8 +142,8 @@ export const GET_ORGANIZATION = gql`
 // ============================================
 
 export const GET_UPCOMING_EVENTS = gql`
-  query GetUpcomingEvents($organizationId: ID!, $limit: Int) {
-    upcomingEvents(organizationId: $organizationId, limit: $limit) {
+  query GetUpcomingEvents($organizationId: ID!, $teamId: ID, $limit: Int) {
+    upcomingEvents(organizationId: $organizationId, teamId: $teamId, limit: $limit) {
       ...EventFields
       team {
         id
@@ -155,8 +155,8 @@ export const GET_UPCOMING_EVENTS = gql`
 `;
 
 export const GET_EVENTS = gql`
-  query GetEvents($organizationId: ID!, $startDate: String, $endDate: String) {
-    events(organizationId: $organizationId, startDate: $startDate, endDate: $endDate) {
+  query GetEvents($organizationId: ID!, $teamId: ID, $startDate: String, $endDate: String) {
+    events(organizationId: $organizationId, teamId: $teamId, startDate: $startDate, endDate: $endDate) {
       ...EventFields
       team {
         id
@@ -203,8 +203,8 @@ export const GET_EVENT = gql`
 // ============================================
 
 export const GET_CHECKIN_HISTORY = gql`
-  query GetCheckInHistory($userId: ID!, $limit: Int) {
-    checkInHistory(userId: $userId, limit: $limit) {
+  query GetCheckInHistory($userId: ID!, $teamId: ID, $limit: Int) {
+    checkInHistory(userId: $userId, teamId: $teamId, limit: $limit) {
       ...CheckInFields
     }
   }
@@ -300,8 +300,8 @@ export const GET_TEAM_RANKINGS = gql`
 `;
 
 export const GET_RECENT_ACTIVITY = gql`
-  query GetRecentActivity($organizationId: ID!, $limit: Int) {
-    recentActivity(organizationId: $organizationId, limit: $limit) {
+  query GetRecentActivity($organizationId: ID!, $teamId: ID, $limit: Int) {
+    recentActivity(organizationId: $organizationId, teamId: $teamId, limit: $limit) {
       id
       type
       time

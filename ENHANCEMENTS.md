@@ -1,14 +1,12 @@
 High-Impact Improvements
 
-1. Communication & Notifications
+1. Communication & Notifications (IMPLEMENTED)
 
 Currently missing or incomplete:
 
 - Push Notifications: No evidence of push notification system for event reminders, attendance alerts, or excuse request updates
 - Team Announcements: Broadcast messaging to entire teams/organizations
-- In-app Messaging: The mobile app has a "messages" tab but needs implementation
 - Email Digests: Weekly summaries for guardians/parents
-- SMS Integration: Critical alerts via text (practice cancellations, weather delays)
 
 Recommendation: Add a notification system with:
 
@@ -17,7 +15,7 @@ Recommendation: Add a notification system with:
 - Auto-notifications: event reminders (24hr, 1hr before), attendance milestones, excuse request status
 - Coach broadcast messaging to teams
 
-2. RSVP & Availability Tracking
+2. RSVP & Availability Tracking (IMPLEMENTED)
 
 Missing feature that's standard in TeamSnap, SportsEngine:
 
@@ -42,7 +40,7 @@ updatedAt DateTime @updatedAt
 
 }
 
-3. Emergency Contacts & Medical Information
+3. Emergency Contacts & Medical Information (IMPLEMENTED)
 
 Critical for youth sports - currently only basic address fields:
 
@@ -63,7 +61,7 @@ No payment system - common pain point for sports organizations:
 - Payment status visibility for admins
 - Automated reminders for outstanding payments
 
-5. Enhanced Calendar Features
+5. Enhanced Calendar Features (IMPLEMENTED)
 
 Current calendar is basic - add:
 
@@ -74,17 +72,7 @@ Current calendar is basic - add:
 - Calendar Export: iCal/Google Calendar sync
 - Availability Conflicts: warn athletes on multiple teams about scheduling conflicts
 
-6. Document & Forms Management
-
-Missing entirely - important for compliance:
-
-- Waiver management (upload, e-sign, track completion)
-- Medical clearance forms
-- Photo release forms
-- Custom forms per organization
-- Document library (playbooks, rules, schedules)
-
-7. Enhanced Guardian Experience
+7. Enhanced Guardian Experience (IMPLEMENTED)
 
 Current guardian features are basic:
 
@@ -143,7 +131,7 @@ Current permissions are basic - add granular controls:
 
 Nice-to-Have Enhancements
 
-13. Offline Mode
+13. Offline Mode (IMPLEMENTED)
 
 Mobile app should work offline with sync:
 

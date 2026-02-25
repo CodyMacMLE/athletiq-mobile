@@ -1,21 +1,17 @@
 import { useMutation, useQuery } from "@apollo/client";
-import { CHECK_IN, CHECK_OUT, GET_CHECKIN_HISTORY, GET_UPCOMING_EVENTS } from "@/lib/graphql";
+import { CHECK_IN, CHECK_OUT, GET_CHECKIN_HISTORY } from "@/lib/graphql";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function useCheckIn() {
-  const { user, selectedOrganization } = useAuth();
+  const { user, selectedOrganization, selectedTeamId } = useAuth();
 
   const [checkInMutation, { loading: checkingIn }] = useMutation(CHECK_IN, {
-    refetchQueries: [
-      { query: GET_CHECKIN_HISTORY, variables: { userId: user?.id, limit: 20 } },
-      { query: GET_UPCOMING_EVENTS, variables: { organizationId: selectedOrganization?.id, limit: 10 } },
-    ],
+    // Use query name strings so all active instances (with any teamId variable) are refetched
+    refetchQueries: ["GetCheckInHistory", "GetUpcomingEvents"],
   });
 
   const [checkOutMutation, { loading: checkingOut }] = useMutation(CHECK_OUT, {
-    refetchQueries: [
-      { query: GET_CHECKIN_HISTORY, variables: { userId: user?.id, limit: 20 } },
-    ],
+    refetchQueries: ["GetCheckInHistory"],
   });
 
   const checkIn = async (eventId: string) => {
@@ -53,10 +49,10 @@ export function useCheckIn() {
 }
 
 export function useCheckInHistory(limit = 20) {
-  const { user } = useAuth();
+  const { user, selectedTeamId } = useAuth();
 
   const { data, loading, error, refetch } = useQuery(GET_CHECKIN_HISTORY, {
-    variables: { userId: user?.id, limit },
+    variables: { userId: user?.id, teamId: selectedTeamId || undefined, limit },
     skip: !user?.id,
   });
 

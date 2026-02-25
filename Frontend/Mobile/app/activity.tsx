@@ -59,11 +59,12 @@ function getDateKey(isoDate: string): string {
 
 export default function Activity() {
   const router = useRouter();
-  const { selectedOrganization } = useAuth();
+  const { selectedOrganization, selectedTeamId } = useAuth();
 
   const { data, loading } = useQuery(GET_RECENT_ACTIVITY, {
     variables: {
       organizationId: selectedOrganization?.id,
+      teamId: selectedTeamId || undefined,
       limit: 50,
     },
     skip: !selectedOrganization?.id,

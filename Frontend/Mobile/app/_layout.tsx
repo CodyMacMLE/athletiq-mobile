@@ -1,9 +1,10 @@
 import { ApolloProvider } from "@apollo/client";
 import { Stack } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { apolloClient } from "@/lib/apollo";
+import { apolloClient, restoreApolloCache } from "@/lib/apollo";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { OfflineProvider } from "@/contexts/OfflineContext";
 import { useNotificationRegistration } from "@/lib/notifications";
 
 function RootNavigator() {
@@ -106,10 +107,28 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  const [cacheRestored, setCacheRestored] = useState(false);
+
+  useEffect(() => {
+    restoreApolloCache()
+      .catch(() => {}) // gracefully degrade if persistence fails
+      .finally(() => setCacheRestored(true));
+  }, []);
+
+  if (!cacheRestored) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#1a1640" }}>
+        <ActivityIndicator size="large" color="#a855f7" />
+      </View>
+    );
+  }
+
   return (
     <ApolloProvider client={apolloClient}>
       <AuthProvider>
-        <RootNavigator />
+        <OfflineProvider>
+          <RootNavigator />
+        </OfflineProvider>
       </AuthProvider>
     </ApolloProvider>
   );

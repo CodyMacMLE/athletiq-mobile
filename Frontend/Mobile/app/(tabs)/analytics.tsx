@@ -14,7 +14,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 const AVATAR_SIZE = 45;
 
-const STAFF_ROLES = ["OWNER", "ADMIN", "MANAGER", "COACH"];
+const ORG_STAFF_ROLES = ["OWNER", "MANAGER"];
 
 function AthleteAnalyticsView() {
   const { user, isViewingAsGuardian, selectedAthlete } = useAuth();
@@ -60,12 +60,17 @@ function AthleteAnalyticsView() {
 }
 
 export default function Analytics() {
-  const { user, selectedOrganization, orgRole } = useAuth();
+  const { user, selectedOrganization, orgRole, isTeamCoach, teamRole } = useAuth();
 
   if (!user) return null;
   if (!selectedOrganization) return <NoOrgScreen title="Analytics" />;
 
-  const isStaff = STAFF_ROLES.includes(orgRole ?? "");
+  // Show coach hours when the user's role in the selected team is a coaching role.
+  // Fall back to org-level owner/manager when the user has no explicit team membership
+  // (e.g. an org owner who hasn't joined a team directly).
+  const showCoachView =
+    isTeamCoach ||
+    (teamRole === null && ORG_STAFF_ROLES.includes(orgRole ?? ""));
 
   return (
     <LinearGradient
@@ -74,7 +79,7 @@ export default function Analytics() {
       locations={[0.1, 0.6, 1]}
     >
       <StatusBar style="light" />
-      {isStaff ? <CoachHoursView /> : <AthleteAnalyticsView />}
+      {showCoachView ? <CoachHoursView /> : <AthleteAnalyticsView />}
     </LinearGradient>
   );
 }

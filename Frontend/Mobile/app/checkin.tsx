@@ -1,4 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { useOffline } from "@/contexts/OfflineContext";
+import { enqueueCheckIn } from "@/lib/offline-queue";
 import { Feather } from "@expo/vector-icons";
 import { useMutation } from "@apollo/client";
 import { LinearGradient } from "expo-linear-gradient";
@@ -32,7 +34,7 @@ try {
   // Native module not available (e.g. running in Expo Go)
 }
 
-type ScanState = "scanning" | "success" | "error" | "tooEarly" | "noEvent" | "adHocSuccess";
+type ScanState = "scanning" | "success" | "error" | "tooEarly" | "noEvent" | "adHocSuccess" | "queued";
 type CheckAction = "CHECKED_IN" | "CHECKED_OUT" | null;
 
 function extractNdefText(tag: any): string | null {
@@ -54,6 +56,7 @@ function extractNdefText(tag: any): string | null {
 export default function CheckIn() {
   const router = useRouter();
   const { user, selectedOrganization, isViewingAsGuardian, selectedAthlete, targetUserId } = useAuth();
+  const { isOnline, refreshPendingCount } = useOffline();
   const [scanState, setScanState] = useState<ScanState>("scanning");
   const [nfcSupported, setNfcSupported] = useState(true);
   const [resultMessage, setResultMessage] = useState("");
@@ -159,6 +162,7 @@ export default function CheckIn() {
     setScanState("scanning");
     setCheckAction(null);
     setScannedToken(null);
+    let scannedNfcToken: string | null = null;
     try {
       await NfcManager.requestTechnology(NfcTech.Ndef);
       const tag = await NfcManager.getTag();
@@ -178,7 +182,19 @@ export default function CheckIn() {
         return;
       }
 
+      scannedNfcToken = token;
       setScannedToken(token);
+
+      // If offline, queue the check-in for later sync
+      if (!isOnline) {
+        await enqueueCheckIn({
+          token: scannedNfcToken,
+          forUserId: isViewingAsGuardian ? selectedAthlete?.id : undefined,
+        });
+        await refreshPendingCount();
+        setScanState("queued");
+        return;
+      }
 
       const { data } = await nfcCheckIn({
         variables: {
@@ -206,6 +222,17 @@ export default function CheckIn() {
         setResultDetails(`${event.title}${hours ? ` \u2022 ${hours}` : ""}`);
       }
     } catch (err: any) {
+      // Network failure while online → queue for sync
+      const isNetworkError = !err?.graphQLErrors?.length && !!err?.networkError;
+      if (isNetworkError && scannedNfcToken) {
+        await enqueueCheckIn({
+          token: scannedNfcToken,
+          forUserId: isViewingAsGuardian ? selectedAthlete?.id : undefined,
+        });
+        await refreshPendingCount();
+        setScanState("queued");
+        return;
+      }
       const message = err?.message || "";
       const gqlError = err?.graphQLErrors?.[0]?.message || message;
 
@@ -284,6 +311,7 @@ export default function CheckIn() {
     if (scanState === "tooEarly") return "clock";
     if (scanState === "noEvent") return "edit-3";
     if (scanState === "adHocSuccess") return "send";
+    if (scanState === "queued") return "upload-cloud";
     if (checkAction === "CHECKED_OUT") return "log-out";
     return "check";
   };
@@ -293,6 +321,7 @@ export default function CheckIn() {
     if (scanState === "error") return styles.scanIconError;
     if (scanState === "tooEarly") return styles.scanIconWarning;
     if (scanState === "adHocSuccess") return styles.scanIconPending;
+    if (scanState === "queued") return styles.scanIconPending;
     if (scanState === "noEvent") return styles.scanIconDefault;
     return undefined;
   };
@@ -387,6 +416,16 @@ export default function CheckIn() {
             <Text style={styles.title}>Submitted</Text>
             <Text style={styles.subtitle}>
               Your check-in has been submitted and is pending approval from a coach or admin
+            </Text>
+          </>
+        )}
+
+        {/* Queued (offline) */}
+        {scanState === "queued" && (
+          <>
+            <Text style={styles.title}>Saved Offline</Text>
+            <Text style={styles.subtitle}>
+              Your check-in was saved and will sync automatically when you reconnect
             </Text>
           </>
         )}
@@ -548,7 +587,7 @@ export default function CheckIn() {
           </Pressable>
         )}
 
-        {(scanState === "success" || scanState === "adHocSuccess") && (
+        {(scanState === "success" || scanState === "adHocSuccess" || scanState === "queued") && (
           <Pressable
             style={({ pressed }) => [styles.doneButton, pressed && { opacity: 0.8 }]}
             onPress={() => router.back()}

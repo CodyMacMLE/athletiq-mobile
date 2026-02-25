@@ -456,7 +456,7 @@ export const resolvers = {
 
     upcomingEvents: async (
       _: unknown,
-      { organizationId, limit }: { organizationId: string; limit?: number },
+      { organizationId, teamId, limit }: { organizationId: string; teamId?: string; limit?: number },
       context: { userId?: string }
     ) => {
       if (!context.userId) throw new Error("Authentication required");
@@ -467,16 +467,23 @@ export const resolvers = {
       });
       const teamIds = teamMemberships.map((m) => m.teamId);
 
+      const teamFilter = teamId
+        ? [
+            { teamId },
+            { participatingTeams: { some: { id: teamId } } },
+          ]
+        : [
+            { teamId: { in: teamIds } },
+            { participatingTeams: { some: { id: { in: teamIds } } } },
+            { teamId: null },
+          ];
+
       return prisma.event.findMany({
         where: {
           organizationId,
           isAdHoc: false,
           date: { gte: new Date() },
-          OR: [
-            { teamId: { in: teamIds } },
-            { participatingTeams: { some: { id: { in: teamIds } } } },
-            { teamId: null },
-          ],
+          OR: teamFilter,
         },
         orderBy: { date: "asc" },
         take: limit || 10,
@@ -655,9 +662,19 @@ export const resolvers = {
       return prisma.checkIn.findUnique({ where: { id } });
     },
 
-    checkInHistory: async (_: unknown, { userId, limit }: { userId: string; limit?: number }) => {
+    checkInHistory: async (_: unknown, { userId, teamId, limit }: { userId: string; teamId?: string; limit?: number }) => {
       return prisma.checkIn.findMany({
-        where: { userId },
+        where: {
+          userId,
+          ...(teamId && {
+            event: {
+              OR: [
+                { teamId },
+                { participatingTeams: { some: { id: teamId } } },
+              ],
+            },
+          }),
+        },
         orderBy: { createdAt: "desc" },
         take: limit || 20,
       });
@@ -1347,7 +1364,7 @@ export const resolvers = {
 
     recentActivity: async (
       _: unknown,
-      { organizationId, limit }: { organizationId: string; limit?: number },
+      { organizationId, teamId, limit }: { organizationId: string; teamId?: string; limit?: number },
       context: { userId?: string }
     ) => {
       if (!context.userId) throw new Error("Authentication required");
@@ -1358,15 +1375,22 @@ export const resolvers = {
       });
       const teamIds = teamMemberships.map((m) => m.teamId);
 
+      const teamFilter = teamId
+        ? [
+            { teamId },
+            { participatingTeams: { some: { id: teamId } } },
+          ]
+        : [
+            { teamId: { in: teamIds } },
+            { participatingTeams: { some: { id: { in: teamIds } } } },
+            { teamId: null },
+          ];
+
       const checkIns = await prisma.checkIn.findMany({
         where: {
           event: {
             organizationId,
-            OR: [
-              { teamId: { in: teamIds } },
-              { participatingTeams: { some: { id: { in: teamIds } } } },
-              { teamId: null },
-            ],
+            OR: teamFilter,
           },
           approved: true,
           status: { not: "ABSENT" },

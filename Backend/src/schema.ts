@@ -868,11 +868,11 @@ export const typeDefs = `#graphql
     event(id: ID!): Event
     events(organizationId: ID!, type: EventType, teamId: ID, startDate: String, endDate: String, limit: Int, offset: Int): [Event!]!
     eventsCount(organizationId: ID!, teamId: ID): EventsCount!
-    upcomingEvents(organizationId: ID!, limit: Int): [Event!]!
+    upcomingEvents(organizationId: ID!, teamId: ID, limit: Int): [Event!]!
 
     # Check-in queries
     checkIn(id: ID!): CheckIn
-    checkInHistory(userId: ID!, limit: Int): [CheckIn!]!
+    checkInHistory(userId: ID!, teamId: ID, limit: Int): [CheckIn!]!
     eventAttendance(eventId: ID!): [CheckIn!]!
     eventUncheckedAthletes(eventId: ID!): [User!]!
 
@@ -927,7 +927,7 @@ export const typeDefs = `#graphql
     teamLeaderboard(teamId: ID!, timeRange: TimeRange, limit: Int): [LeaderboardEntry!]!
     organizationLeaderboard(organizationId: ID!, timeRange: TimeRange, limit: Int): [LeaderboardEntry!]!
     teamRankings(organizationId: ID!, timeRange: TimeRange): [TeamRanking!]!
-    recentActivity(organizationId: ID!, limit: Int): [RecentActivity!]!
+    recentActivity(organizationId: ID!, teamId: ID, limit: Int): [RecentActivity!]!
 
     # Coach hours / payroll queries
     coachMyHours(organizationId: ID, month: Int!, year: Int!): CoachMonthlyHours!

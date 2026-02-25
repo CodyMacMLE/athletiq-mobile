@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import Feather from "@expo/vector-icons/Feather";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Redirect, Tabs } from "expo-router";
@@ -71,16 +72,19 @@ export default function TabsLayout() {
   const hasOrg = organizations.length > 0;
 
   return (
-    <Tabs
-      tabBar={(props) => <GlassTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
-      <Tabs.Screen name="index" options={{ href: hasOrg ? undefined : null }} />
-      <Tabs.Screen name="analytics" options={{ href: hasOrg ? undefined : null }} />
-      <Tabs.Screen name="calendar" options={{ href: hasOrg ? undefined : null }} />
-      <Tabs.Screen name="messages" options={{ href: hasOrg ? undefined : null }} />
-      <Tabs.Screen name="profile" />
-    </Tabs>
+    <>
+      <OfflineBanner />
+      <Tabs
+        tabBar={(props) => <GlassTabBar {...props} />}
+        screenOptions={{ headerShown: false }}
+      >
+        <Tabs.Screen name="index" options={{ href: hasOrg ? undefined : null }} />
+        <Tabs.Screen name="analytics" options={{ href: hasOrg ? undefined : null }} />
+        <Tabs.Screen name="calendar" options={{ href: hasOrg ? undefined : null }} />
+        <Tabs.Screen name="messages" options={{ href: hasOrg ? undefined : null }} />
+        <Tabs.Screen name="profile" />
+      </Tabs>
+    </>
   );
 }
 

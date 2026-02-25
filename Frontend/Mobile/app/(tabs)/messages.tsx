@@ -148,15 +148,15 @@ export default function ActivityTab() {
 
 function AthleteActivityView() {
   const router = useRouter();
-  const { user, selectedOrganization, targetUserId, isViewingAsGuardian } = useAuth();
+  const { user, selectedOrganization, selectedTeamId, targetUserId, isViewingAsGuardian } = useAuth();
 
   const { data: upcomingData, loading: upcomingLoading } = useQuery(GET_UPCOMING_EVENTS, {
-    variables: { organizationId: selectedOrganization?.id, limit: 3 },
+    variables: { organizationId: selectedOrganization?.id, teamId: selectedTeamId || undefined, limit: 3 },
     skip: !selectedOrganization?.id,
   });
 
   const { data: checkinData, loading: checkinLoading } = useQuery(GET_CHECKIN_HISTORY, {
-    variables: { userId: targetUserId, limit: 50 },
+    variables: { userId: targetUserId, teamId: selectedTeamId || undefined, limit: 50 },
     skip: !targetUserId,
   });
 

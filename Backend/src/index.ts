@@ -7,6 +7,7 @@ import { typeDefs } from "./schema.js";
 import { resolvers } from "./resolvers/index.js";
 import { prisma } from "./db.js";
 import { startAbsentMarkerCron, stopAbsentMarkerCron } from "./cron/absentMarker.js";
+import { startAutoCheckoutCron, stopAutoCheckoutCron } from "./cron/autoCheckout.js";
 import { startEventReminderCron, stopEventReminderCron } from "./cron/eventReminders.js";
 import { startEmailReportCron, stopEmailReportCron } from "./cron/emailReportScheduler.js";
 import { startScheduledAnnouncementCron, stopScheduledAnnouncementCron } from "./cron/scheduledAnnouncements.js";
@@ -133,6 +134,7 @@ async function main() {
   app.listen(4000, "0.0.0.0", () => {
     console.log(`🚀 Server ready at http://localhost:4000/graphql`);
     startAbsentMarkerCron();
+    startAutoCheckoutCron();
     startEventReminderCron();
     startEmailReportCron();
     startScheduledAnnouncementCron();
@@ -142,6 +144,7 @@ async function main() {
 // Graceful shutdown
 process.on("SIGINT", async () => {
   stopAbsentMarkerCron();
+  stopAutoCheckoutCron();
   stopEventReminderCron();
   stopEmailReportCron();
   stopScheduledAnnouncementCron();
@@ -151,6 +154,7 @@ process.on("SIGINT", async () => {
 
 process.on("SIGTERM", async () => {
   stopAbsentMarkerCron();
+  stopAutoCheckoutCron();
   stopEventReminderCron();
   stopEmailReportCron();
   stopScheduledAnnouncementCron();
