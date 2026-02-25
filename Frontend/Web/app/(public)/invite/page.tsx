@@ -134,7 +134,7 @@ function AcceptInvitePage() {
       setAcceptedRole(invite.role);
       setView("accepted");
       setTimeout(() => {
-        window.location.href = "/profile";
+        window.location.href = "/account";
       }, 1500);
     } catch (err: any) {
       setError(err?.message || "Failed to accept invite.");
@@ -179,7 +179,7 @@ function AcceptInvitePage() {
       setAcceptedRole(invite?.role || "ATHLETE");
       setView("accepted");
       setTimeout(() => {
-        window.location.href = "/profile";
+        window.location.href = "/account";
       }, 1500);
     } catch (err: any) {
       setError(err?.message || "Failed to accept invite.");
@@ -284,7 +284,7 @@ function AcceptInvitePage() {
     setAcceptedRole(invite?.role || "ATHLETE");
     setView("accepted");
     setTimeout(() => {
-      window.location.href = "/profile";
+      window.location.href = "/account";
     }, 1500);
   };
 

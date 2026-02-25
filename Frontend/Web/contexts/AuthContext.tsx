@@ -199,12 +199,12 @@ export function RequireAuth({
   const { isAuthenticated, isLoading, currentOrgRole, user } = useAuth();
   const router = useRouter();
 
-  // Redirect to profile if user has no org memberships (e.g. org creation failed during registration)
+  // Redirect to account if user has no org memberships (e.g. org creation failed during registration)
   // Also covers the case where DB user record doesn't exist yet (user is null)
   const needsSetup = isAuthenticated && !isLoading && (!user || user.organizationMemberships?.length === 0);
   useEffect(() => {
     if (needsSetup) {
-      router.replace("/profile");
+      router.replace("/account");
     }
   }, [needsSetup, router]);
 
@@ -274,7 +274,7 @@ function AppDownloadPage() {
 
           <div className="flex items-center justify-center gap-3">
             <Link
-              href="/profile"
+              href="/account"
               className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
             >
               Manage Profile
