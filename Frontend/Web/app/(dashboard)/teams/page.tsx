@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { GET_TEAMS, GET_ORG_SEASONS, CREATE_TEAM, UPDATE_TEAM, DELETE_TEAM, RESTORE_TEAM, REORDER_TEAMS } from "@/lib/graphql";
-import { Plus, Edit2, Trash2, Users, X, ChevronRight, Archive, ArchiveRestore, Search, ArrowUpDown, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
+import { Plus, Edit2, Trash2, Users, X, ChevronRight, Archive, ArchiveRestore, Search, ArrowUpDown, ChevronDown, GripVertical } from "lucide-react";
 import Link from "next/link";
 
 type OrgSeason = {
@@ -52,7 +52,6 @@ type TeamFormData = {
   seasonYear: number;
 };
 
-// seasonYear represents the END year of the season (e.g. Sep-Jun 2025-2026 has seasonYear=2026)
 function getSeasonDateRange(startMonth: number, endMonth: number, seasonYear: number): { start: Date; end: Date } {
   if (startMonth <= endMonth) {
     const start = new Date(Date.UTC(seasonYear, startMonth - 1, 1));
@@ -91,14 +90,14 @@ export default function Teams() {
   const [sortBy, setSortBy] = useState<SortOption>("season");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
-  // Local teams state for optimistic drag-reorder
-  const [localTeams, setLocalTeams] = useState<Team[]>([]);
-
   // Drag state
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [dragGroupLabel, setDragGroupLabel] = useState<string | null>(null);
-  const dragCounter = useRef(0);
+  // Per-group ordering overrides (only set while an unsaved drag or pending server sync)
+  const [groupOrderOverrides, setGroupOrderOverrides] = useState<Record<string, string[]>>({});
+  // Refs to card DOM elements for drag ghost image
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const { data, loading, refetch } = useQuery<any>(GET_TEAMS, {
     variables: { organizationId: selectedOrganizationId, includeArchived: true },
@@ -118,12 +117,8 @@ export default function Teams() {
 
   const orgSeasons: OrgSeason[] = seasonsData?.orgSeasons || [];
 
-  // Sync localTeams from server whenever data changes
-  useEffect(() => {
-    if (data?.teams) setLocalTeams(data.teams);
-  }, [data?.teams]);
-
-  const allTeams: Team[] = localTeams;
+  // Source of truth always comes from the server query
+  const allTeams: Team[] = data?.teams || [];
   const activeCount = allTeams.filter((t) => !t.archivedAt).length;
   const archivedCount = allTeams.filter((t) => t.archivedAt).length;
 
@@ -152,7 +147,14 @@ export default function Teams() {
       }
     });
 
-  // Group teams by season when sorted by season
+  // Apply a group-level order override (used optimistically after drag)
+  const applyGroupOrder = useCallback((groupTeams: Team[], groupLabel: string): Team[] => {
+    const override = groupOrderOverrides[groupLabel];
+    if (!override) return groupTeams;
+    const orderMap = new Map(override.map((id, i) => [id, i]));
+    return [...groupTeams].sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999));
+  }, [groupOrderOverrides]);
+
   const groupedTeams = useMemo(() => {
     if (sortBy !== "season") return null;
 
@@ -170,14 +172,12 @@ export default function Teams() {
       groupMap.get(label)!.teams.push(team);
     }
 
-    // Sort: current first, then future, then past, then legacy
     const statusOrder = { current: 0, future: 1, past: 2, legacy: 3 };
     groups.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
 
     return groups;
   }, [teams, sortBy]);
 
-  // Auto-collapse past seasons on initial render
   const isPastCollapsed = (label: string, status: string) => {
     if (collapsedGroups.has(label)) return true;
     if (status === "past" && !collapsedGroups.has(`__expanded__${label}`)) return true;
@@ -206,88 +206,66 @@ export default function Teams() {
 
   // ── Drag-and-drop handlers ────────────────────────────────────────────────
 
-  const handleDragStart = useCallback((e: React.DragEvent, teamId: string, groupLabel: string) => {
+  // Called from the grip handle div only
+  const handleGripDragStart = useCallback((e: React.DragEvent, teamId: string, groupLabel: string) => {
     setDragId(teamId);
     setDragGroupLabel(groupLabel);
     e.dataTransfer.effectAllowed = "move";
-    // Add a ghost image
-    const el = e.currentTarget as HTMLElement;
-    e.dataTransfer.setDragImage(el, el.offsetWidth / 2, 20);
-  }, []);
-
-  const handleDragEnter = useCallback((e: React.DragEvent, teamId: string, groupLabel: string) => {
-    e.preventDefault();
-    dragCounter.current++;
-    if (teamId !== dragId && groupLabel === dragGroupLabel) {
-      setDragOverId(teamId);
-    }
-  }, [dragId, dragGroupLabel]);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    dragCounter.current--;
-    if (dragCounter.current === 0) {
-      setDragOverId(null);
+    // Use the full card as the drag ghost
+    const cardEl = cardRefs.current[teamId];
+    if (cardEl) {
+      e.dataTransfer.setDragImage(cardEl, Math.min(200, cardEl.offsetWidth / 2), 30);
     }
   }, []);
 
-  const handleDragOver = useCallback((e: React.DragEvent, teamId: string, groupLabel: string) => {
+  const handleCardDragOver = useCallback((e: React.DragEvent, teamId: string, groupLabel: string) => {
+    if (!dragId || groupLabel !== dragGroupLabel) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    if (teamId !== dragId && groupLabel === dragGroupLabel) {
-      setDragOverId(teamId);
-    }
+    if (teamId !== dragId) setDragOverId(teamId);
   }, [dragId, dragGroupLabel]);
 
-  const handleDrop = useCallback((e: React.DragEvent, targetTeamId: string, groupLabel: string) => {
-    e.preventDefault();
-    dragCounter.current = 0;
-
-    const sourceId = dragId;
-    if (!sourceId || sourceId === targetTeamId || groupLabel !== dragGroupLabel) {
-      setDragId(null);
+  const handleCardDragLeave = useCallback((e: React.DragEvent) => {
+    // Only clear if leaving to outside the card entirely
+    const related = e.relatedTarget as HTMLElement | null;
+    if (!related || !(e.currentTarget as HTMLElement).contains(related)) {
       setDragOverId(null);
-      setDragGroupLabel(null);
-      return;
     }
+  }, []);
 
-    // Get current group teams in order
-    const group = groupedTeams?.find(g => g.label === groupLabel);
-    if (!group) return;
-
-    const groupTeamsCopy = [...group.teams];
-    const fromIdx = groupTeamsCopy.findIndex(t => t.id === sourceId);
-    const toIdx = groupTeamsCopy.findIndex(t => t.id === targetTeamId);
-    if (fromIdx === -1 || toIdx === -1) return;
-
-    // Reorder within the group
-    const [moved] = groupTeamsCopy.splice(fromIdx, 1);
-    groupTeamsCopy.splice(toIdx, 0, moved);
-
-    // Update localTeams optimistically: replace group members with new order
-    const groupIds = new Set(group.teams.map(t => t.id));
-    setLocalTeams(prev => {
-      const nonGroup = prev.filter(t => !groupIds.has(t.id));
-      return [...nonGroup, ...groupTeamsCopy];
-    });
-
-    // Persist: send only the IDs of teams in this group in their new order
-    reorderTeams({
-      variables: {
-        organizationId: selectedOrganizationId,
-        teamIds: groupTeamsCopy.map(t => t.id),
-      },
-    }).catch(() => {
-      // On failure, revert by resetting to server data
-      if (data?.teams) setLocalTeams(data.teams);
-    });
-
+  const handleCardDrop = useCallback((e: React.DragEvent, targetTeamId: string, groupLabel: string) => {
+    e.preventDefault();
+    const sourceId = dragId;
     setDragId(null);
     setDragOverId(null);
     setDragGroupLabel(null);
-  }, [dragId, dragGroupLabel, groupedTeams, reorderTeams, selectedOrganizationId, data?.teams]);
+
+    if (!sourceId || sourceId === targetTeamId || groupLabel !== dragGroupLabel) return;
+
+    const group = groupedTeams?.find(g => g.label === groupLabel);
+    if (!group) return;
+
+    const currentOrder = applyGroupOrder(group.teams, groupLabel);
+    const fromIdx = currentOrder.findIndex(t => t.id === sourceId);
+    const toIdx = currentOrder.findIndex(t => t.id === targetTeamId);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    const newOrder = [...currentOrder];
+    const [moved] = newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, moved);
+    const newOrderIds = newOrder.map(t => t.id);
+
+    // Optimistic update
+    setGroupOrderOverrides(prev => ({ ...prev, [groupLabel]: newOrderIds }));
+
+    // Persist and then refetch so Apollo cache reflects server order
+    reorderTeams({ variables: { organizationId: selectedOrganizationId, teamIds: newOrderIds } })
+      .then(() => refetch())
+      .then(() => setGroupOrderOverrides(prev => { const n = { ...prev }; delete n[groupLabel]; return n; }))
+      .catch(() => setGroupOrderOverrides(prev => { const n = { ...prev }; delete n[groupLabel]; return n; }));
+  }, [dragId, dragGroupLabel, groupedTeams, applyGroupOrder, reorderTeams, selectedOrganizationId, refetch]);
 
   const handleDragEnd = useCallback(() => {
-    dragCounter.current = 0;
     setDragId(null);
     setDragOverId(null);
     setDragGroupLabel(null);
@@ -367,7 +345,7 @@ export default function Teams() {
     );
   }
 
-  const isDragging = sortBy === "season" && canEdit;
+  const canDrag = sortBy === "season" && !!canEdit;
 
   const renderTeamCard = (team: Team, groupLabel: string) => {
     const isBeingDragged = dragId === team.id;
@@ -376,53 +354,50 @@ export default function Teams() {
     return (
       <div
         key={team.id}
-        draggable={isDragging && !team.archivedAt}
-        onDragStart={isDragging && !team.archivedAt ? (e) => handleDragStart(e, team.id, groupLabel) : undefined}
-        onDragEnter={isDragging ? (e) => handleDragEnter(e, team.id, groupLabel) : undefined}
-        onDragLeave={isDragging ? handleDragLeave : undefined}
-        onDragOver={isDragging ? (e) => handleDragOver(e, team.id, groupLabel) : undefined}
-        onDrop={isDragging ? (e) => handleDrop(e, team.id, groupLabel) : undefined}
-        onDragEnd={isDragging ? handleDragEnd : undefined}
-        className={`bg-white/8 rounded-xl border overflow-hidden transition-all select-none ${
-          team.archivedAt ? "border-white/8/50 opacity-70" : "border-white/8"
-        } ${isBeingDragged ? "opacity-40 scale-95" : ""} ${
-          isDropTarget ? "border-[#6c5ce7] ring-1 ring-[#6c5ce7]/50" : ""
+        ref={(el) => { cardRefs.current[team.id] = el; }}
+        onDragOver={(e) => handleCardDragOver(e, team.id, groupLabel)}
+        onDragLeave={handleCardDragLeave}
+        onDrop={(e) => handleCardDrop(e, team.id, groupLabel)}
+        className={`bg-white/8 rounded-xl border overflow-hidden transition-all ${
+          team.archivedAt ? "opacity-70" : ""
+        } ${isBeingDragged ? "opacity-40 scale-[0.98]" : ""} ${
+          isDropTarget
+            ? "border-[#6c5ce7] ring-1 ring-[#6c5ce7]/50"
+            : "border-white/8"
         }`}
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              {isDragging && !team.archivedAt && (
-                <div className="text-white/25 hover:text-white/55 cursor-grab active:cursor-grabbing shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              {/* Grip handle — only this element is draggable */}
+              {canDrag && !team.archivedAt && (
+                <div
+                  draggable
+                  onDragStart={(e) => handleGripDragStart(e, team.id, groupLabel)}
+                  onDragEnd={handleDragEnd}
+                  className="text-white/25 hover:text-white/55 cursor-grab active:cursor-grabbing shrink-0 p-0.5 -ml-1"
+                  title="Drag to reorder"
+                >
                   <GripVertical className="w-4 h-4" />
                 </div>
               )}
               {team.color && (
-                <span
-                  className="w-3 h-3 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: team.color }}
-                />
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
               )}
-              <h3 className="text-lg font-semibold text-white">{team.name}</h3>
+              <h3 className="text-lg font-semibold text-white truncate">{team.name}</h3>
               {team.archivedAt && (
-                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-400">
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-400 shrink-0">
                   <Archive className="w-3 h-3" />
                   Archived
                 </span>
               )}
             </div>
             {canEdit && !team.archivedAt && (
-              <div className="flex items-center space-x-1">
-                <button
-                  onClick={() => setEditingTeam(team)}
-                  className="p-2 text-white/55 hover:text-white transition-colors"
-                >
+              <div className="flex items-center space-x-1 shrink-0">
+                <button onClick={() => setEditingTeam(team)} className="p-2 text-white/55 hover:text-white transition-colors">
                   <Edit2 className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => setDeletingTeam(team)}
-                  className="p-2 text-white/55 hover:text-red-500 transition-colors"
-                >
+                <button onClick={() => setDeletingTeam(team)} className="p-2 text-white/55 hover:text-red-500 transition-colors">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -430,7 +405,7 @@ export default function Teams() {
             {canEdit && team.archivedAt && (
               <button
                 onClick={() => handleRestoreTeam(team.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a855f7]/15 hover:bg-[#6c5ce7]/30 text-[#a78bfa] text-sm font-medium rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a855f7]/15 hover:bg-[#6c5ce7]/30 text-[#a78bfa] text-sm font-medium rounded-lg transition-colors shrink-0"
               >
                 <ArchiveRestore className="w-4 h-4" />
                 Restore
@@ -458,15 +433,11 @@ export default function Teams() {
               <span>{team.memberCount} members</span>
             </div>
             {!team.archivedAt && (
-              <div
-                className={`font-medium ${
-                  team.attendancePercent >= 90
-                    ? "text-green-500"
-                    : team.attendancePercent >= 75
-                    ? "text-yellow-500"
-                    : "text-red-500"
-                }`}
-              >
+              <div className={`font-medium ${
+                team.attendancePercent >= 90 ? "text-green-500"
+                  : team.attendancePercent >= 75 ? "text-yellow-500"
+                  : "text-red-500"
+              }`}>
                 {Math.round(team.attendancePercent || 0)}% attendance
               </div>
             )}
@@ -502,9 +473,8 @@ export default function Teams() {
         )}
       </div>
 
-      {/* Toolbar: Filter tabs, Search, Sort */}
+      {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6">
-        {/* View filter tabs */}
         <div className="flex items-center bg-white/8 rounded-lg p-0.5">
           {([
             { key: "active" as ViewFilter, label: "Active", count: activeCount },
@@ -515,9 +485,7 @@ export default function Teams() {
               key={tab.key}
               onClick={() => setViewFilter(tab.key)}
               className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                viewFilter === tab.key
-                  ? "bg-white/8 text-white"
-                  : "text-white/55 hover:text-white"
+                viewFilter === tab.key ? "bg-white/8 text-white" : "text-white/55 hover:text-white"
               }`}
             >
               {tab.label} ({tab.count})
@@ -525,7 +493,6 @@ export default function Teams() {
           ))}
         </div>
 
-        {/* Search */}
         <div className="relative flex-1 min-w-0 w-full sm:w-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55" />
           <input
@@ -537,7 +504,6 @@ export default function Teams() {
           />
         </div>
 
-        {/* Sort */}
         <div className="relative">
           <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/55 pointer-events-none" />
           <select
@@ -553,11 +519,12 @@ export default function Teams() {
         </div>
       </div>
 
-      {/* Teams Grid - grouped or flat */}
+      {/* Teams - grouped or flat */}
       {sortBy === "season" && groupedTeams && groupedTeams.length > 0 ? (
         <div className="space-y-6">
           {groupedTeams.map((group) => {
             const collapsed = isPastCollapsed(group.label, group.status);
+            const orderedTeams = applyGroupOrder(group.teams, group.label);
             return (
               <div key={group.label}>
                 <button
@@ -573,34 +540,20 @@ export default function Teams() {
                     {group.label}
                   </h2>
                   {group.status === "current" && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-600/20 text-green-400">
-                      Current
-                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-600/20 text-green-400">Current</span>
                   )}
                   {group.status === "future" && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-600/20 text-blue-400">
-                      Upcoming
-                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-600/20 text-blue-400">Upcoming</span>
                   )}
                   {group.status === "past" && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white/55">
-                      Past
-                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/10 text-white/55">Past</span>
                   )}
                   <span className="text-sm text-white/40">({group.teams.length})</span>
                 </button>
                 {!collapsed && (
-                  <>
-                    {isDragging && !group.teams.every(t => t.archivedAt) && (
-                      <p className="text-xs text-white/30 mb-3 flex items-center gap-1">
-                        <GripVertical className="w-3 h-3" />
-                        Drag cards to reorder
-                      </p>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {group.teams.map((team) => renderTeamCard(team, group.label))}
-                    </div>
-                  </>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {orderedTeams.map((team) => renderTeamCard(team, group.label))}
+                  </div>
                 )}
               </div>
             );
@@ -629,10 +582,7 @@ export default function Teams() {
               <Users className="w-12 h-12 text-white/30 mx-auto mb-4" />
               <p className="text-white/55">No teams yet</p>
               {canEdit && (
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="mt-4 text-[#6c5ce7] hover:text-[#a78bfa]"
-                >
+                <button onClick={() => setIsCreateModalOpen(true)} className="mt-4 text-[#6c5ce7] hover:text-[#a78bfa]">
                   Create your first team
                 </button>
               )}
@@ -641,7 +591,7 @@ export default function Teams() {
         </div>
       )}
 
-      {/* Archive / Delete Confirmation Modal */}
+      {/* Delete / Archive Modal */}
       {deletingTeam && (
         <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
           <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-sm p-6 border border-white/15 shadow-2xl">
@@ -674,10 +624,7 @@ export default function Teams() {
               <p className="text-xs text-white/40 text-center -mt-1">
                 Removes the team entirely. Events keep their check-ins but lose the team association.
               </p>
-              <button
-                onClick={() => setDeletingTeam(null)}
-                className="w-full px-4 py-2 text-white/55 hover:text-white transition-colors text-sm"
-              >
+              <button onClick={() => setDeletingTeam(null)} className="w-full px-4 py-2 text-white/55 hover:text-white transition-colors text-sm">
                 Cancel
               </button>
             </div>
@@ -685,17 +632,10 @@ export default function Teams() {
         </div>
       )}
 
-      {/* Create Team Modal */}
       {isCreateModalOpen && (
-        <TeamModal
-          title="Create Team"
-          orgSeasons={orgSeasons}
-          onClose={() => setIsCreateModalOpen(false)}
-          onSave={handleCreateTeam}
-        />
+        <TeamModal title="Create Team" orgSeasons={orgSeasons} onClose={() => setIsCreateModalOpen(false)} onSave={handleCreateTeam} />
       )}
 
-      {/* Edit Team Modal */}
       {editingTeam && (
         <TeamModal
           title="Edit Team"
@@ -752,32 +692,23 @@ function TeamModal({
   };
 
   const yearOptions = [];
-  for (let y = currentYear - 2; y <= currentYear + 5; y++) {
-    yearOptions.push(y);
-  }
+  for (let y = currentYear - 2; y <= currentYear + 5; y++) yearOptions.push(y);
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="bg-white/8 backdrop-blur-xl rounded-xl w-full max-w-md p-6 border border-white/15 shadow-2xl">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white">{title}</h2>
-          <button onClick={onClose} className="text-white/55 hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
+          <button onClick={onClose} className="text-white/55 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-white/55 mb-1">Team Name *</label>
             <input
-              type="text"
-              name="name"
-              required
-              value={form.name}
-              onChange={handleChange}
+              type="text" name="name" required value={form.name} onChange={handleChange} autoFocus
               className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Varsity, Junior Elite"
-              autoFocus
             />
           </div>
 
@@ -785,41 +716,25 @@ function TeamModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-white/55 mb-1">Season *</label>
-                <select
-                  name="orgSeasonId"
-                  value={form.orgSeasonId}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-                >
+                <select name="orgSeasonId" value={form.orgSeasonId} onChange={handleChange}
+                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]">
                   <option value="">Select season...</option>
-                  {orgSeasons.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
+                  {orgSeasons.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-white/55 mb-1">Year *</label>
-                <select
-                  name="seasonYear"
-                  value={form.seasonYear}
+                <select name="seasonYear" value={form.seasonYear}
                   onChange={(e) => setForm(prev => ({ ...prev, seasonYear: Number(e.target.value) }))}
-                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
-                >
-                  {yearOptions.map((y) => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
+                  className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]">
+                  {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
             </div>
           ) : (
             <div>
               <label className="block text-sm font-medium text-white/55 mb-1">Season *</label>
-              <input
-                type="text"
-                name="season"
-                required
-                value={form.season}
-                onChange={handleChange}
+              <input type="text" name="season" required value={form.season} onChange={handleChange}
                 className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="e.g., Spring 2026, Fall 2025"
               />
@@ -831,11 +746,7 @@ function TeamModal({
 
           <div>
             <label className="block text-sm font-medium text-white/55 mb-1">Sport</label>
-            <input
-              type="text"
-              name="sport"
-              value={form.sport}
-              onChange={handleChange}
+            <input type="text" name="sport" value={form.sport} onChange={handleChange}
               className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="e.g., Basketball, Track & Field"
             />
@@ -845,21 +756,12 @@ function TeamModal({
             <label className="block text-sm font-medium text-white/55 mb-1">Team Color</label>
             <div className="flex items-center gap-2 flex-wrap">
               {COLOR_PRESETS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setForm((prev) => ({ ...prev, color: c }))}
-                  className={`w-7 h-7 rounded-full border-2 transition-all ${
-                    form.color === c ? "border-white scale-110" : "border-transparent"
-                  }`}
+                <button key={c} type="button" onClick={() => setForm(prev => ({ ...prev, color: c }))}
+                  className={`w-7 h-7 rounded-full border-2 transition-all ${form.color === c ? "border-white scale-110" : "border-transparent"}`}
                   style={{ backgroundColor: c }}
                 />
               ))}
-              <input
-                type="text"
-                name="color"
-                value={form.color}
-                onChange={handleChange}
+              <input type="text" name="color" value={form.color} onChange={handleChange}
                 className="w-24 px-2 py-1 bg-white/15 border border-white/25 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
                 placeholder="#hex"
               />
@@ -868,28 +770,15 @@ function TeamModal({
 
           <div>
             <label className="block text-sm font-medium text-white/55 mb-1">Description</label>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              rows={2}
+            <textarea name="description" value={form.description} onChange={handleChange} rows={2}
               className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] resize-none"
               placeholder="Optional notes about this team"
             />
           </div>
 
           <div className="flex justify-end space-x-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-white/55 hover:text-white transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors"
-            >
+            <button type="button" onClick={onClose} className="px-4 py-2 text-white/55 hover:text-white transition-colors">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-[#6c5ce7] text-white rounded-lg hover:bg-[#5a4dd4] transition-colors">
               {initialData ? "Save Changes" : "Create Team"}
             </button>
           </div>
