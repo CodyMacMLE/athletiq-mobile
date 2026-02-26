@@ -63,6 +63,7 @@ export default function Profile() {
 
   // Single-field edit state
   const [editValue, setEditValue] = useState("");
+  const [phoneInputFocused, setPhoneInputFocused] = useState(false);
 
   // Multi-field edit state (name)
   const [editFirstName, setEditFirstName] = useState("");
@@ -83,6 +84,7 @@ export default function Profile() {
   const [healthContactName, setHealthContactName] = useState("");
   const [healthContactRelationship, setHealthContactRelationship] = useState("");
   const [healthContactPhone, setHealthContactPhone] = useState("");
+  const [healthContactPhoneFocused, setHealthContactPhoneFocused] = useState(false);
   const [healthContactEmail, setHealthContactEmail] = useState("");
   const [healthContactIsPrimary, setHealthContactIsPrimary] = useState(false);
   const [medConditions, setMedConditions] = useState("");
@@ -380,8 +382,10 @@ export default function Profile() {
           <Text style={styles.editModalTitle}>Edit {modalMode.label}</Text>
           <TextInput
             style={styles.editInput}
-            value={editValue}
+            value={modalMode.keyboardType === "phone-pad" && phoneInputFocused && !sanitizePhone(editValue) ? "(" : editValue}
             onChangeText={(v) => setEditValue(modalMode.keyboardType === "phone-pad" ? maskPhone(v) : v)}
+            onFocus={() => setPhoneInputFocused(true)}
+            onBlur={() => { setPhoneInputFocused(false); if (modalMode.keyboardType === "phone-pad" && !sanitizePhone(editValue)) setEditValue(""); }}
             placeholder={modalMode.placeholder}
             placeholderTextColor="rgba(255,255,255,0.3)"
             keyboardType={modalMode.keyboardType || "default"}
@@ -456,7 +460,16 @@ export default function Profile() {
           <Text style={styles.editModalTitle}>{modalMode.contact ? "Edit Contact" : "Add Emergency Contact"}</Text>
           <TextInput style={styles.editInput} value={healthContactName} onChangeText={setHealthContactName} placeholder="Full name" placeholderTextColor="rgba(255,255,255,0.3)" autoFocus autoCapitalize="words" />
           <TextInput style={[styles.editInput, { marginTop: 12 }]} value={healthContactRelationship} onChangeText={setHealthContactRelationship} placeholder="Relationship (e.g. Mother)" placeholderTextColor="rgba(255,255,255,0.3)" autoCapitalize="words" />
-          <TextInput style={[styles.editInput, { marginTop: 12 }]} value={healthContactPhone} onChangeText={(v) => setHealthContactPhone(maskPhone(v))} placeholder="Phone number" placeholderTextColor="rgba(255,255,255,0.3)" keyboardType="phone-pad" />
+          <TextInput
+            style={[styles.editInput, { marginTop: 12 }]}
+            value={healthContactPhoneFocused && !sanitizePhone(healthContactPhone) ? "(" : healthContactPhone}
+            onChangeText={(v) => setHealthContactPhone(maskPhone(v))}
+            onFocus={() => setHealthContactPhoneFocused(true)}
+            onBlur={() => { setHealthContactPhoneFocused(false); if (!sanitizePhone(healthContactPhone)) setHealthContactPhone(""); }}
+            placeholder="Phone number"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            keyboardType="phone-pad"
+          />
           <TextInput style={[styles.editInput, { marginTop: 12 }]} value={healthContactEmail} onChangeText={setHealthContactEmail} placeholder="Email (optional)" placeholderTextColor="rgba(255,255,255,0.3)" keyboardType="email-address" autoCapitalize="none" />
           <Pressable style={styles.checkboxRow} onPress={() => setHealthContactIsPrimary(!healthContactIsPrimary)}>
             <View style={[styles.checkbox, healthContactIsPrimary && styles.checkboxChecked]}>
