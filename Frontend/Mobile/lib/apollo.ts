@@ -3,11 +3,22 @@ import { setContext } from "@apollo/client/link/context";
 import { onError } from "@apollo/client/link/error";
 import { persistCache, AsyncStorageWrapper } from "apollo3-cache-persist";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 import { getAuthToken } from "@/lib/cognito";
 
-const API_URL = "https://api.athletiq.fitness/graphql";
+const PROD_API_URL = "https://api.athletiq.fitness/graphql";
 
-const getApiUrl = () => API_URL;
+const getApiUrl = (): string => {
+  if (__DEV__) {
+    // Derive the local machine IP from the Expo dev server host.
+    // Works for iOS Simulator, Android Emulator (via ADB tunnel), and
+    // physical devices on the same Wi-Fi network.
+    const host = Constants.expoConfig?.hostUri?.split(":").shift();
+    if (host) return `http://${host}:4000/graphql`;
+    return "http://localhost:4000/graphql";
+  }
+  return PROD_API_URL;
+};
 
 const httpLink = createHttpLink({
   uri: getApiUrl(),
