@@ -61,9 +61,9 @@ export default function LandingPage() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen text-white" style={{ background: "linear-gradient(160deg, #302b6f 10%, #4d2a69 60%, #302b6f 100%)" }}>
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-gray-900/80 backdrop-blur-md border-b border-gray-800">
+      <nav className="sticky top-0 z-50 bg-[rgba(20,15,50,0.35)] backdrop-blur-md border-b border-white/8">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Image
@@ -75,19 +75,19 @@ export default function LandingPage() {
             <span className="text-xl font-bold">Athletiq</span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-6 text-sm text-gray-400">
+          <div className="hidden md:flex items-center gap-6 text-sm text-white/50">
             <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
             <Link href="/about" className="hover:text-white transition-colors">About</Link>
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
           </div>
           <div className="flex items-center gap-4">
             {isLoading ? (
-              <div className="w-8 h-8 rounded-full bg-gray-700 animate-pulse" />
+              <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
             ) : isAuthenticated && user ? (
               <div className="flex items-center gap-3">
                 <Link
                   href="/dashboard"
-                  className="text-sm text-gray-300 hover:text-white transition-colors"
+                  className="text-sm text-white/70 hover:text-white transition-colors"
                 >
                   Dashboard
                 </Link>
@@ -109,13 +109,13 @@ export default function LandingPage() {
               <>
                 <Link
                   href="/signin"
-                  className="text-sm text-gray-300 hover:text-white transition-colors"
+                  className="text-sm text-white/70 hover:text-white transition-colors"
                 >
                   Sign In
                 </Link>
                 <Link
                   href="/register"
-                  className="px-4 py-2 text-sm font-medium bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium bg-[#6c5ce7] hover:bg-[#5a4dd4] rounded-lg transition-colors"
                 >
                   Get Started
                 </Link>
@@ -132,7 +132,7 @@ export default function LandingPage() {
           <br />
           <span className="text-purple-500">for Athletic Management</span>
         </h1>
-        <p className="mt-6 text-lg text-gray-400 max-w-2xl mx-auto">
+        <p className="mt-6 text-lg text-white/50 max-w-2xl mx-auto">
           From check-ins on the field to analytics in the front office — Athletiq
           connects athletes, guardians, coaches, and administrators on one
           platform.
@@ -141,7 +141,7 @@ export default function LandingPage() {
           {isAuthenticated ? (
             <Link
               href="/dashboard"
-              className="px-6 py-3 text-sm font-medium bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors inline-flex items-center gap-2"
+              className="px-6 py-3 text-sm font-medium bg-[#6c5ce7] hover:bg-[#5a4dd4] rounded-lg transition-colors inline-flex items-center gap-2"
             >
               Go to Dashboard
               <ArrowRight className="w-4 h-4" />
@@ -150,14 +150,14 @@ export default function LandingPage() {
             <>
               <Link
                 href="/register"
-                className="px-6 py-3 text-sm font-medium bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors inline-flex items-center gap-2"
+                className="px-6 py-3 text-sm font-medium bg-[#6c5ce7] hover:bg-[#5a4dd4] rounded-lg transition-colors inline-flex items-center gap-2"
               >
                 Register Your Organization
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
                 href="/signin"
-                className="px-6 py-3 text-sm font-medium bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
+                className="px-6 py-3 text-sm font-medium bg-white/8 hover:bg-white/12 border border-white/10 rounded-lg transition-colors"
               >
                 Sign In
               </Link>
@@ -177,7 +177,7 @@ export default function LandingPage() {
             <h2 className="text-3xl font-bold mb-4">
               For Athletes & Guardians
             </h2>
-            <p className="text-gray-400 mb-8">
+            <p className="text-white/50 mb-8">
               The Athletiq mobile app puts everything athletes and guardians need
               right in their pocket. Check in to events, track your hours, and
               never miss a practice.
@@ -186,30 +186,30 @@ export default function LandingPage() {
               {mobileFeatures.map((feature) => (
                 <li key={feature} className="flex items-start gap-3">
                   <CheckCircle className="w-5 h-5 text-blue-400 mt-0.5 shrink-0" />
-                  <span className="text-gray-300">{feature}</span>
+                  <span className="text-white/80">{feature}</span>
                 </li>
               ))}
             </ul>
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 disabled
-                className="px-5 py-2.5 bg-gray-800 text-gray-500 font-medium rounded-lg cursor-not-allowed text-sm border border-gray-700"
+                className="px-5 py-2.5 bg-white/8 text-white/50 font-medium rounded-lg cursor-not-allowed text-sm border border-white/10"
               >
                 App Store — Coming Soon
               </button>
               <button
                 disabled
-                className="px-5 py-2.5 bg-gray-800 text-gray-500 font-medium rounded-lg cursor-not-allowed text-sm border border-gray-700"
+                className="px-5 py-2.5 bg-white/8 text-white/50 font-medium rounded-lg cursor-not-allowed text-sm border border-white/10"
               >
                 Google Play — Coming Soon
               </button>
             </div>
           </div>
           <div className="flex justify-center">
-            <div className="w-64 h-[500px] bg-gray-800 rounded-[2.5rem] border-2 border-gray-700 flex items-center justify-center p-8">
+            <div className="w-64 h-[500px] bg-white/5 rounded-[2.5rem] border-2 border-white/8 flex items-center justify-center p-8">
               <div className="text-center">
                 <Smartphone className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-                <p className="text-gray-400 text-sm">
+                <p className="text-white/50 text-sm">
                   Mobile app coming soon to iOS and Android
                 </p>
               </div>
@@ -219,28 +219,28 @@ export default function LandingPage() {
       </section>
 
       {/* Organizations & Coaches Section */}
-      <section className="bg-gray-800/50 border-y border-gray-800">
+      <section className="bg-white/5 border-t border-white/8">
         <div className="max-w-7xl mx-auto px-6 py-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="order-2 lg:order-1 flex justify-center">
-              <div className="w-full max-w-md bg-gray-800 rounded-xl border border-gray-700 p-6">
+              <div className="w-full max-w-md bg-white/5 rounded-xl border border-white/8 p-6">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-8 h-8 bg-purple-600/20 rounded-lg flex items-center justify-center">
                     <Monitor className="w-4 h-4 text-purple-400" />
                   </div>
-                  <span className="text-sm font-medium text-gray-300">
+                  <span className="text-sm font-medium text-white/80">
                     Dashboard Preview
                   </span>
                 </div>
                 <div className="space-y-3">
-                  <div className="h-3 bg-gray-700 rounded-full w-3/4"></div>
-                  <div className="h-3 bg-gray-700 rounded-full w-1/2"></div>
+                  <div className="h-3 bg-white/10 rounded-full w-3/4"></div>
+                  <div className="h-3 bg-white/10 rounded-full w-1/2"></div>
                   <div className="grid grid-cols-3 gap-3 mt-4">
                     <div className="h-20 bg-purple-600/10 border border-purple-500/20 rounded-lg"></div>
                     <div className="h-20 bg-blue-600/10 border border-blue-500/20 rounded-lg"></div>
                     <div className="h-20 bg-green-600/10 border border-green-500/20 rounded-lg"></div>
                   </div>
-                  <div className="h-32 bg-gray-700/50 rounded-lg mt-4"></div>
+                  <div className="h-32 bg-white/5 rounded-lg mt-4"></div>
                 </div>
               </div>
             </div>
@@ -252,7 +252,7 @@ export default function LandingPage() {
               <h2 className="text-3xl font-bold mb-4">
                 For Organizations & Coaches
               </h2>
-              <p className="text-gray-400 mb-8">
+              <p className="text-white/50 mb-8">
                 The Athletiq web dashboard gives coaches, managers, and
                 organization owners the tools they need to run their programs
                 effectively.
@@ -261,21 +261,21 @@ export default function LandingPage() {
                 {dashboardFeatures.map((feature) => (
                   <li key={feature} className="flex items-start gap-3">
                     <CheckCircle className="w-5 h-5 text-purple-400 mt-0.5 shrink-0" />
-                    <span className="text-gray-300">{feature}</span>
+                    <span className="text-white/80">{feature}</span>
                   </li>
                 ))}
               </ul>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
                   href="/register"
-                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors text-sm inline-flex items-center justify-center gap-2"
+                  className="px-5 py-2.5 bg-[#6c5ce7] hover:bg-[#5a4dd4] text-white font-medium rounded-lg transition-colors text-sm inline-flex items-center justify-center gap-2"
                 >
                   Register Your Organization
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <Link
                   href="/signin"
-                  className="px-5 py-2.5 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg transition-colors text-sm text-center"
+                  className="px-5 py-2.5 bg-white/8 hover:bg-white/12 border border-white/10 text-white font-medium rounded-lg transition-colors text-sm text-center"
                 >
                   Sign In
                 </Link>
@@ -290,7 +290,7 @@ export default function LandingPage() {
         <h2 className="text-3xl font-bold text-center mb-4">
           What&apos;s Coming Next
         </h2>
-        <p className="text-gray-400 text-center mb-12 max-w-xl mx-auto">
+        <p className="text-white/50 text-center mb-12 max-w-xl mx-auto">
           We&apos;re building the future of athletic management. Here&apos;s
           what&apos;s on our roadmap.
         </p>
@@ -300,7 +300,7 @@ export default function LandingPage() {
             return (
               <div
                 key={item.title}
-                className={`bg-gray-800 rounded-xl p-6 border ${colors.border} hover:border-opacity-60 transition-colors`}
+                className={`bg-white/5 rounded-xl p-6 border ${colors.border} hover:bg-white/8 transition-colors`}
               >
                 <div
                   className={`w-12 h-12 ${colors.bg} rounded-lg flex items-center justify-center mb-4`}
@@ -308,7 +308,7 @@ export default function LandingPage() {
                   <item.icon className={`w-6 h-6 ${colors.text}`} />
                 </div>
                 <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
-                <p className="text-gray-400 text-sm">{item.description}</p>
+                <p className="text-white/50 text-sm">{item.description}</p>
               </div>
             );
           })}
@@ -334,7 +334,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-800 py-12">
+      <footer className="border-t border-white/8 py-12">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
             {/* Brand */}
@@ -348,24 +348,24 @@ export default function LandingPage() {
                 />
                 <span className="font-bold">Athletiq</span>
               </div>
-              <p className="text-gray-500 text-sm">
+              <p className="text-white/35 text-sm">
                 The all-in-one platform for athletic management.
               </p>
             </div>
 
             {/* Product */}
             <div>
-              <h4 className="text-sm font-semibold text-gray-300 mb-3">
+              <h4 className="text-sm font-semibold text-white/80 mb-3">
                 Product
               </h4>
-              <ul className="space-y-2 text-sm text-gray-500">
+              <ul className="space-y-2 text-sm text-white/35">
                 <li>
-                  <Link href="/register" className="hover:text-gray-300 transition-colors">
+                  <Link href="/register" className="hover:text-white/70 transition-colors">
                     Get Started
                   </Link>
                 </li>
                 <li>
-                  <Link href="/signin" className="hover:text-gray-300 transition-colors">
+                  <Link href="/signin" className="hover:text-white/70 transition-colors">
                     Sign In
                   </Link>
                 </li>
@@ -374,10 +374,10 @@ export default function LandingPage() {
 
             {/* Company */}
             <div>
-              <h4 className="text-sm font-semibold text-gray-300 mb-3">
+              <h4 className="text-sm font-semibold text-white/80 mb-3">
                 Company
               </h4>
-              <ul className="space-y-2 text-sm text-gray-500">
+              <ul className="space-y-2 text-sm text-white/35">
                 <li>
                   <span className="cursor-default">About</span>
                 </li>
@@ -389,10 +389,10 @@ export default function LandingPage() {
 
             {/* Legal */}
             <div>
-              <h4 className="text-sm font-semibold text-gray-300 mb-3">
+              <h4 className="text-sm font-semibold text-white/80 mb-3">
                 Legal
               </h4>
-              <ul className="space-y-2 text-sm text-gray-500">
+              <ul className="space-y-2 text-sm text-white/35">
                 <li>
                   <span className="cursor-default">Privacy Policy</span>
                 </li>
@@ -403,7 +403,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="border-t border-gray-800 pt-8 text-center text-gray-500 text-sm">
+          <div className="border-t border-white/8 pt-8 text-center text-white/35 text-sm">
             &copy; {new Date().getFullYear()} Athletiq. All rights reserved.
           </div>
         </div>

@@ -1,15 +1,24 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { cognitoResetPassword, cognitoConfirmResetPassword } from "@/lib/cognito";
+import { Loader2 } from "lucide-react";
+
+const inputClass =
+  "w-full px-4 py-3 bg-white/8 border border-white/10 rounded-lg text-white text-sm placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] focus:border-transparent";
+const labelClass = "block text-xs font-medium text-white/55 mb-1.5";
+
+const gradientStyle = {
+  background: "linear-gradient(160deg, #302b6f 10%, #4d2a69 60%, #302b6f 100%)",
+};
 
 export default function SignInPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, login, confirmNewPassword } = useAuth();
+  const { login, confirmNewPassword } = useAuth();
 
   const [view, setView] = useState<"login" | "forgot" | "reset">("login");
   const [email, setEmail] = useState("");
@@ -22,19 +31,11 @@ export default function SignInPage() {
   const [confirmPw, setConfirmPw] = useState("");
   const [resetCode, setResetCode] = useState("");
 
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/dashboard");
-    }
-  }, [isAuthenticated, isLoading, router]);
-
   const doLogin = async () => {
     setError("");
     setLoading(true);
-
     try {
       const result = await login(email, password);
-
       if (result.requiresNewPassword) {
         setRequiresNewPassword(true);
       } else if (!result.success) {
@@ -51,21 +52,11 @@ export default function SignInPage() {
 
   const doSetNewPassword = async () => {
     setError("");
-
-    if (newPassword !== confirmPw) {
-      setError("Passwords do not match");
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
-
+    if (newPassword !== confirmPw) { setError("Passwords do not match"); return; }
+    if (newPassword.length < 8) { setError("Password must be at least 8 characters"); return; }
     setLoading(true);
     try {
       const result = await confirmNewPassword(newPassword);
-
       if (!result.success) {
         setError(result.error || "Failed to set new password");
       } else {
@@ -78,51 +69,28 @@ export default function SignInPage() {
     setLoading(false);
   };
 
-  // Prevent native form submission, then run the async handler
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    doLogin();
-  };
-
-  const handleNewPasswordSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    doSetNewPassword();
-  };
+  const handleSubmit = (e: FormEvent) => { e.preventDefault(); doLogin(); };
+  const handleNewPasswordSubmit = (e: FormEvent) => { e.preventDefault(); doSetNewPassword(); };
 
   const handleSendResetCode = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-
     const result = await cognitoResetPassword(email);
-    if (result.success) {
-      setView("reset");
-    } else {
-      setError(result.error || "Failed to send reset code");
-    }
+    if (result.success) { setView("reset"); } else { setError(result.error || "Failed to send reset code"); }
     setLoading(false);
   };
 
   const handleResetPassword = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-
-    if (newPassword !== confirmPw) {
-      setError("Passwords do not match.");
-      return;
-    }
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters.");
-      return;
-    }
-
+    if (newPassword !== confirmPw) { setError("Passwords do not match."); return; }
+    if (newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
     const result = await cognitoConfirmResetPassword(email, resetCode, newPassword);
     if (result.success) {
       setSuccessMessage("Password reset successfully. You can now sign in.");
-      setResetCode("");
-      setNewPassword("");
-      setConfirmPw("");
+      setResetCode(""); setNewPassword(""); setConfirmPw("");
       setView("login");
     } else {
       setError(result.error || "Failed to reset password");
@@ -131,309 +99,135 @@ export default function SignInPage() {
   };
 
   const backToLogin = () => {
-    setView("login");
-    setError("");
-    setResetCode("");
-    setNewPassword("");
-    setConfirmPw("");
-    setSuccessMessage("");
+    setView("login"); setError(""); setResetCode("");
+    setNewPassword(""); setConfirmPw(""); setSuccessMessage("");
   };
 
   if (requiresNewPassword) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4">
-        <div className="max-w-md w-full space-y-8">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-white">Set New Password</h1>
-            <p className="mt-2 text-gray-400">Please create a new password for your account</p>
+      <div className="min-h-screen flex items-center justify-center px-4" style={gradientStyle}>
+        <div className="w-full max-w-md">
+          <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-8">
+            <h1 className="text-2xl font-bold text-white mb-1">Set New Password</h1>
+            <p className="text-white/50 text-sm mb-6">Please create a new password for your account.</p>
+
+            {error && <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg text-sm">{error}</div>}
+
+            <form onSubmit={handleNewPasswordSubmit} className="space-y-4">
+              <div>
+                <label className={labelClass}>New Password</label>
+                <input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputClass} placeholder="Min. 8 characters" minLength={8} />
+              </div>
+              <div>
+                <label className={labelClass}>Confirm Password</label>
+                <input type="password" required value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} className={inputClass} placeholder="Re-enter password" minLength={8} />
+              </div>
+              <button type="submit" disabled={loading} className="w-full py-3 bg-[#6c5ce7] hover:bg-[#5a4dd4] text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Setting password…</> : "Set Password"}
+              </button>
+              <button type="button" onClick={() => { setRequiresNewPassword(false); setNewPassword(""); setConfirmPw(""); setError(""); }} className="w-full text-center text-white/45 hover:text-white text-sm transition-colors">
+                Back to sign in
+              </button>
+            </form>
           </div>
-
-          <form onSubmit={handleNewPasswordSubmit} className="mt-8 space-y-6">
-            {error && (
-              <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg">
-                {error}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-300">
-                  New Password
-                </label>
-                <input
-                  id="newPassword"
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Enter new password"
-                  minLength={8}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="confirmPw" className="block text-sm font-medium text-gray-300">
-                  Confirm Password
-                </label>
-                <input
-                  id="confirmPw"
-                  type="password"
-                  required
-                  value={confirmPw}
-                  onChange={(e) => setConfirmPw(e.target.value)}
-                  className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Confirm new password"
-                  minLength={8}
-                />
-              </div>
-            </div>
-
-            <div className="text-sm text-gray-400">
-              Password must be at least 8 characters long.
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              ) : (
-                "Set Password"
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setRequiresNewPassword(false);
-                setNewPassword("");
-                setConfirmPw("");
-                setError("");
-              }}
-              className="w-full text-center text-gray-400 hover:text-white transition-colors"
-            >
-              Back to login
-            </button>
-          </form>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <Image src="/logo/white_icon_transparent_background.png" alt="Athletiq" width={80} height={80} className="mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-white">Athletiq</h1>
-          <p className="mt-2 text-gray-400">
-            {view === "login" && "Sign in to your account"}
+    <div className="min-h-screen flex items-center justify-center px-4" style={gradientStyle}>
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <Link href="/">
+            <Image src="/logo/white_icon_transparent_background.png" alt="Athletiq" width={72} height={72} className="mx-auto mb-4" />
+          </Link>
+          <h1 className="text-2xl font-bold text-white">
+            {view === "login" && "Welcome back"}
             {view === "forgot" && "Reset your password"}
-            {view === "reset" && "Enter your reset code"}
+            {view === "reset" && "Enter reset code"}
+          </h1>
+          <p className="text-white/45 text-sm mt-1">
+            {view === "login" && "Sign in to your Athletiq account"}
+            {view === "forgot" && "We'll send a code to your email"}
+            {view === "reset" && `Code sent to ${email}`}
           </p>
         </div>
 
-        {successMessage && (
-          <div className="bg-green-500/10 border border-green-500 text-green-500 px-4 py-3 rounded-lg">
-            {successMessage}
-          </div>
-        )}
+        <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 p-8">
+          {successMessage && (
+            <div className="mb-4 px-4 py-3 bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg text-sm">{successMessage}</div>
+          )}
+          {error && (
+            <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg text-sm">{error}</div>
+          )}
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        {view === "login" && (
-          <>
-            <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-300">
-                    Email
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => { setEmail(e.target.value); setSuccessMessage(""); }}
-                    className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="you@example.com"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-300">
-                    Password
-                  </label>
-                  <input
-                    id="password"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Enter your password"
-                  />
-                </div>
+          {view === "login" && (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className={labelClass}>Email</label>
+                <input type="email" required value={email} onChange={(e) => { setEmail(e.target.value); setSuccessMessage(""); }} className={inputClass} placeholder="you@example.com" autoFocus />
               </div>
-
+              <div>
+                <label className={labelClass}>Password</label>
+                <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} placeholder="Enter your password" />
+              </div>
               <div className="text-right">
-                <button
-                  type="button"
-                  onClick={() => { setView("forgot"); setError(""); setSuccessMessage(""); }}
-                  className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
-                >
-                  Forgot your password?
+                <button type="button" onClick={() => { setView("forgot"); setError(""); setSuccessMessage(""); }} className="text-xs text-[#a78bfa] hover:text-[#c4b5fd] transition-colors">
+                  Forgot password?
                 </button>
               </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  "Sign in"
-                )}
+              <button type="submit" disabled={loading} className="w-full py-3 bg-[#6c5ce7] hover:bg-[#5a4dd4] text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Signing in…</> : "Sign In"}
               </button>
+              <p className="text-center text-sm text-white/40 pt-1">
+                Don&apos;t have an account?{" "}
+                <Link href="/register" className="text-[#a78bfa] hover:text-[#c4b5fd] transition-colors">Register</Link>
+                {" · "}
+                <Link href="/" className="text-[#a78bfa] hover:text-[#c4b5fd] transition-colors">Home</Link>
+              </p>
             </form>
+          )}
 
-            <p className="mt-6 text-center text-sm text-gray-400">
-              Don&apos;t have an account?{" "}
-              <Link href="/register" className="text-purple-400 hover:text-purple-300 transition-colors">
-                Register
-              </Link>
-              {" "}&middot;{" "}
-              <Link href="/" className="text-purple-400 hover:text-purple-300 transition-colors">
-                Back to home
-              </Link>
-            </p>
-          </>
-        )}
-
-        {view === "forgot" && (
-          <form onSubmit={handleSendResetCode} className="mt-8 space-y-6">
-            <div>
-              <label htmlFor="reset-email" className="block text-sm font-medium text-gray-300">
-                Email
-              </label>
-              <input
-                id="reset-email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              ) : (
-                "Send Reset Code"
-              )}
-            </button>
-
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={backToLogin}
-                className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
-              >
-                Back to sign in
+          {view === "forgot" && (
+            <form onSubmit={handleSendResetCode} className="space-y-4">
+              <div>
+                <label className={labelClass}>Email</label>
+                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="you@example.com" autoFocus />
+              </div>
+              <button type="submit" disabled={loading} className="w-full py-3 bg-[#6c5ce7] hover:bg-[#5a4dd4] text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending…</> : "Send Reset Code"}
               </button>
-            </div>
-          </form>
-        )}
-
-        {view === "reset" && (
-          <form onSubmit={handleResetPassword} className="mt-8 space-y-6">
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="reset-code" className="block text-sm font-medium text-gray-300">
-                  Reset Code
-                </label>
-                <input
-                  id="reset-code"
-                  type="text"
-                  required
-                  value={resetCode}
-                  onChange={(e) => setResetCode(e.target.value)}
-                  className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Enter 6-digit code"
-                />
+              <div className="text-center">
+                <button type="button" onClick={backToLogin} className="text-sm text-[#a78bfa] hover:text-[#c4b5fd] transition-colors">Back to sign in</button>
               </div>
+            </form>
+          )}
 
+          {view === "reset" && (
+            <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
-                <label htmlFor="new-password" className="block text-sm font-medium text-gray-300">
-                  New Password
-                </label>
-                <input
-                  id="new-password"
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Enter new password"
-                  minLength={8}
-                />
+                <label className={labelClass}>Reset Code</label>
+                <input type="text" required value={resetCode} onChange={(e) => setResetCode(e.target.value)} className={`${inputClass} tracking-widest text-center text-lg`} placeholder="123456" autoFocus />
               </div>
-
               <div>
-                <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-300">
-                  Confirm Password
-                </label>
-                <input
-                  id="confirm-password"
-                  type="password"
-                  required
-                  value={confirmPw}
-                  onChange={(e) => setConfirmPw(e.target.value)}
-                  className="mt-1 block w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  placeholder="Confirm new password"
-                  minLength={8}
-                />
+                <label className={labelClass}>New Password</label>
+                <input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputClass} placeholder="Min. 8 characters" minLength={8} />
               </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              ) : (
-                "Reset Password"
-              )}
-            </button>
-
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={backToLogin}
-                className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
-              >
-                Back to sign in
+              <div>
+                <label className={labelClass}>Confirm Password</label>
+                <input type="password" required value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} className={inputClass} placeholder="Re-enter password" minLength={8} />
+              </div>
+              <button type="submit" disabled={loading} className="w-full py-3 bg-[#6c5ce7] hover:bg-[#5a4dd4] text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Resetting…</> : "Reset Password"}
               </button>
-            </div>
-          </form>
-        )}
+              <div className="text-center">
+                <button type="button" onClick={backToLogin} className="text-sm text-[#a78bfa] hover:text-[#c4b5fd] transition-colors">Back to sign in</button>
+              </div>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
