@@ -405,8 +405,8 @@ export default function AccountPage() {
     skip: !user?.id || !selectedOrganizationId,
   });
 
-  const emergencyContacts: EmergencyContact[] = healthData?.user?.emergencyContacts || [];
-  const medicalInfo: MedicalInfo | null       = healthData?.user?.medicalInfo || null;
+  const emergencyContacts: EmergencyContact[] = (healthData as any)?.user?.emergencyContacts || [];
+  const medicalInfo: MedicalInfo | null       = (healthData as any)?.user?.medicalInfo || null;
 
   // Lazy query for transfer modal members
   const [fetchOrgUsers, { data: orgUsersData, loading: orgUsersLoading }] = useLazyQuery<any>(GET_ORGANIZATION_USERS);
