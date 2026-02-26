@@ -93,6 +93,9 @@ export default function Teams() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [dragGroupLabel, setDragGroupLabel] = useState<string | null>(null);
+  // Refs for drag state — always up-to-date, avoids stale-closure issues in DnD handlers
+  const dragIdRef = useRef<string | null>(null);
+  const dragGroupLabelRef = useRef<string | null>(null);
   // Per-group ordering overrides (only set while an unsaved drag or pending server sync)
   const [groupOrderOverrides, setGroupOrderOverrides] = useState<Record<string, string[]>>({});
   // Refs to card DOM elements for drag ghost image
@@ -177,6 +180,10 @@ export default function Teams() {
     return groups;
   }, [teams, sortBy]);
 
+  // Keep a ref to groupedTeams so drop handler always has the latest value
+  const groupedTeamsRef = useRef(groupedTeams);
+  groupedTeamsRef.current = groupedTeams;
+
   const isPastCollapsed = (label: string, status: string) => {
     if (collapsedGroups.has(label)) return true;
     if (status === "past" && !collapsedGroups.has(`__expanded__${label}`)) return true;
@@ -207,6 +214,8 @@ export default function Teams() {
 
   // Called from the grip handle div only
   const handleGripDragStart = useCallback((e: React.DragEvent, teamId: string, groupLabel: string) => {
+    dragIdRef.current = teamId;
+    dragGroupLabelRef.current = groupLabel;
     setDragId(teamId);
     setDragGroupLabel(groupLabel);
     e.dataTransfer.effectAllowed = "move";
@@ -218,11 +227,12 @@ export default function Teams() {
   }, []);
 
   const handleCardDragOver = useCallback((e: React.DragEvent, teamId: string, groupLabel: string) => {
-    if (!dragId || groupLabel !== dragGroupLabel) return;
+    // Read from refs — always current regardless of stale closures
+    if (!dragIdRef.current || groupLabel !== dragGroupLabelRef.current) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    if (teamId !== dragId) setDragOverId(teamId);
-  }, [dragId, dragGroupLabel]);
+    if (teamId !== dragIdRef.current) setDragOverId(teamId);
+  }, []);
 
   const handleCardDragLeave = useCallback((e: React.DragEvent) => {
     // Only clear if leaving to outside the card entirely
@@ -234,14 +244,21 @@ export default function Teams() {
 
   const handleCardDrop = useCallback((e: React.DragEvent, targetTeamId: string, groupLabel: string) => {
     e.preventDefault();
-    const sourceId = dragId;
+    // Read from refs to avoid stale closure values
+    const sourceId = dragIdRef.current;
+    const sourceGroup = dragGroupLabelRef.current;
+    // Clear drag state
+    dragIdRef.current = null;
+    dragGroupLabelRef.current = null;
     setDragId(null);
     setDragOverId(null);
     setDragGroupLabel(null);
 
-    if (!sourceId || sourceId === targetTeamId || groupLabel !== dragGroupLabel) return;
+    if (!sourceId || sourceId === targetTeamId || groupLabel !== sourceGroup) return;
 
-    const group = groupedTeams?.find(g => g.label === groupLabel);
+    // groupedTeams ref — always current
+    const currentGroupedTeams = groupedTeamsRef.current;
+    const group = currentGroupedTeams?.find(g => g.label === groupLabel);
     if (!group) return;
 
     const currentOrder = applyGroupOrder(group.teams, groupLabel);
@@ -254,18 +271,19 @@ export default function Teams() {
     newOrder.splice(toIdx, 0, moved);
     const newOrderIds = newOrder.map(t => t.id);
 
-    // Optimistic update
+    // Optimistic update — stays in place; only reverts on error
     setGroupOrderOverrides(prev => ({ ...prev, [groupLabel]: newOrderIds }));
 
-    // Persist to server. The override stays in place so the UI reflects the
-    // new order immediately. It will be cleared on the next natural refetch
-    // (create/edit/delete team), at which point the server returns data in
-    // the updated sortOrder. Only revert on error.
     reorderTeams({ variables: { organizationId: selectedOrganizationId, teamIds: newOrderIds } })
-      .catch(() => setGroupOrderOverrides(prev => { const n = { ...prev }; delete n[groupLabel]; return n; }));
-  }, [dragId, dragGroupLabel, groupedTeams, applyGroupOrder, reorderTeams, selectedOrganizationId]);
+      .catch((err) => {
+        console.error("reorderTeams failed:", err);
+        setGroupOrderOverrides(prev => { const n = { ...prev }; delete n[groupLabel]; return n; });
+      });
+  }, [applyGroupOrder, reorderTeams, selectedOrganizationId]);
 
   const handleDragEnd = useCallback(() => {
+    dragIdRef.current = null;
+    dragGroupLabelRef.current = null;
     setDragId(null);
     setDragOverId(null);
     setDragGroupLabel(null);
