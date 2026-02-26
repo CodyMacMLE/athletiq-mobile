@@ -27,7 +27,7 @@ npm-debug.log*
 prisma/migrations/**/migration_lock.toml
 
 # Deployment
-task-definition.json
+# task-definition.json is now safe to commit (secrets moved to SSM Parameter Store)
 
 # Claude Code local settings (may contain secrets)
 .claude/
