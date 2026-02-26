@@ -14,6 +14,11 @@ import {
   CREATE_ORGANIZATION,
   GET_ORGANIZATION_USERS,
   DELETE_MY_ACCOUNT,
+  GET_USER_HEALTH,
+  CREATE_EMERGENCY_CONTACT,
+  UPDATE_EMERGENCY_CONTACT,
+  DELETE_EMERGENCY_CONTACT,
+  UPSERT_MEDICAL_INFO,
 } from "@/lib/graphql";
 import { gql } from "@apollo/client";
 import {
@@ -41,6 +46,12 @@ import {
   Plus,
   AlertTriangle,
   Trash2,
+  Activity,
+  CalendarDays,
+  Edit2,
+  Star,
+  FileText,
+  Stethoscope,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -91,7 +102,28 @@ const SEND_TEST_REPORT = gql`
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-type Section = "profile" | "organizations" | "guardian" | "app-download" | "settings";
+type Section = "profile" | "organizations" | "guardian" | "health" | "app-download" | "settings";
+
+type EmergencyContact = {
+  id: string;
+  name: string;
+  relationship: string;
+  phone: string;
+  email?: string;
+  isPrimary: boolean;
+};
+
+type MedicalInfo = {
+  id: string;
+  conditions?: string;
+  allergies?: string;
+  medications?: string;
+  insuranceProvider?: string;
+  insurancePolicyNumber?: string;
+  insuranceGroupNumber?: string;
+  notes?: string;
+  updatedAt?: string;
+};
 type ReportFrequency = "WEEKLY" | "MONTHLY" | "QUARTERLY" | "BIANNUALLY" | "ANNUALLY";
 
 type OrgMembership = {
@@ -303,6 +335,7 @@ export default function AccountPage() {
   const [lastName, setLastName]     = useState("");
   const [phone, setPhone]           = useState("");
   const [phoneFocused, setPhoneFocused] = useState(false);
+  const [dateOfBirth, setDateOfBirth] = useState("");
   const [address, setAddress]       = useState("");
   const [city, setCity]             = useState("");
   const [country, setCountry]       = useState("");
@@ -310,6 +343,29 @@ export default function AccountPage() {
   const [uploading, setUploading]   = useState(false);
   const [profileSuccess, setProfileSuccess] = useState("");
   const [profileError, setProfileError]     = useState("");
+
+  // Health & Safety — emergency contacts
+  const [showEcModal, setShowEcModal]       = useState(false);
+  const [ecEditTarget, setEcEditTarget]     = useState<EmergencyContact | null>(null);
+  const [ecName, setEcName]                 = useState("");
+  const [ecRelationship, setEcRelationship] = useState("");
+  const [ecPhone, setEcPhone]               = useState("");
+  const [ecPhoneFocused, setEcPhoneFocused] = useState(false);
+  const [ecEmail, setEcEmail]               = useState("");
+  const [ecIsPrimary, setEcIsPrimary]       = useState(false);
+  const [savingEc, setSavingEc]             = useState(false);
+  const [ecError, setEcError]               = useState("");
+
+  // Health & Safety — medical info
+  const [medConditions, setMedConditions]               = useState("");
+  const [medAllergies, setMedAllergies]                 = useState("");
+  const [medMedications, setMedMedications]             = useState("");
+  const [medInsuranceProvider, setMedInsuranceProvider] = useState("");
+  const [medPolicyNumber, setMedPolicyNumber]           = useState("");
+  const [medGroupNumber, setMedGroupNumber]             = useState("");
+  const [medNotes, setMedNotes]                         = useState("");
+  const [savingMed, setSavingMed]                       = useState(false);
+  const [medSuccess, setMedSuccess]                     = useState("");
 
   // Create org modal
   const [showCreateOrg, setShowCreateOrg] = useState(false);
@@ -339,6 +395,18 @@ export default function AccountPage() {
   const [transferOwnership, { loading: transferring }] = useMutation(TRANSFER_OWNERSHIP);
   const [createInvite, { loading: inviting }]      = useMutation(CREATE_INVITE);
   const [deleteMyAccount]                          = useMutation(DELETE_MY_ACCOUNT);
+  const [createEmergencyContact]                   = useMutation(CREATE_EMERGENCY_CONTACT);
+  const [updateEmergencyContact]                   = useMutation(UPDATE_EMERGENCY_CONTACT);
+  const [deleteEmergencyContact]                   = useMutation(DELETE_EMERGENCY_CONTACT);
+  const [upsertMedicalInfo]                        = useMutation(UPSERT_MEDICAL_INFO);
+
+  const { data: healthData, refetch: refetchHealth } = useQuery(GET_USER_HEALTH, {
+    variables: { userId: user?.id, organizationId: selectedOrganizationId },
+    skip: !user?.id || !selectedOrganizationId,
+  });
+
+  const emergencyContacts: EmergencyContact[] = healthData?.user?.emergencyContacts || [];
+  const medicalInfo: MedicalInfo | null       = healthData?.user?.medicalInfo || null;
 
   // Lazy query for transfer modal members
   const [fetchOrgUsers, { data: orgUsersData, loading: orgUsersLoading }] = useLazyQuery<any>(GET_ORGANIZATION_USERS);
@@ -359,6 +427,7 @@ export default function AccountPage() {
       setFirstName(user.firstName || "");
       setLastName(user.lastName || "");
       setPhone(formatPhone(user.phone));
+      setDateOfBirth(user.dateOfBirth ? user.dateOfBirth.slice(0, 10) : "");
       setAddress(user.address || "");
       setCity(user.city || "");
       setCountry(user.country || "");
@@ -366,12 +435,25 @@ export default function AccountPage() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (medicalInfo) {
+      setMedConditions(medicalInfo.conditions || "");
+      setMedAllergies(medicalInfo.allergies || "");
+      setMedMedications(medicalInfo.medications || "");
+      setMedInsuranceProvider(medicalInfo.insuranceProvider || "");
+      setMedPolicyNumber(medicalInfo.insurancePolicyNumber || "");
+      setMedGroupNumber(medicalInfo.insuranceGroupNumber || "");
+      setMedNotes(medicalInfo.notes || "");
+    }
+  }, [medicalInfo]);
+
   const navItems: { id: Section; label: string; icon: React.ElementType; hidden?: boolean }[] = [
-    { id: "profile",       label: "Profile",       icon: User },
-    { id: "organizations", label: "Organizations", icon: Building2 },
-    { id: "guardian",      label: "Family",        icon: Heart },
-    { id: "app-download",  label: "App Download",  icon: Smartphone, hidden: !hasAthleteOrGuardian },
-    { id: "settings",      label: "Settings",      icon: Trash2 },
+    { id: "profile",       label: "Profile",          icon: User },
+    { id: "organizations", label: "Organizations",    icon: Building2 },
+    { id: "guardian",      label: "Family",           icon: Heart },
+    { id: "health",        label: "Health & Safety",  icon: Activity, hidden: !selectedOrganizationId },
+    { id: "app-download",  label: "App Download",     icon: Smartphone, hidden: !hasAthleteOrGuardian },
+    { id: "settings",      label: "Settings",         icon: Trash2 },
   ];
 
   // ── Image upload ──────────────────────────────────────────────────────────
@@ -420,6 +502,7 @@ export default function AccountPage() {
             firstName,
             lastName,
             phone: sanitizePhone(phone) || undefined,
+            dateOfBirth: dateOfBirth || undefined,
             address: address || undefined,
             city: city || undefined,
             country: country || undefined,
@@ -500,6 +583,90 @@ export default function AccountPage() {
       setTimeout(() => { setGuardianSuccess(""); setGuardianModalOrg(null); }, 2000);
     } catch (err: unknown) {
       setGuardianError(err instanceof Error ? err.message : "Failed to send invite");
+    }
+  };
+
+  // ── Emergency contacts ────────────────────────────────────────────────────
+  const openEcModal = (contact?: EmergencyContact) => {
+    setEcEditTarget(contact || null);
+    setEcName(contact?.name || "");
+    setEcRelationship(contact?.relationship || "");
+    setEcPhone(formatPhone(contact?.phone || ""));
+    setEcEmail(contact?.email || "");
+    setEcIsPrimary(contact?.isPrimary || false);
+    setEcError("");
+    setShowEcModal(true);
+  };
+
+  const handleSaveEc = async () => {
+    if (!ecName.trim() || !ecRelationship.trim() || !sanitizePhone(ecPhone)) {
+      setEcError("Name, relationship, and phone are required.");
+      return;
+    }
+    setSavingEc(true);
+    setEcError("");
+    try {
+      const input = {
+        name: ecName.trim(),
+        relationship: ecRelationship.trim(),
+        phone: sanitizePhone(ecPhone),
+        email: ecEmail.trim() || undefined,
+        isPrimary: ecIsPrimary,
+      };
+      if (ecEditTarget) {
+        await updateEmergencyContact({ variables: { id: ecEditTarget.id, input } });
+      } else {
+        await createEmergencyContact({
+          variables: { input: { ...input, userId: user!.id, organizationId: selectedOrganizationId! } },
+        });
+      }
+      setShowEcModal(false);
+      refetchHealth();
+    } catch (err: unknown) {
+      setEcError(err instanceof Error ? err.message : "Failed to save contact");
+    } finally {
+      setSavingEc(false);
+    }
+  };
+
+  const handleDeleteEc = async (id: string) => {
+    if (!confirm("Remove this emergency contact?")) return;
+    try {
+      await deleteEmergencyContact({ variables: { id } });
+      refetchHealth();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete contact");
+    }
+  };
+
+  // ── Medical info ──────────────────────────────────────────────────────────
+  const handleSaveMedical = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingMed(true);
+    setMedSuccess("");
+    try {
+      await upsertMedicalInfo({
+        variables: {
+          input: {
+            userId: user!.id,
+            organizationId: selectedOrganizationId!,
+            conditions: medConditions || undefined,
+            allergies: medAllergies || undefined,
+            medications: medMedications || undefined,
+            insuranceProvider: medInsuranceProvider || undefined,
+            insurancePolicyNumber: medPolicyNumber || undefined,
+            insuranceGroupNumber: medGroupNumber || undefined,
+            notes: medNotes || undefined,
+          },
+        },
+      });
+      refetchHealth();
+      setMedSuccess("Medical information saved!");
+      setTimeout(() => setMedSuccess(""), 3000);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to save medical information");
+    } finally {
+      setSavingMed(false);
     }
   };
 
@@ -659,6 +826,18 @@ export default function AccountPage() {
                         <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClass} required />
                       </div>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>
+                      <span className="flex items-center gap-1.5"><CalendarDays className="w-3 h-3" /> Date of Birth</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={dateOfBirth}
+                      onChange={(e) => setDateOfBirth(e.target.value)}
+                      className={`${inputClass} [color-scheme:dark]`}
+                    />
                   </div>
 
                   <div>
@@ -866,6 +1045,147 @@ export default function AccountPage() {
               </div>
             )}
 
+            {/* ── Health & Safety ───────────────────────────────────────────── */}
+            {activeSection === "health" && (
+              <div className="space-y-8">
+                <h1 className="text-xl font-bold text-white">Health & Safety</h1>
+
+                {!selectedOrganizationId ? (
+                  <div className="p-6 bg-white/5 rounded-xl border border-white/8 text-center">
+                    <Activity className="w-8 h-8 text-white/20 mx-auto mb-3" />
+                    <p className="text-sm text-white/50">Join an organization to manage health & safety information.</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Emergency Contacts */}
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Emergency Contacts</p>
+                          <p className="text-xs text-white/30 mt-0.5">Visible to coaches and admins in an emergency.</p>
+                        </div>
+                        <button
+                          onClick={() => openEcModal()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] hover:bg-[#5a4dd4] text-white text-xs font-medium rounded-lg transition-colors"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add Contact
+                        </button>
+                      </div>
+
+                      {emergencyContacts.length === 0 ? (
+                        <div className="p-5 bg-white/5 rounded-xl border border-white/8 text-center">
+                          <Phone className="w-7 h-7 text-white/20 mx-auto mb-2" />
+                          <p className="text-sm text-white/40">No emergency contacts added yet.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {emergencyContacts.map((ec) => (
+                            <div key={ec.id} className="flex items-start justify-between p-4 bg-white/5 rounded-xl border border-white/8">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-semibold text-white">{ec.name}</p>
+                                  {ec.isPrimary && (
+                                    <span className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs font-medium rounded">
+                                      <Star className="w-3 h-3" /> Primary
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-white/40 mt-0.5">{ec.relationship}</p>
+                                <p className="text-xs text-white/60 mt-1">{formatPhone(ec.phone)}</p>
+                                {ec.email && <p className="text-xs text-white/40">{ec.email}</p>}
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0 ml-3">
+                                <button
+                                  onClick={() => openEcModal(ec)}
+                                  className="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteEc(ec.id)}
+                                  className="p-1.5 text-white/40 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Medical Information */}
+                    <div>
+                      <div className="mb-4">
+                        <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Medical Information</p>
+                        <p className="text-xs text-white/30 mt-0.5">Only visible to authorized staff in your organization.</p>
+                      </div>
+
+                      {medSuccess && (
+                        <div className="mb-4 px-4 py-3 bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg text-sm flex items-center gap-2">
+                          <Check className="w-4 h-4" /> {medSuccess}
+                        </div>
+                      )}
+
+                      <form onSubmit={handleSaveMedical} className="space-y-4">
+                        <div className="bg-white/5 rounded-xl border border-white/8 p-5 space-y-4">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Stethoscope className="w-4 h-4 text-[#a78bfa]" />
+                            <p className="text-sm font-semibold text-white">Health Conditions</p>
+                          </div>
+                          <div>
+                            <label className={labelClass}>Allergies</label>
+                            <textarea rows={2} value={medAllergies} onChange={(e) => setMedAllergies(e.target.value)} placeholder="e.g. Peanuts, penicillin…" className={`${inputClass} resize-none`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Medical Conditions</label>
+                            <textarea rows={2} value={medConditions} onChange={(e) => setMedConditions(e.target.value)} placeholder="e.g. Asthma, diabetes…" className={`${inputClass} resize-none`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Current Medications</label>
+                            <textarea rows={2} value={medMedications} onChange={(e) => setMedMedications(e.target.value)} placeholder="e.g. Albuterol, metformin…" className={`${inputClass} resize-none`} />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Additional Notes</label>
+                            <textarea rows={2} value={medNotes} onChange={(e) => setMedNotes(e.target.value)} placeholder="Any other relevant health information…" className={`${inputClass} resize-none`} />
+                          </div>
+                        </div>
+
+                        <div className="bg-white/5 rounded-xl border border-white/8 p-5 space-y-4">
+                          <div className="flex items-center gap-2 mb-1">
+                            <FileText className="w-4 h-4 text-[#a78bfa]" />
+                            <p className="text-sm font-semibold text-white">Insurance</p>
+                          </div>
+                          <div>
+                            <label className={labelClass}>Insurance Provider</label>
+                            <input type="text" value={medInsuranceProvider} onChange={(e) => setMedInsuranceProvider(e.target.value)} placeholder="e.g. Blue Cross Blue Shield" className={inputClass} />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className={labelClass}>Policy Number</label>
+                              <input type="text" value={medPolicyNumber} onChange={(e) => setMedPolicyNumber(e.target.value)} placeholder="Policy #" className={inputClass} />
+                            </div>
+                            <div>
+                              <label className={labelClass}>Group Number</label>
+                              <input type="text" value={medGroupNumber} onChange={(e) => setMedGroupNumber(e.target.value)} placeholder="Group #" className={inputClass} />
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={savingMed || !selectedOrganizationId}
+                          className="flex items-center gap-2 px-5 py-2.5 bg-[#6c5ce7] hover:bg-[#5a4dd4] text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {savingMed ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : <><Check className="w-4 h-4" /> Save Medical Info</>}
+                        </button>
+                      </form>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* ── App Download ──────────────────────────────────────────────── */}
             {activeSection === "app-download" && (
               <div>
@@ -921,6 +1241,70 @@ export default function AccountPage() {
           </div>
         </main>
       </div>
+
+      {/* ── Emergency Contact Modal ─────────────────────────────────────────── */}
+      {showEcModal && (
+        <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-[#1e1845] backdrop-blur-xl rounded-xl border border-white/15 p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-white">{ecEditTarget ? "Edit Contact" : "Add Emergency Contact"}</h2>
+              <button onClick={() => setShowEcModal(false)} className="text-white/40 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className={labelClass}>Full Name *</label>
+                <input type="text" value={ecName} onChange={(e) => setEcName(e.target.value)} autoFocus className={inputClass} placeholder="Jane Doe" />
+              </div>
+              <div>
+                <label className={labelClass}>Relationship *</label>
+                <input type="text" value={ecRelationship} onChange={(e) => setEcRelationship(e.target.value)} className={inputClass} placeholder="e.g. Mother, Father, Coach" />
+              </div>
+              <div>
+                <label className={labelClass}>Phone *</label>
+                <input
+                  type="tel"
+                  value={ecPhoneFocused && !sanitizePhone(ecPhone) ? "(" : ecPhone}
+                  onFocus={() => setEcPhoneFocused(true)}
+                  onBlur={() => { setEcPhoneFocused(false); if (!sanitizePhone(ecPhone)) setEcPhone(""); }}
+                  onChange={(e) => setEcPhone(maskPhone(e.target.value))}
+                  placeholder="(555) 123-4567"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Email</label>
+                <input type="email" value={ecEmail} onChange={(e) => setEcEmail(e.target.value)} className={inputClass} placeholder="Optional" />
+              </div>
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={ecIsPrimary}
+                  onChange={(e) => setEcIsPrimary(e.target.checked)}
+                  className="w-4 h-4 rounded accent-[#6c5ce7]"
+                />
+                <span className="text-sm text-white/70">Primary contact</span>
+              </label>
+            </div>
+            {ecError && (
+              <div className="mt-3 px-3 py-2 bg-red-600/20 border border-red-600/30 rounded-lg text-red-400 text-sm">{ecError}</div>
+            )}
+            <div className="flex gap-3 justify-end mt-5">
+              <button onClick={() => setShowEcModal(false)} className="px-4 py-2 bg-white/8 hover:bg-white/12 text-white/65 text-sm font-medium rounded-lg transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEc}
+                disabled={savingEc}
+                className="flex items-center gap-2 px-4 py-2 bg-[#6c5ce7] hover:bg-[#5a4dd4] text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                {savingEc ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving…</> : "Save Contact"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Create Organization Modal ───────────────────────────────────────── */}
       {showCreateOrg && (

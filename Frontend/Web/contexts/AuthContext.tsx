@@ -45,6 +45,7 @@ type User = {
   firstName: string;
   lastName: string;
   phone?: string;
+  dateOfBirth?: string;
   address?: string;
   city?: string;
   country?: string;
