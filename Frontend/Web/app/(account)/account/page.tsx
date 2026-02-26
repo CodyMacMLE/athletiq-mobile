@@ -414,6 +414,7 @@ export default function AccountPage() {
   // Guardian data
   const orgMemberships  = (user?.organizationMemberships || []) as OrgMembership[];
   const guardianOrgs    = orgMemberships.filter((m) => m.role === "GUARDIAN");
+  const athleteOrgs     = orgMemberships.filter((m) => m.role === "ATHLETE");
   const isGuardian      = guardianOrgs.length > 0;
   const hasAthleteOrGuardian = orgMemberships.some((m) => m.role === "ATHLETE" || m.role === "GUARDIAN");
 
@@ -1020,12 +1021,41 @@ export default function AccountPage() {
               <div className="space-y-8">
                 <h1 className="text-xl font-bold text-white">Family</h1>
 
-                {guardianOrgs.length === 0 && (
+                {/* Invite guardian — shown for each org where user is an athlete */}
+                {athleteOrgs.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">Invite a Guardian</p>
+                    <div className="space-y-3">
+                      {athleteOrgs.map((m) => (
+                        <div key={m.id} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/8">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-pink-600/20 flex items-center justify-center shrink-0">
+                              <Heart className="w-4 h-4 text-pink-400" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-white truncate">{m.organization.name}</p>
+                              <p className="text-xs text-white/40">Invite a parent or guardian to view your activity</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => { setGuardianModalOrg(m); setGuardianEmail(""); setGuardianSuccess(""); setGuardianError(""); }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-pink-600/20 hover:bg-pink-600/30 text-pink-400 border border-pink-500/30 rounded-lg transition-colors shrink-0 ml-3"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Invite Guardian
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* My guardians (linked athletes view) */}
+                {guardianOrgs.length === 0 && athleteOrgs.length === 0 && (
                   <div className="p-6 bg-white/5 rounded-xl border border-white/8 text-center">
                     <Heart className="w-8 h-8 text-white/20 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-white/55">No guardian access yet</p>
+                    <p className="text-sm font-medium text-white/55">No family connections yet</p>
                     <p className="text-xs text-white/30 mt-1">
-                      Ask an organization admin to send you a guardian invite to link you to an athlete.
+                      Join an organization as an athlete to invite a guardian, or ask an admin to send you a guardian invite.
                     </p>
                   </div>
                 )}
