@@ -84,19 +84,22 @@ export default function LandingPage() {
             {isLoading ? (
               <div className="w-8 h-8 rounded-full bg-white/10 animate-pulse" />
             ) : isAuthenticated && user ? (
-              <Link href="/account" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
+              <Link href="/account" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-bold text-white leading-tight">{user.firstName} {user.lastName}</p>
+                  <p className="text-xs text-white/45 leading-tight mt-0.5">{user.email}</p>
+                </div>
                 {user.image ? (
                   <img
                     src={user.image}
                     alt={user.firstName}
-                    className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/50 hover:ring-purple-500 transition-all"
+                    className="w-10 h-10 rounded-full object-cover ring-2 ring-purple-500/50 hover:ring-purple-500 transition-all shrink-0"
                   />
                 ) : (
-                  <div className="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-semibold ring-2 ring-purple-500/50 hover:ring-purple-500 transition-all">
+                  <div className="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-semibold ring-2 ring-purple-500/50 hover:ring-purple-500 transition-all shrink-0">
                     {user.firstName?.[0]}{user.lastName?.[0]}
                   </div>
                 )}
-                <span className="text-sm font-medium text-white/80">{user.firstName}</span>
               </Link>
             ) : (
               <>
