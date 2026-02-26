@@ -694,13 +694,13 @@ export default function AccountPage() {
       {/* ── Top Navbar ─────────────────────────────────────────────────────── */}
       <header className="h-16 flex items-center justify-between px-6 border-b border-white/8 bg-[rgba(20,15,50,0.35)]">
         <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard"
+          <button
+            onClick={() => router.back()}
             className="flex items-center gap-1.5 text-white/55 hover:text-white transition-colors text-sm"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
-          </Link>
+          </button>
           <div className="w-px h-4 bg-white/15" />
           <Image
             src="/logo/white_icon_transparent_background.png"
