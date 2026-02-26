@@ -23,7 +23,6 @@ type Team = {
   description?: string;
   memberCount: number;
   attendancePercent: number;
-  sortOrder: number;
   archivedAt?: string | null;
   orgSeason?: OrgSeason | null;
   seasonYear?: number | null;
