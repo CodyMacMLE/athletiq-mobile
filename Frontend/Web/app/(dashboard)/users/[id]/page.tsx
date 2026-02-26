@@ -1,6 +1,6 @@
 "use client";
 
-import { formatPhone, sanitizePhone } from "@/lib/utils";
+import { formatPhone, maskPhone, sanitizePhone } from "@/lib/utils";
 import { useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@apollo/client/react";
@@ -1465,7 +1465,8 @@ function EmergencyContactModal({
 }) {
   const [name, setName] = useState(contact?.name || "");
   const [relationship, setRelationship] = useState(contact?.relationship || "");
-  const [phone, setPhone] = useState(contact?.phone || "");
+  const [phone, setPhone] = useState(formatPhone(contact?.phone || ""));
+  const [phoneFocused, setPhoneFocused] = useState(false);
   const [email, setEmail] = useState(contact?.email || "");
   const [isPrimary, setIsPrimary] = useState(contact?.isPrimary || false);
   const [saving, setSaving] = useState(false);
@@ -1498,7 +1499,15 @@ function EmergencyContactModal({
           </div>
           <div>
             <label className="block text-sm font-medium text-white/55 mb-1">Phone *</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" placeholder="(555) 123-4567" />
+            <input
+              type="tel"
+              value={phoneFocused && !sanitizePhone(phone) ? "(   )" : phone}
+              onFocus={() => setPhoneFocused(true)}
+              onBlur={() => { setPhoneFocused(false); if (!sanitizePhone(phone)) setPhone(""); }}
+              onChange={(e) => setPhone(maskPhone(e.target.value))}
+              placeholder="(555) 123-4567"
+              className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-white/55 mb-1">Email</label>

@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { formatPhone, sanitizePhone } from "@/lib/utils";
+import { formatPhone, maskPhone, sanitizePhone } from "@/lib/utils";
 import { UPDATE_USER, GENERATE_UPLOAD_URL, REMOVE_GUARDIAN, DELETE_MY_ACCOUNT, CREATE_EMERGENCY_CONTACT, UPDATE_EMERGENCY_CONTACT, DELETE_EMERGENCY_CONTACT, UPSERT_MEDICAL_INFO } from "@/lib/graphql/mutations";
 import { GET_MY_GUARDIANS, GET_MY_LINKED_ATHLETES, GET_MY_HEALTH_DATA } from "@/lib/graphql/queries";
 import { useMutation, useQuery } from "@apollo/client";
@@ -125,7 +125,7 @@ export default function Profile() {
   const openContactModal = (contact?: EmergencyContact) => {
     setHealthContactName(contact?.name || "");
     setHealthContactRelationship(contact?.relationship || "");
-    setHealthContactPhone(contact?.phone || "");
+    setHealthContactPhone(formatPhone(contact?.phone || ""));
     setHealthContactEmail(contact?.email || "");
     setHealthContactIsPrimary(contact?.isPrimary || false);
     setModalMode({ type: "emergencyContact", contact });
@@ -235,7 +235,8 @@ export default function Profile() {
 
   const openSingleModal = (key: string, label: string, placeholder: string, keyboardType?: "default" | "email-address" | "phone-pad") => {
     setModalMode({ type: "single", key, label, placeholder, keyboardType });
-    setEditValue((user as Record<string, any>)[key] || "");
+    const raw = (user as Record<string, any>)[key] || "";
+    setEditValue(key === "phone" ? formatPhone(raw) : raw);
     setEditModalVisible(true);
   };
 
@@ -380,7 +381,7 @@ export default function Profile() {
           <TextInput
             style={styles.editInput}
             value={editValue}
-            onChangeText={setEditValue}
+            onChangeText={(v) => setEditValue(modalMode.keyboardType === "phone-pad" ? maskPhone(v) : v)}
             placeholder={modalMode.placeholder}
             placeholderTextColor="rgba(255,255,255,0.3)"
             keyboardType={modalMode.keyboardType || "default"}
@@ -455,7 +456,7 @@ export default function Profile() {
           <Text style={styles.editModalTitle}>{modalMode.contact ? "Edit Contact" : "Add Emergency Contact"}</Text>
           <TextInput style={styles.editInput} value={healthContactName} onChangeText={setHealthContactName} placeholder="Full name" placeholderTextColor="rgba(255,255,255,0.3)" autoFocus autoCapitalize="words" />
           <TextInput style={[styles.editInput, { marginTop: 12 }]} value={healthContactRelationship} onChangeText={setHealthContactRelationship} placeholder="Relationship (e.g. Mother)" placeholderTextColor="rgba(255,255,255,0.3)" autoCapitalize="words" />
-          <TextInput style={[styles.editInput, { marginTop: 12 }]} value={healthContactPhone} onChangeText={setHealthContactPhone} placeholder="Phone number" placeholderTextColor="rgba(255,255,255,0.3)" keyboardType="phone-pad" />
+          <TextInput style={[styles.editInput, { marginTop: 12 }]} value={healthContactPhone} onChangeText={(v) => setHealthContactPhone(maskPhone(v))} placeholder="Phone number" placeholderTextColor="rgba(255,255,255,0.3)" keyboardType="phone-pad" />
           <TextInput style={[styles.editInput, { marginTop: 12 }]} value={healthContactEmail} onChangeText={setHealthContactEmail} placeholder="Email (optional)" placeholderTextColor="rgba(255,255,255,0.3)" keyboardType="email-address" autoCapitalize="none" />
           <Pressable style={styles.checkboxRow} onPress={() => setHealthContactIsPrimary(!healthContactIsPrimary)}>
             <View style={[styles.checkbox, healthContactIsPrimary && styles.checkboxChecked]}>

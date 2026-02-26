@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { GET_ORGANIZATION_MEMBERS, UPDATE_USER, DELETE_USER, CREATE_USER, GET_USERS } from "@/lib/graphql";
 import { Search, Plus, Edit2, Trash2, X, UserPlus } from "lucide-react";
+import { formatPhone, maskPhone, sanitizePhone } from "@/lib/utils";
 
 type Athlete = {
   id: string;
@@ -303,7 +304,7 @@ function EditAthleteModal({
   const [formData, setFormData] = useState({
     firstName: athlete.user.firstName,
     lastName: athlete.user.lastName,
-    phone: athlete.user.phone || "",
+    phone: formatPhone(athlete.user.phone || ""),
   });
 
   return (
@@ -340,7 +341,7 @@ function EditAthleteModal({
             <input
               type="tel"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, phone: maskPhone(e.target.value) })}
               className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
             />
           </div>
@@ -354,7 +355,7 @@ function EditAthleteModal({
             Cancel
           </button>
           <button
-            onClick={() => onSave(formData)}
+            onClick={() => onSave({ ...formData, phone: sanitizePhone(formData.phone) })}
             className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
           >
             Save Changes
