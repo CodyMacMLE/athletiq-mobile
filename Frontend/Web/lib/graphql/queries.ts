@@ -30,6 +30,7 @@ export const TEAM_FRAGMENT = gql`
     description
     memberCount
     attendancePercent(timeRange: MONTH)
+    sortOrder
     archivedAt
     orgSeason {
       id

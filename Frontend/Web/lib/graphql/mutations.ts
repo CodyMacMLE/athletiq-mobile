@@ -94,6 +94,12 @@ export const RESTORE_TEAM = gql`
   ${TEAM_FRAGMENT}
 `;
 
+export const REORDER_TEAMS = gql`
+  mutation ReorderTeams($organizationId: ID!, $teamIds: [ID!]!) {
+    reorderTeams(organizationId: $organizationId, teamIds: $teamIds)
+  }
+`;
+
 export const ADD_TEAM_MEMBER = gql`
   mutation AddTeamMember($input: AddTeamMemberInput!) {
     addTeamMember(input: $input) {

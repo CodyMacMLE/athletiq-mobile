@@ -225,6 +225,7 @@ export const typeDefs = `#graphql
     recurringEvents: [RecurringEvent!]!
     memberCount: Int!
     attendancePercent(timeRange: TimeRange): Float!
+    sortOrder: Int!
     archivedAt: String
     createdAt: String!
     updatedAt: String!
@@ -994,6 +995,7 @@ export const typeDefs = `#graphql
     updateTeam(id: ID!, name: String, season: String, sport: String, color: String, description: String, orgSeasonId: ID, seasonYear: Int): Team!
     deleteTeam(id: ID!, hardDelete: Boolean): Boolean!
     restoreTeam(id: ID!): Team!
+    reorderTeams(organizationId: ID!, teamIds: [ID!]!): Boolean!
     addTeamMember(input: AddTeamMemberInput!): TeamMember!
     removeTeamMember(userId: ID!, teamId: ID!): Boolean!
     updateTeamMemberRole(userId: ID!, teamId: ID!, role: TeamRole!): TeamMember!

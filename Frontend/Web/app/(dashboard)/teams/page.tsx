@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
-import { GET_TEAMS, GET_ORG_SEASONS, CREATE_TEAM, UPDATE_TEAM, DELETE_TEAM, RESTORE_TEAM } from "@/lib/graphql";
-import { Plus, Edit2, Trash2, Users, X, ChevronRight, Archive, ArchiveRestore, Search, ArrowUpDown, ChevronDown, ChevronUp } from "lucide-react";
+import { GET_TEAMS, GET_ORG_SEASONS, CREATE_TEAM, UPDATE_TEAM, DELETE_TEAM, RESTORE_TEAM, REORDER_TEAMS } from "@/lib/graphql";
+import { Plus, Edit2, Trash2, Users, X, ChevronRight, Archive, ArchiveRestore, Search, ArrowUpDown, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import Link from "next/link";
 
 type OrgSeason = {
@@ -23,6 +23,7 @@ type Team = {
   description?: string;
   memberCount: number;
   attendancePercent: number;
+  sortOrder: number;
   archivedAt?: string | null;
   orgSeason?: OrgSeason | null;
   seasonYear?: number | null;
@@ -90,6 +91,15 @@ export default function Teams() {
   const [sortBy, setSortBy] = useState<SortOption>("season");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
+  // Local teams state for optimistic drag-reorder
+  const [localTeams, setLocalTeams] = useState<Team[]>([]);
+
+  // Drag state
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dragGroupLabel, setDragGroupLabel] = useState<string | null>(null);
+  const dragCounter = useRef(0);
+
   const { data, loading, refetch } = useQuery<any>(GET_TEAMS, {
     variables: { organizationId: selectedOrganizationId, includeArchived: true },
     skip: !selectedOrganizationId,
@@ -104,9 +114,16 @@ export default function Teams() {
   const [updateTeam] = useMutation<any>(UPDATE_TEAM);
   const [deleteTeam] = useMutation<any>(DELETE_TEAM);
   const [restoreTeam] = useMutation<any>(RESTORE_TEAM);
+  const [reorderTeams] = useMutation<any>(REORDER_TEAMS);
 
   const orgSeasons: OrgSeason[] = seasonsData?.orgSeasons || [];
-  const allTeams: Team[] = data?.teams || [];
+
+  // Sync localTeams from server whenever data changes
+  useEffect(() => {
+    if (data?.teams) setLocalTeams(data.teams);
+  }, [data?.teams]);
+
+  const allTeams: Team[] = localTeams;
   const activeCount = allTeams.filter((t) => !t.archivedAt).length;
   const archivedCount = allTeams.filter((t) => t.archivedAt).length;
 
@@ -163,7 +180,6 @@ export default function Teams() {
   // Auto-collapse past seasons on initial render
   const isPastCollapsed = (label: string, status: string) => {
     if (collapsedGroups.has(label)) return true;
-    // Past seasons are collapsed by default unless user explicitly toggled them
     if (status === "past" && !collapsedGroups.has(`__expanded__${label}`)) return true;
     return false;
   };
@@ -172,7 +188,6 @@ export default function Teams() {
     setCollapsedGroups(prev => {
       const next = new Set(prev);
       if (status === "past") {
-        // For past groups, toggle the expanded marker
         if (next.has(`__expanded__${label}`)) {
           next.delete(`__expanded__${label}`);
         } else {
@@ -189,19 +204,110 @@ export default function Teams() {
     });
   };
 
-  const handleCreateTeam = async (data: TeamFormData) => {
+  // ── Drag-and-drop handlers ────────────────────────────────────────────────
+
+  const handleDragStart = useCallback((e: React.DragEvent, teamId: string, groupLabel: string) => {
+    setDragId(teamId);
+    setDragGroupLabel(groupLabel);
+    e.dataTransfer.effectAllowed = "move";
+    // Add a ghost image
+    const el = e.currentTarget as HTMLElement;
+    e.dataTransfer.setDragImage(el, el.offsetWidth / 2, 20);
+  }, []);
+
+  const handleDragEnter = useCallback((e: React.DragEvent, teamId: string, groupLabel: string) => {
+    e.preventDefault();
+    dragCounter.current++;
+    if (teamId !== dragId && groupLabel === dragGroupLabel) {
+      setDragOverId(teamId);
+    }
+  }, [dragId, dragGroupLabel]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setDragOverId(null);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, teamId: string, groupLabel: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (teamId !== dragId && groupLabel === dragGroupLabel) {
+      setDragOverId(teamId);
+    }
+  }, [dragId, dragGroupLabel]);
+
+  const handleDrop = useCallback((e: React.DragEvent, targetTeamId: string, groupLabel: string) => {
+    e.preventDefault();
+    dragCounter.current = 0;
+
+    const sourceId = dragId;
+    if (!sourceId || sourceId === targetTeamId || groupLabel !== dragGroupLabel) {
+      setDragId(null);
+      setDragOverId(null);
+      setDragGroupLabel(null);
+      return;
+    }
+
+    // Get current group teams in order
+    const group = groupedTeams?.find(g => g.label === groupLabel);
+    if (!group) return;
+
+    const groupTeamsCopy = [...group.teams];
+    const fromIdx = groupTeamsCopy.findIndex(t => t.id === sourceId);
+    const toIdx = groupTeamsCopy.findIndex(t => t.id === targetTeamId);
+    if (fromIdx === -1 || toIdx === -1) return;
+
+    // Reorder within the group
+    const [moved] = groupTeamsCopy.splice(fromIdx, 1);
+    groupTeamsCopy.splice(toIdx, 0, moved);
+
+    // Update localTeams optimistically: replace group members with new order
+    const groupIds = new Set(group.teams.map(t => t.id));
+    setLocalTeams(prev => {
+      const nonGroup = prev.filter(t => !groupIds.has(t.id));
+      return [...nonGroup, ...groupTeamsCopy];
+    });
+
+    // Persist: send only the IDs of teams in this group in their new order
+    reorderTeams({
+      variables: {
+        organizationId: selectedOrganizationId,
+        teamIds: groupTeamsCopy.map(t => t.id),
+      },
+    }).catch(() => {
+      // On failure, revert by resetting to server data
+      if (data?.teams) setLocalTeams(data.teams);
+    });
+
+    setDragId(null);
+    setDragOverId(null);
+    setDragGroupLabel(null);
+  }, [dragId, dragGroupLabel, groupedTeams, reorderTeams, selectedOrganizationId, data?.teams]);
+
+  const handleDragEnd = useCallback(() => {
+    dragCounter.current = 0;
+    setDragId(null);
+    setDragOverId(null);
+    setDragGroupLabel(null);
+  }, []);
+
+  // ── CRUD handlers ─────────────────────────────────────────────────────────
+
+  const handleCreateTeam = async (formData: TeamFormData) => {
     try {
       await createTeam({
         variables: {
           input: {
-            name: data.name,
-            season: data.season || undefined,
-            sport: data.sport || undefined,
-            color: data.color || undefined,
-            description: data.description || undefined,
+            name: formData.name,
+            season: formData.season || undefined,
+            sport: formData.sport || undefined,
+            color: formData.color || undefined,
+            description: formData.description || undefined,
             organizationId: selectedOrganizationId,
-            orgSeasonId: data.orgSeasonId || undefined,
-            seasonYear: data.seasonYear || undefined,
+            orgSeasonId: formData.orgSeasonId || undefined,
+            seasonYear: formData.seasonYear || undefined,
           },
         },
       });
@@ -212,18 +318,18 @@ export default function Teams() {
     }
   };
 
-  const handleUpdateTeam = async (id: string, data: TeamFormData) => {
+  const handleUpdateTeam = async (id: string, formData: TeamFormData) => {
     try {
       await updateTeam({
         variables: {
           id,
-          name: data.name,
-          season: data.season || null,
-          sport: data.sport || null,
-          color: data.color || null,
-          description: data.description || null,
-          orgSeasonId: data.orgSeasonId || null,
-          seasonYear: data.seasonYear || null,
+          name: formData.name,
+          season: formData.season || null,
+          sport: formData.sport || null,
+          color: formData.color || null,
+          description: formData.description || null,
+          orgSeasonId: formData.orgSeasonId || null,
+          seasonYear: formData.seasonYear || null,
         },
       });
       setEditingTeam(null);
@@ -261,96 +367,122 @@ export default function Teams() {
     );
   }
 
-  const renderTeamCard = (team: Team) => (
-    <div key={team.id} className={`bg-white/8 rounded-xl border overflow-hidden ${team.archivedAt ? "border-white/8/50 opacity-70" : "border-white/8"}`}>
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            {team.color && (
-              <span
-                className="w-3 h-3 rounded-full flex-shrink-0"
-                style={{ backgroundColor: team.color }}
-              />
-            )}
-            <h3 className="text-lg font-semibold text-white">{team.name}</h3>
-            {team.archivedAt && (
-              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-400">
-                <Archive className="w-3 h-3" />
-                Archived
-              </span>
-            )}
-          </div>
-          {canEdit && !team.archivedAt && (
-            <div className="flex items-center space-x-1">
-              <button
-                onClick={() => setEditingTeam(team)}
-                className="p-2 text-white/55 hover:text-white transition-colors"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setDeletingTeam(team)}
-                className="p-2 text-white/55 hover:text-red-500 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-          {canEdit && team.archivedAt && (
-            <button
-              onClick={() => handleRestoreTeam(team.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a855f7]/15 hover:bg-[#6c5ce7]/30 text-[#a78bfa] text-sm font-medium rounded-lg transition-colors"
-            >
-              <ArchiveRestore className="w-4 h-4" />
-              Restore
-            </button>
-          )}
-        </div>
+  const isDragging = sortBy === "season" && canEdit;
 
-        <div className="flex items-center gap-2 text-sm text-white/55 mb-4">
-          <span>{getSeasonLabel(team)}</span>
-          {team.sport && (
-            <>
-              <span className="text-white/30">&middot;</span>
-              <span>{team.sport}</span>
-            </>
-          )}
-        </div>
+  const renderTeamCard = (team: Team, groupLabel: string) => {
+    const isBeingDragged = dragId === team.id;
+    const isDropTarget = dragOverId === team.id && dragGroupLabel === groupLabel;
 
-        {team.description && (
-          <p className="text-sm text-white/40 mb-4 line-clamp-2">{team.description}</p>
-        )}
-
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center text-white/55">
-            <Users className="w-4 h-4 mr-2" />
-            <span>{team.memberCount} members</span>
-          </div>
-          {!team.archivedAt && (
-            <div
-              className={`font-medium ${
-                team.attendancePercent >= 90
-                  ? "text-green-500"
-                  : team.attendancePercent >= 75
-                  ? "text-yellow-500"
-                  : "text-red-500"
-              }`}
-            >
-              {Math.round(team.attendancePercent || 0)}% attendance
-            </div>
-          )}
-        </div>
-      </div>
-
-      <Link
-        href={`/teams/${team.id}`}
-        className="flex items-center justify-between px-6 py-3 bg-white/5 text-white/55 hover:text-white hover:bg-white/10 transition-colors"
+    return (
+      <div
+        key={team.id}
+        draggable={isDragging && !team.archivedAt}
+        onDragStart={isDragging && !team.archivedAt ? (e) => handleDragStart(e, team.id, groupLabel) : undefined}
+        onDragEnter={isDragging ? (e) => handleDragEnter(e, team.id, groupLabel) : undefined}
+        onDragLeave={isDragging ? handleDragLeave : undefined}
+        onDragOver={isDragging ? (e) => handleDragOver(e, team.id, groupLabel) : undefined}
+        onDrop={isDragging ? (e) => handleDrop(e, team.id, groupLabel) : undefined}
+        onDragEnd={isDragging ? handleDragEnd : undefined}
+        className={`bg-white/8 rounded-xl border overflow-hidden transition-all select-none ${
+          team.archivedAt ? "border-white/8/50 opacity-70" : "border-white/8"
+        } ${isBeingDragged ? "opacity-40 scale-95" : ""} ${
+          isDropTarget ? "border-[#6c5ce7] ring-1 ring-[#6c5ce7]/50" : ""
+        }`}
       >
-        <span className="text-sm">View Team</span>
-        <ChevronRight className="w-4 h-4" />
-      </Link>
-    </div>
-  );
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              {isDragging && !team.archivedAt && (
+                <div className="text-white/25 hover:text-white/55 cursor-grab active:cursor-grabbing shrink-0">
+                  <GripVertical className="w-4 h-4" />
+                </div>
+              )}
+              {team.color && (
+                <span
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: team.color }}
+                />
+              )}
+              <h3 className="text-lg font-semibold text-white">{team.name}</h3>
+              {team.archivedAt && (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-600/20 text-yellow-400">
+                  <Archive className="w-3 h-3" />
+                  Archived
+                </span>
+              )}
+            </div>
+            {canEdit && !team.archivedAt && (
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => setEditingTeam(team)}
+                  className="p-2 text-white/55 hover:text-white transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setDeletingTeam(team)}
+                  className="p-2 text-white/55 hover:text-red-500 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            {canEdit && team.archivedAt && (
+              <button
+                onClick={() => handleRestoreTeam(team.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#a855f7]/15 hover:bg-[#6c5ce7]/30 text-[#a78bfa] text-sm font-medium rounded-lg transition-colors"
+              >
+                <ArchiveRestore className="w-4 h-4" />
+                Restore
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 text-sm text-white/55 mb-4">
+            <span>{getSeasonLabel(team)}</span>
+            {team.sport && (
+              <>
+                <span className="text-white/30">&middot;</span>
+                <span>{team.sport}</span>
+              </>
+            )}
+          </div>
+
+          {team.description && (
+            <p className="text-sm text-white/40 mb-4 line-clamp-2">{team.description}</p>
+          )}
+
+          <div className="flex items-center space-x-6">
+            <div className="flex items-center text-white/55">
+              <Users className="w-4 h-4 mr-2" />
+              <span>{team.memberCount} members</span>
+            </div>
+            {!team.archivedAt && (
+              <div
+                className={`font-medium ${
+                  team.attendancePercent >= 90
+                    ? "text-green-500"
+                    : team.attendancePercent >= 75
+                    ? "text-yellow-500"
+                    : "text-red-500"
+                }`}
+              >
+                {Math.round(team.attendancePercent || 0)}% attendance
+              </div>
+            )}
+          </div>
+        </div>
+
+        <Link
+          href={`/teams/${team.id}`}
+          className="flex items-center justify-between px-6 py-3 bg-white/5 text-white/55 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          <span className="text-sm">View Team</span>
+          <ChevronRight className="w-4 h-4" />
+        </Link>
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -458,9 +590,17 @@ export default function Teams() {
                   <span className="text-sm text-white/40">({group.teams.length})</span>
                 </button>
                 {!collapsed && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {group.teams.map(renderTeamCard)}
-                  </div>
+                  <>
+                    {isDragging && !group.teams.every(t => t.archivedAt) && (
+                      <p className="text-xs text-white/30 mb-3 flex items-center gap-1">
+                        <GripVertical className="w-3 h-3" />
+                        Drag cards to reorder
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {group.teams.map((team) => renderTeamCard(team, group.label))}
+                    </div>
+                  </>
                 )}
               </div>
             );
@@ -468,7 +608,7 @@ export default function Teams() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {teams.map(renderTeamCard)}
+          {teams.map((team) => renderTeamCard(team, "__flat__"))}
         </div>
       )}
 
@@ -570,7 +710,7 @@ export default function Teams() {
             seasonYear: editingTeam.seasonYear || new Date().getFullYear(),
           }}
           onClose={() => setEditingTeam(null)}
-          onSave={(data) => handleUpdateTeam(editingTeam.id, data)}
+          onSave={(formData) => handleUpdateTeam(editingTeam.id, formData)}
         />
       )}
     </div>

@@ -301,6 +301,7 @@ export const resolvers = {
           organizationId,
           ...(includeArchived ? {} : { archivedAt: null }),
         },
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       });
     },
 
@@ -2373,6 +2374,21 @@ export const resolvers = {
         where: { id },
         data: { archivedAt: null },
       });
+    },
+
+    reorderTeams: async (
+      _: unknown,
+      { organizationId, teamIds }: { organizationId: string; teamIds: string[] }
+    ) => {
+      await Promise.all(
+        teamIds.map((id, index) =>
+          prisma.team.update({
+            where: { id, organizationId },
+            data: { sortOrder: index },
+          })
+        )
+      );
+      return true;
     },
 
     addTeamMember: async (
