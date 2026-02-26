@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -60,14 +58,7 @@ const colorMap: Record<string, { bg: string; text: string; border: string }> = {
 };
 
 export default function LandingPage() {
-  const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
-
-  useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      router.replace("/dashboard");
-    }
-  }, [isAuthenticated, isLoading, router]);
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -83,19 +74,53 @@ export default function LandingPage() {
             />
             <span className="text-xl font-bold">Athletiq</span>
           </Link>
+
+          <div className="hidden md:flex items-center gap-6 text-sm text-gray-400">
+            <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
+            <Link href="/about" className="hover:text-white transition-colors">About</Link>
+            <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
+          </div>
           <div className="flex items-center gap-4">
-            <Link
-              href="/signin"
-              className="text-sm text-gray-300 hover:text-white transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/register"
-              className="px-4 py-2 text-sm font-medium bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
-            >
-              Get Started
-            </Link>
+            {isLoading ? (
+              <div className="w-8 h-8 rounded-full bg-gray-700 animate-pulse" />
+            ) : isAuthenticated && user ? (
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/dashboard"
+                  className="text-sm text-gray-300 hover:text-white transition-colors"
+                >
+                  Dashboard
+                </Link>
+                <Link href="/account">
+                  {user.image ? (
+                    <img
+                      src={user.image}
+                      alt={user.firstName}
+                      className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/50 hover:ring-purple-500 transition-all"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-semibold ring-2 ring-purple-500/50 hover:ring-purple-500 transition-all">
+                      {user.firstName?.[0]}{user.lastName?.[0]}
+                    </div>
+                  )}
+                </Link>
+              </div>
+            ) : (
+              <>
+                <Link
+                  href="/signin"
+                  className="text-sm text-gray-300 hover:text-white transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/register"
+                  className="px-4 py-2 text-sm font-medium bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -113,19 +138,31 @@ export default function LandingPage() {
           platform.
         </p>
         <div className="mt-10 flex items-center justify-center gap-4 flex-wrap">
-          <Link
-            href="/register"
-            className="px-6 py-3 text-sm font-medium bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors inline-flex items-center gap-2"
-          >
-            Register Your Organization
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-          <Link
-            href="/signin"
-            className="px-6 py-3 text-sm font-medium bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
-          >
-            Sign In
-          </Link>
+          {isAuthenticated ? (
+            <Link
+              href="/dashboard"
+              className="px-6 py-3 text-sm font-medium bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors inline-flex items-center gap-2"
+            >
+              Go to Dashboard
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/register"
+                className="px-6 py-3 text-sm font-medium bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors inline-flex items-center gap-2"
+              >
+                Register Your Organization
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/signin"
+                className="px-6 py-3 text-sm font-medium bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
+              >
+                Sign In
+              </Link>
+            </>
+          )}
         </div>
       </section>
 
