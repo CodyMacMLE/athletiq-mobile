@@ -190,6 +190,64 @@ function parseDateInput(dateStr: string): Date {
   return new Date(dateStr);
 }
 
+// ============================================
+// Gamification helpers
+// ============================================
+
+function computeStreaks(checkIns: Array<{ status: string; event: { date: Date | string } }>) {
+  const sorted = [...checkIns].sort(
+    (a, b) => new Date(a.event.date).getTime() - new Date(b.event.date).getTime()
+  );
+
+  let bestStreak = 0;
+  let runningStreak = 0;
+
+  for (const ci of sorted) {
+    if (ci.status === "ON_TIME" || ci.status === "LATE") {
+      runningStreak++;
+      if (runningStreak > bestStreak) bestStreak = runningStreak;
+    } else if (ci.status === "ABSENT") {
+      runningStreak = 0;
+    }
+    // EXCUSED does not break streak
+  }
+
+  // Current streak: walk backwards from the most recent event
+  let currentStreak = 0;
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const ci = sorted[i];
+    if (ci.status === "ON_TIME" || ci.status === "LATE") {
+      currentStreak++;
+    } else if (ci.status === "ABSENT") {
+      break;
+    }
+  }
+
+  return { currentStreak, bestStreak };
+}
+
+const BADGE_DEFINITIONS = [
+  // Hours milestones
+  { id: "hours_10",  name: "Getting Started",    description: "Log 10 hours of training",   category: "hours",      icon: "⏱️",  threshold: 10,  field: "hoursLogged" },
+  { id: "hours_25",  name: "Committed",           description: "Log 25 hours of training",   category: "hours",      icon: "💪",  threshold: 25,  field: "hoursLogged" },
+  { id: "hours_50",  name: "Dedicated",           description: "Log 50 hours of training",   category: "hours",      icon: "🔥",  threshold: 50,  field: "hoursLogged" },
+  { id: "hours_100", name: "Century Club",        description: "Log 100 hours of training",  category: "hours",      icon: "🏆",  threshold: 100, field: "hoursLogged" },
+  { id: "hours_250", name: "Elite Athlete",       description: "Log 250 hours of training",  category: "hours",      icon: "⭐",  threshold: 250, field: "hoursLogged" },
+  // Streak milestones (best streak ever)
+  { id: "streak_5",  name: "On a Roll",           description: "Attend 5 events in a row",   category: "streak",     icon: "🔥",  threshold: 5,   field: "bestStreak" },
+  { id: "streak_10", name: "Unstoppable",         description: "Attend 10 events in a row",  category: "streak",     icon: "⚡",  threshold: 10,  field: "bestStreak" },
+  { id: "streak_25", name: "Streak Master",       description: "Attend 25 events in a row",  category: "streak",     icon: "🌟",  threshold: 25,  field: "bestStreak" },
+  // Attendance rate
+  { id: "attend_75", name: "Reliable",            description: "Reach 75% attendance rate",  category: "attendance", icon: "✅",  threshold: 75,  field: "attendancePercent" },
+  { id: "attend_90", name: "Consistent",          description: "Reach 90% attendance rate",  category: "attendance", icon: "🎯",  threshold: 90,  field: "attendancePercent" },
+  { id: "attend_100",name: "Perfect Attendance",  description: "Reach 100% attendance rate", category: "attendance", icon: "💎",  threshold: 100, field: "attendancePercent" },
+  // Check-in count
+  { id: "checkin_10",  name: "Regular",           description: "Check in to 10 events",      category: "checkins",   icon: "📍",  threshold: 10,  field: "checkInCount" },
+  { id: "checkin_25",  name: "Veteran",           description: "Check in to 25 events",      category: "checkins",   icon: "🏅",  threshold: 25,  field: "checkInCount" },
+  { id: "checkin_50",  name: "All-Star",          description: "Check in to 50 events",      category: "checkins",   icon: "🌠",  threshold: 50,  field: "checkInCount" },
+  { id: "checkin_100", name: "Legend",            description: "Check in to 100 events",     category: "checkins",   icon: "👑",  threshold: 100, field: "checkInCount" },
+];
+
 export const resolvers = {
   Query: {
     // User queries
@@ -1148,6 +1206,22 @@ export const resolvers = {
           where: { team: { organizationId }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
         });
 
+        // Compute streaks from check-ins with event dates
+        const checkInsWithEvent = await prisma.checkIn.findMany({
+          where: {
+            userId,
+            event: {
+              OR: [
+                { teamId },
+                { participatingTeams: { some: { id: teamId } } },
+              ],
+            },
+          },
+          include: { event: { select: { date: true } } },
+          orderBy: { event: { date: "asc" } },
+        });
+        const { currentStreak, bestStreak } = computeStreaks(checkInsWithEvent);
+
         return {
           hoursLogged,
           hoursRequired,
@@ -1156,8 +1230,8 @@ export const resolvers = {
           teamSize: teamMembers.length,
           orgRank: 1,
           orgSize: orgMembers.length,
-          currentStreak: 0,
-          bestStreak: 0,
+          currentStreak,
+          bestStreak,
         };
       }
 
@@ -1195,6 +1269,14 @@ export const resolvers = {
         where: { team: { organizationId }, role: { in: ["MEMBER", "CAPTAIN"] as TeamRole[] } },
       });
 
+      // Compute streaks from all org check-ins with event dates
+      const allCheckInsWithEvent = await prisma.checkIn.findMany({
+        where: { userId, event: { organizationId } },
+        include: { event: { select: { date: true } } },
+        orderBy: { event: { date: "asc" } },
+      });
+      const { currentStreak, bestStreak } = computeStreaks(allCheckInsWithEvent);
+
       return {
         hoursLogged,
         hoursRequired,
@@ -1203,8 +1285,54 @@ export const resolvers = {
         teamSize: 0,
         orgRank: 1,
         orgSize: orgMembers.length,
-        currentStreak: 0,
-        bestStreak: 0,
+        currentStreak,
+        bestStreak,
+      };
+    },
+
+    getUserBadges: async (
+      _: unknown,
+      { userId, organizationId }: { userId: string; organizationId: string }
+    ) => {
+      // Fetch all check-ins for this user in this org
+      const checkInsWithEvent = await prisma.checkIn.findMany({
+        where: { userId, event: { organizationId }, approved: true },
+        include: { event: { select: { date: true } } },
+        orderBy: { event: { date: "asc" } },
+      });
+
+      const hoursLogged = checkInsWithEvent.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
+      const checkInCount = checkInsWithEvent.filter(
+        (c) => c.status === "ON_TIME" || c.status === "LATE"
+      ).length;
+      const totalEvents = checkInsWithEvent.length;
+      const attendancePercent = totalEvents > 0 ? (checkInCount / totalEvents) * 100 : 0;
+      const { bestStreak } = computeStreaks(checkInsWithEvent);
+
+      const stats: Record<string, number> = {
+        hoursLogged,
+        checkInCount,
+        attendancePercent,
+        bestStreak,
+      };
+
+      const badges = BADGE_DEFINITIONS.map((def) => {
+        const progress = stats[def.field] ?? 0;
+        return {
+          id: def.id,
+          name: def.name,
+          description: def.description,
+          category: def.category,
+          icon: def.icon,
+          earned: progress >= def.threshold,
+          progress,
+          threshold: def.threshold,
+        };
+      });
+
+      return {
+        badges,
+        totalEarned: badges.filter((b) => b.earned).length,
       };
     },
 

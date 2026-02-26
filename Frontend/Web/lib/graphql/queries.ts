@@ -632,6 +632,24 @@ export const GET_USER_STATS = gql`
   }
 `;
 
+export const GET_USER_BADGES = gql`
+  query GetUserBadges($userId: ID!, $organizationId: ID!) {
+    getUserBadges(userId: $userId, organizationId: $organizationId) {
+      totalEarned
+      badges {
+        id
+        name
+        description
+        category
+        icon
+        earned
+        progress
+        threshold
+      }
+    }
+  }
+`;
+
 export const GET_CHECK_IN_HISTORY = gql`
   query GetCheckInHistory($userId: ID!, $limit: Int) {
     checkInHistory(userId: $userId, limit: $limit) {

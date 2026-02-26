@@ -19,6 +19,7 @@ import {
   UPDATE_EMERGENCY_CONTACT,
   DELETE_EMERGENCY_CONTACT,
   UPSERT_MEDICAL_INFO,
+  GET_USER_BADGES,
 } from "@/lib/graphql";
 import { gql } from "@apollo/client";
 import {
@@ -52,6 +53,8 @@ import {
   Star,
   FileText,
   Stethoscope,
+  Trophy,
+  Lock,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -102,7 +105,7 @@ const SEND_TEST_REPORT = gql`
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-type Section = "profile" | "organizations" | "guardian" | "health" | "app-download" | "settings";
+type Section = "profile" | "organizations" | "guardian" | "health" | "achievements" | "app-download" | "settings";
 
 type EmergencyContact = {
   id: string;
@@ -408,6 +411,14 @@ export default function AccountPage() {
   const emergencyContacts: EmergencyContact[] = (healthData as any)?.user?.emergencyContacts || [];
   const medicalInfo: MedicalInfo | null       = (healthData as any)?.user?.medicalInfo || null;
 
+  const { data: badgesData, loading: badgesLoading } = useQuery(GET_USER_BADGES, {
+    variables: { userId: user?.id, organizationId: selectedOrganizationId },
+    skip: !user?.id || !selectedOrganizationId,
+  });
+  const userBadges: { id: string; name: string; description: string; category: string; icon: string; earned: boolean; progress: number; threshold: number }[] =
+    (badgesData as any)?.getUserBadges?.badges || [];
+  const totalBadgesEarned: number = (badgesData as any)?.getUserBadges?.totalEarned ?? 0;
+
   // Lazy query for transfer modal members
   const [fetchOrgUsers, { data: orgUsersData, loading: orgUsersLoading }] = useLazyQuery<any>(GET_ORGANIZATION_USERS);
 
@@ -453,6 +464,7 @@ export default function AccountPage() {
     { id: "organizations", label: "Organizations",    icon: Building2 },
     { id: "guardian",      label: "Family",           icon: Heart },
     { id: "health",        label: "Health & Safety",  icon: Activity, hidden: !selectedOrganizationId },
+    { id: "achievements",  label: "Achievements",     icon: Trophy, hidden: !selectedOrganizationId },
     { id: "app-download",  label: "App Download",     icon: Smartphone, hidden: !hasAthleteOrGuardian },
     { id: "settings",      label: "Settings",         icon: Trash2 },
   ];
@@ -1212,6 +1224,98 @@ export default function AccountPage() {
                       </form>
                     </div>
                   </>
+                )}
+              </div>
+            )}
+
+            {/* ── Achievements ──────────────────────────────────────────────── */}
+            {activeSection === "achievements" && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h1 className="text-xl font-bold text-white">Achievements</h1>
+                  {!badgesLoading && (
+                    <span className="px-3 py-1 bg-[#a855f7]/15 text-[#a78bfa] text-xs font-semibold rounded-full">
+                      {totalBadgesEarned} / {userBadges.length} earned
+                    </span>
+                  )}
+                </div>
+
+                {badgesLoading ? (
+                  <div className="flex justify-center py-16">
+                    <div className="w-7 h-7 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                  </div>
+                ) : userBadges.length === 0 ? (
+                  <div className="bg-white/5 rounded-xl border border-white/8 p-8 text-center">
+                    <Trophy className="w-12 h-12 text-white/20 mx-auto mb-3" />
+                    <p className="text-white/40 text-sm">No badge data available. Start attending events to earn achievements!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {["hours", "streak", "attendance", "checkins"].map((category) => {
+                      const categoryBadges = userBadges.filter((b) => b.category === category);
+                      if (!categoryBadges.length) return null;
+                      const categoryLabels: Record<string, string> = {
+                        hours: "Training Hours",
+                        streak: "Attendance Streaks",
+                        attendance: "Attendance Rate",
+                        checkins: "Check-ins",
+                      };
+                      return (
+                        <div key={category}>
+                          <h2 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
+                            {categoryLabels[category]}
+                          </h2>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {categoryBadges.map((badge) => (
+                              <div
+                                key={badge.id}
+                                className={`flex items-start gap-4 p-4 rounded-xl border transition-colors ${
+                                  badge.earned
+                                    ? "bg-[#a855f7]/10 border-[#a855f7]/30"
+                                    : "bg-white/3 border-white/8 opacity-60"
+                                }`}
+                              >
+                                <div
+                                  className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 ${
+                                    badge.earned ? "bg-[#a855f7]/20" : "bg-white/8"
+                                  }`}
+                                >
+                                  {badge.earned ? badge.icon : <Lock className="w-5 h-5 text-white/30" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <p className={`text-sm font-semibold ${badge.earned ? "text-white" : "text-white/50"}`}>
+                                      {badge.name}
+                                    </p>
+                                    {badge.earned && (
+                                      <span className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+                                        <Check className="w-2.5 h-2.5 text-white" />
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-white/40 mb-2">{badge.description}</p>
+                                  {!badge.earned && (
+                                    <div>
+                                      <div className="flex justify-between text-xs text-white/30 mb-1">
+                                        <span>{Math.round(badge.progress)}</span>
+                                        <span>{badge.threshold}</span>
+                                      </div>
+                                      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-[#6c5ce7] rounded-full transition-all"
+                                          style={{ width: `${Math.min(100, (badge.progress / badge.threshold) * 100)}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             )}

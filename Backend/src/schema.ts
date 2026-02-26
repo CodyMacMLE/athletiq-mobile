@@ -512,6 +512,22 @@ export const typeDefs = `#graphql
     bestStreak: Int!
   }
 
+  type Badge {
+    id: String!
+    name: String!
+    description: String!
+    category: String!
+    icon: String!
+    earned: Boolean!
+    progress: Float!
+    threshold: Float!
+  }
+
+  type UserBadges {
+    badges: [Badge!]!
+    totalEarned: Int!
+  }
+
   type CoachHoursEntry {
     event: Event!
     checkIn: CheckIn
@@ -924,6 +940,7 @@ export const typeDefs = `#graphql
 
     # Analytics queries
     userStats(userId: ID!, organizationId: ID!, teamId: ID, timeRange: TimeRange): UserStats!
+    getUserBadges(userId: ID!, organizationId: ID!): UserBadges!
     teamLeaderboard(teamId: ID!, timeRange: TimeRange, limit: Int): [LeaderboardEntry!]!
     organizationLeaderboard(organizationId: ID!, timeRange: TimeRange, limit: Int): [LeaderboardEntry!]!
     teamRankings(organizationId: ID!, timeRange: TimeRange): [TeamRanking!]!
