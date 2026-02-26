@@ -679,7 +679,7 @@ export default function AccountPage() {
                         </label>
                         <input
                           type="tel"
-                          value={phoneFocused && !sanitizePhone(phone) ? "(   )" : phone}
+                          value={phoneFocused && !sanitizePhone(phone) ? "(" : phone}
                           onFocus={() => setPhoneFocused(true)}
                           onBlur={() => { setPhoneFocused(false); if (!sanitizePhone(phone)) setPhone(""); }}
                           onChange={(e) => setPhone(maskPhone(e.target.value))}
