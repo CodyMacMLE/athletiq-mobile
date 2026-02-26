@@ -45,7 +45,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatPhone, sanitizePhone } from "@/lib/utils";
+import { formatPhone, maskPhone, sanitizePhone } from "@/lib/utils";
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
 
@@ -302,6 +302,7 @@ export default function AccountPage() {
   const [firstName, setFirstName]   = useState("");
   const [lastName, setLastName]     = useState("");
   const [phone, setPhone]           = useState("");
+  const [phoneFocused, setPhoneFocused] = useState(false);
   const [address, setAddress]       = useState("");
   const [city, setCity]             = useState("");
   const [country, setCountry]       = useState("");
@@ -676,7 +677,15 @@ export default function AccountPage() {
                         <label className={labelClass}>
                           <span className="flex items-center gap-1.5"><Phone className="w-3 h-3" /> Phone</span>
                         </label>
-                        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 123-4567" className={inputClass} />
+                        <input
+                          type="tel"
+                          value={phoneFocused && !sanitizePhone(phone) ? "(   )" : phone}
+                          onFocus={() => setPhoneFocused(true)}
+                          onBlur={() => { setPhoneFocused(false); if (!sanitizePhone(phone)) setPhone(""); }}
+                          onChange={(e) => setPhone(maskPhone(e.target.value))}
+                          placeholder="(555) 123-4567"
+                          className={inputClass}
+                        />
                       </div>
                     </div>
                   </div>
