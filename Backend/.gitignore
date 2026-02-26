@@ -28,3 +28,6 @@ prisma/migrations/**/migration_lock.toml
 
 # Deployment
 task-definition.json
+
+# Claude Code local settings (may contain secrets)
+.claude/
