@@ -2383,7 +2383,7 @@ export const resolvers = {
       await Promise.all(
         teamIds.map((id, index) =>
           prisma.team.update({
-            where: { id, organizationId },
+            where: { id },
             data: { sortOrder: index },
           })
         )

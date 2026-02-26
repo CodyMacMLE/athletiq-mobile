@@ -257,12 +257,13 @@ export default function Teams() {
     // Optimistic update
     setGroupOrderOverrides(prev => ({ ...prev, [groupLabel]: newOrderIds }));
 
-    // Persist and then refetch so Apollo cache reflects server order
+    // Persist to server. The override stays in place so the UI reflects the
+    // new order immediately. It will be cleared on the next natural refetch
+    // (create/edit/delete team), at which point the server returns data in
+    // the updated sortOrder. Only revert on error.
     reorderTeams({ variables: { organizationId: selectedOrganizationId, teamIds: newOrderIds } })
-      .then(() => refetch())
-      .then(() => setGroupOrderOverrides(prev => { const n = { ...prev }; delete n[groupLabel]; return n; }))
       .catch(() => setGroupOrderOverrides(prev => { const n = { ...prev }; delete n[groupLabel]; return n; }));
-  }, [dragId, dragGroupLabel, groupedTeams, applyGroupOrder, reorderTeams, selectedOrganizationId, refetch]);
+  }, [dragId, dragGroupLabel, groupedTeams, applyGroupOrder, reorderTeams, selectedOrganizationId]);
 
   const handleDragEnd = useCallback(() => {
     setDragId(null);
