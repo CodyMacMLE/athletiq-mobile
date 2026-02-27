@@ -550,6 +550,8 @@ export const typeDefs = `#graphql
     completedAt: String
     createdBy: User!
     team: Team!
+    createdAt: String!
+    updatedAt: String!
   }
 
   type AthleteRecognition {
