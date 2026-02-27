@@ -8,6 +8,7 @@ import { CognitoJwtVerifier } from "aws-jwt-verify";
 import { typeDefs } from "./schema.js";
 import { resolvers } from "./resolvers/index.js";
 import { prisma } from "./db.js";
+import { createLoaders, Loaders } from "./utils/dataLoaders.js";
 import { startAbsentMarkerCron, stopAbsentMarkerCron } from "./cron/absentMarker.js";
 import { startAutoCheckoutCron, stopAutoCheckoutCron } from "./cron/autoCheckout.js";
 import { startEventReminderCron, stopEventReminderCron } from "./cron/eventReminders.js";
@@ -16,6 +17,7 @@ import { startScheduledAnnouncementCron, stopScheduledAnnouncementCron } from ".
 
 interface Context {
   userId?: string;
+  loaders: Loaders;
 }
 
 // Verify Cognito ID tokens (signature + expiry + issuer + audience)
@@ -97,18 +99,20 @@ async function main() {
         // Only works when PLAYGROUND_API_KEY is set in the environment.
         const apiKey = req.headers["x-api-key"];
         const playgroundApiKey = process.env.PLAYGROUND_API_KEY;
+        const loaders = createLoaders();
+
         if (apiKey && playgroundApiKey && apiKey === playgroundApiKey) {
           const email = process.env.PLAYGROUND_USER_EMAIL;
           if (!email) throw new Error("PLAYGROUND_USER_EMAIL is not set");
           const user = await prisma.user.findUnique({ where: { email } });
           if (!user) throw new Error(`No user found for PLAYGROUND_USER_EMAIL: ${email}`);
           console.log(`[playground] authenticated as ${email} (${user.id})`);
-          return { userId: user.id };
+          return { userId: user.id, loaders };
         }
 
         const authHeader = req.headers.authorization;
         if (!authHeader?.startsWith("Bearer ")) {
-          return {};
+          return { loaders };
         }
 
         const token = authHeader.slice(7);
@@ -118,10 +122,10 @@ async function main() {
           payload = await cognitoVerifier.verify(token) as Record<string, unknown>;
         } catch {
           // Token invalid, expired, or tampered — treat as unauthenticated
-          return {};
+          return { loaders };
         }
 
-        if (typeof payload.email !== "string") return {};
+        if (typeof payload.email !== "string") return { loaders };
 
         let user = await prisma.user.findUnique({ where: { email: payload.email } });
 
@@ -136,7 +140,7 @@ async function main() {
           });
         }
 
-        return { userId: user.id };
+        return { userId: user.id, loaders };
       },
     })
   );

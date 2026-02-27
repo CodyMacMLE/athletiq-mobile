@@ -301,6 +301,7 @@ model Event {
   @@index([organizationId])
   @@index([teamId])
   @@index([date])
+  @@index([organizationId, date])
 }
 
 enum EventType {
@@ -333,6 +334,7 @@ model CheckIn {
   @@unique([userId, eventId])
   @@index([userId])
   @@index([eventId])
+  @@index([eventId, status])
 }
 
 enum AttendanceStatus {

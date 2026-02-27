@@ -12,6 +12,12 @@ import { generateGuardianReport } from "../notifications/emailReports.js";
 import { sendExcuseStatusEmail } from "../notifications/emailNotifications.js";
 import { requireAuth, requireOrgAdmin, requireOrgOwner } from "../utils/permissions.js";
 import { auditLog } from "../utils/audit.js";
+import type { Loaders } from "../utils/dataLoaders.js";
+
+interface Context {
+  userId?: string;
+  loaders: Loaders;
+}
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION || "us-east-2",
@@ -4447,8 +4453,8 @@ export const resolvers = {
   },
 
   Team: {
-    organization: (parent: { organizationId: string }) =>
-      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    organization: (parent: { organizationId: string }, _: unknown, context: Context) =>
+      context.loaders.organization.load(parent.organizationId),
     orgSeason: (parent: { orgSeasonId?: string | null }) =>
       parent.orgSeasonId ? prisma.orgSeason.findUnique({ where: { id: parent.orgSeasonId } }) : null,
     members: (parent: { id: string }) => prisma.teamMember.findMany({ where: { teamId: parent.id } }),
@@ -4496,18 +4502,17 @@ export const resolvers = {
   },
 
   TeamMember: {
-    user: (parent: { userId: string }) => prisma.user.findUnique({ where: { id: parent.userId } }),
-    team: (parent: { teamId: string }) => prisma.team.findUnique({ where: { id: parent.teamId } }),
-    hoursLogged: async (parent: { userId: string; teamId: string }, { timeRange }: { timeRange?: string }) => {
-      // Fetch team with season info to use season date range
-      const team = await prisma.team.findUnique({
-        where: { id: parent.teamId },
-        include: { orgSeason: true },
-      });
+    user: (parent: { userId: string }, _: unknown, context: Context) =>
+      context.loaders.user.load(parent.userId),
+    team: (parent: { teamId: string }, _: unknown, context: Context) =>
+      context.loaders.team.load(parent.teamId),
+    hoursLogged: async (parent: { userId: string; teamId: string }, _: unknown, context: Context) => {
+      // Use team loader (batched) instead of a separate findUnique per member
+      const team = await context.loaders.team.load(parent.teamId) as any;
 
       const { start: startDate, end: endDate } = team?.orgSeason && team?.seasonYear
         ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
-        : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
+        : { start: new Date(0), end: new Date() };
 
       const checkIns = await prisma.checkIn.findMany({
         where: {
@@ -4521,17 +4526,15 @@ export const resolvers = {
     },
     attendancePercent: async (
       parent: { userId: string; teamId: string; hoursRequired: number },
-      { timeRange }: { timeRange?: string }
+      _: unknown,
+      context: Context
     ) => {
-      // Fetch team with season info to use season date range
-      const team = await prisma.team.findUnique({
-        where: { id: parent.teamId },
-        include: { orgSeason: true },
-      });
+      // Use team loader (batched) instead of a separate findUnique per member
+      const team = await context.loaders.team.load(parent.teamId) as any;
 
       const { start: startDate, end: endDate } = team?.orgSeason && team?.seasonYear
         ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
-        : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
+        : { start: new Date(0), end: new Date() };
 
       const checkIns = await prisma.checkIn.findMany({
         where: {
@@ -4553,12 +4556,12 @@ export const resolvers = {
   },
 
   Event: {
-    organization: (parent: { organizationId: string }) =>
-      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
-    team: (parent: { teamId: string | null }) =>
-      parent.teamId ? prisma.team.findUnique({ where: { id: parent.teamId } }) : null,
-    venue: (parent: { venueId: string | null }) =>
-      parent.venueId ? prisma.venue.findUnique({ where: { id: parent.venueId } }) : null,
+    organization: (parent: { organizationId: string }, _: unknown, context: Context) =>
+      context.loaders.organization.load(parent.organizationId),
+    team: (parent: { teamId: string | null }, _: unknown, context: Context) =>
+      parent.teamId ? context.loaders.team.load(parent.teamId) : null,
+    venue: (parent: { venueId: string | null }, _: unknown, context: Context) =>
+      parent.venueId ? context.loaders.venue.load(parent.venueId) : null,
     checkIns: (parent: { id: string }) => prisma.checkIn.findMany({ where: { eventId: parent.id } }),
     rsvps: (parent: { id: string }) => prisma.eventRsvp.findMany({ where: { eventId: parent.id }, include: { user: true } }),
     recurringEvent: (parent: { recurringEventId: string | null }) =>
@@ -4608,12 +4611,12 @@ export const resolvers = {
   },
 
   RecurringEvent: {
-    organization: (parent: { organizationId: string }) =>
-      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
-    team: (parent: { teamId: string | null }) =>
-      parent.teamId ? prisma.team.findUnique({ where: { id: parent.teamId } }) : null,
-    venue: (parent: { venueId: string | null }) =>
-      parent.venueId ? prisma.venue.findUnique({ where: { id: parent.venueId } }) : null,
+    organization: (parent: { organizationId: string }, _: unknown, context: Context) =>
+      context.loaders.organization.load(parent.organizationId),
+    team: (parent: { teamId: string | null }, _: unknown, context: Context) =>
+      parent.teamId ? context.loaders.team.load(parent.teamId) : null,
+    venue: (parent: { venueId: string | null }, _: unknown, context: Context) =>
+      parent.venueId ? context.loaders.venue.load(parent.venueId) : null,
     events: (parent: { id: string }) =>
       prisma.event.findMany({ where: { recurringEventId: parent.id }, orderBy: { date: "asc" } }),
     includedAthletes: (parent: { id: string }) =>
@@ -4633,8 +4636,10 @@ export const resolvers = {
   },
 
   CheckIn: {
-    user: (parent: { userId: string }) => prisma.user.findUnique({ where: { id: parent.userId } }),
-    event: (parent: { eventId: string }) => prisma.event.findUnique({ where: { id: parent.eventId } }),
+    user: (parent: { userId: string }, _: unknown, context: Context) =>
+      context.loaders.user.load(parent.userId),
+    event: (parent: { eventId: string }, _: unknown, context: Context) =>
+      context.loaders.event.load(parent.eventId),
     checkInTime: (parent: any) => parent.checkInTime ? toISO(parent.checkInTime) : null,
     checkOutTime: (parent: any) => parent.checkOutTime ? toISO(parent.checkOutTime) : null,
     createdAt: (parent: any) => toISO(parent.createdAt),
@@ -4642,45 +4647,48 @@ export const resolvers = {
   },
 
   ExcuseRequest: {
-    user: (parent: { userId: string }) => prisma.user.findUnique({ where: { id: parent.userId } }),
-    event: (parent: { eventId: string }) => prisma.event.findUnique({ where: { id: parent.eventId } }),
+    user: (parent: { userId: string }, _: unknown, context: Context) =>
+      context.loaders.user.load(parent.userId),
+    event: (parent: { eventId: string }, _: unknown, context: Context) =>
+      context.loaders.event.load(parent.eventId),
     createdAt: (parent: any) => toISO(parent.createdAt),
     updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
   OrganizationMember: {
-    user: (parent: { userId: string }) => prisma.user.findUnique({ where: { id: parent.userId } }),
-    organization: (parent: { organizationId: string }) =>
-      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    user: (parent: { userId: string }, _: unknown, context: Context) =>
+      context.loaders.user.load(parent.userId),
+    organization: (parent: { organizationId: string }, _: unknown, context: Context) =>
+      context.loaders.organization.load(parent.organizationId),
     joinedAt: (parent: any) => toISO(parent.joinedAt),
   },
 
   Invite: {
-    organization: (parent: { organizationId: string }) =>
-      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    organization: (parent: { organizationId: string }, _: unknown, context: Context) =>
+      context.loaders.organization.load(parent.organizationId),
     createdAt: (parent: any) => toISO(parent.createdAt),
     expiresAt: (parent: any) => toISO(parent.expiresAt),
   },
 
   NfcTag: {
-    organization: (parent: { organizationId: string }) =>
-      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    organization: (parent: { organizationId: string }, _: unknown, context: Context) =>
+      context.loaders.organization.load(parent.organizationId),
     createdAt: (parent: any) => toISO(parent.createdAt),
   },
 
   GuardianLink: {
-    guardian: (parent: { guardianId: string }) =>
-      prisma.user.findUnique({ where: { id: parent.guardianId } }),
-    athlete: (parent: { athleteId: string }) =>
-      prisma.user.findUnique({ where: { id: parent.athleteId } }),
-    organization: (parent: { organizationId: string }) =>
-      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    guardian: (parent: { guardianId: string }, _: unknown, context: Context) =>
+      context.loaders.user.load(parent.guardianId),
+    athlete: (parent: { athleteId: string }, _: unknown, context: Context) =>
+      context.loaders.user.load(parent.athleteId),
+    organization: (parent: { organizationId: string }, _: unknown, context: Context) =>
+      context.loaders.organization.load(parent.organizationId),
     createdAt: (parent: any) => toISO(parent.createdAt),
   },
 
   AthleteStatusRecord: {
-    changedByUser: (parent: { changedByUserId: string }) =>
-      prisma.user.findUnique({ where: { id: parent.changedByUserId } }),
+    changedByUser: (parent: { changedByUserId: string }, _: unknown, context: Context) =>
+      context.loaders.user.load(parent.changedByUserId),
     createdAt: (parent: any) => toISO(parent.createdAt),
   },
 
@@ -4699,10 +4707,10 @@ export const resolvers = {
   },
 
   Announcement: {
-    organization: (parent: { organizationId: string }) =>
-      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
-    creator: (parent: { createdBy: string }) =>
-      prisma.user.findUnique({ where: { id: parent.createdBy } }),
+    organization: (parent: { organizationId: string }, _: unknown, context: Context) =>
+      context.loaders.organization.load(parent.organizationId),
+    creator: (parent: { createdBy: string }, _: unknown, context: Context) =>
+      context.loaders.user.load(parent.createdBy),
     sentAt: (parent: any) => parent.sentAt ? toISO(parent.sentAt) : null,
     eventDate: (parent: any) => parent.eventDate ? toISO(parent.eventDate) : null,
     createdAt: (parent: any) => toISO(parent.createdAt),
@@ -4710,18 +4718,18 @@ export const resolvers = {
   },
 
   EmailReportConfig: {
-    user: (parent: { userId: string }) =>
-      prisma.user.findUnique({ where: { id: parent.userId } }),
-    organization: (parent: { organizationId: string }) =>
-      prisma.organization.findUnique({ where: { id: parent.organizationId } }),
+    user: (parent: { userId: string }, _: unknown, context: Context) =>
+      context.loaders.user.load(parent.userId),
+    organization: (parent: { organizationId: string }, _: unknown, context: Context) =>
+      context.loaders.organization.load(parent.organizationId),
     lastSentAt: (parent: any) => parent.lastSentAt ? toISO(parent.lastSentAt) : null,
     createdAt: (parent: any) => toISO(parent.createdAt),
     updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 
   NotificationDelivery: {
-    user: (parent: { userId: string }) =>
-      prisma.user.findUnique({ where: { id: parent.userId } }),
+    user: (parent: { userId: string }, _: unknown, context: Context) =>
+      context.loaders.user.load(parent.userId),
     metadata: (parent: any) =>
       parent.metadata != null ? JSON.stringify(parent.metadata) : null,
     sentAt: (parent: any) => parent.sentAt ? toISO(parent.sentAt) : null,
