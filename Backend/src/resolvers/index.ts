@@ -10,6 +10,8 @@ import { sendPushNotification } from "../notifications/pushNotifications.js";
 import { broadcastAnnouncement } from "../notifications/announcements.js";
 import { generateGuardianReport } from "../notifications/emailReports.js";
 import { sendExcuseStatusEmail } from "../notifications/emailNotifications.js";
+import { requireAuth, requireOrgAdmin, requireOrgOwner } from "../utils/permissions.js";
+import { auditLog } from "../utils/audit.js";
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION || "us-east-2",
@@ -1957,8 +1959,10 @@ export const resolvers = {
       });
     },
 
-    deleteOrganization: async (_: unknown, { id }: { id: string }) => {
+    deleteOrganization: async (_: unknown, { id }: { id: string }, context: { userId?: string }) => {
+      const actorId = await requireOrgOwner(context, id);
       await prisma.organization.delete({ where: { id } });
+      await auditLog({ action: "DELETE_ORGANIZATION", actorId, targetId: id, targetType: "Organization", organizationId: id });
       return true;
     },
 
@@ -1985,12 +1989,16 @@ export const resolvers = {
 
     updateOrgMemberRole: async (
       _: unknown,
-      { userId, organizationId, role }: { userId: string; organizationId: string; role: OrgRole }
+      { userId, organizationId, role }: { userId: string; organizationId: string; role: OrgRole },
+      context: { userId?: string }
     ) => {
-      return prisma.organizationMember.update({
+      const actorId = await requireOrgAdmin(context, organizationId);
+      const result = await prisma.organizationMember.update({
         where: { userId_organizationId: { userId, organizationId } },
         data: { role },
       });
+      await auditLog({ action: "UPDATE_MEMBER_ROLE", actorId, targetId: userId, targetType: "User", organizationId, metadata: { role } });
+      return result;
     },
 
     updateAthleteStatus: async (
@@ -2216,12 +2224,7 @@ export const resolvers = {
     },
 
     transferOwnership: async (_: unknown, { organizationId, newOwnerId }: { organizationId: string; newOwnerId: string }, context: { userId?: string }) => {
-      if (!context.userId) throw new Error("Authentication required");
-
-      const callerMember = await prisma.organizationMember.findUnique({
-        where: { userId_organizationId: { userId: context.userId, organizationId } },
-      });
-      if (!callerMember || callerMember.role !== "OWNER") throw new Error("Only the owner can transfer ownership");
+      const actorId = await requireOrgOwner(context, organizationId);
       if (newOwnerId === context.userId) throw new Error("You are already the owner");
 
       const newOwnerMember = await prisma.organizationMember.findUnique({
@@ -2235,10 +2238,11 @@ export const resolvers = {
           data: { role: "OWNER" },
         }),
         prisma.organizationMember.update({
-          where: { userId_organizationId: { userId: context.userId, organizationId } },
+          where: { userId_organizationId: { userId: actorId, organizationId } },
           data: { role: "ADMIN" },
         }),
       ]);
+      await auditLog({ action: "TRANSFER_OWNERSHIP", actorId, targetId: newOwnerId, targetType: "User", organizationId });
       return true;
     },
 
@@ -2324,7 +2328,10 @@ export const resolvers = {
       });
     },
 
-    deleteTeam: async (_: unknown, { id, hardDelete }: { id: string; hardDelete?: boolean }) => {
+    deleteTeam: async (_: unknown, { id, hardDelete }: { id: string; hardDelete?: boolean }, context: { userId?: string }) => {
+      const actorId = requireAuth(context);
+      const team = await prisma.team.findUnique({ where: { id }, select: { organizationId: true } });
+      if (team) await requireOrgAdmin(context, team.organizationId);
       await prisma.$transaction(async (tx) => {
         // Remove all team members
         await tx.teamMember.deleteMany({ where: { teamId: id } });
@@ -2366,6 +2373,7 @@ export const resolvers = {
           });
         }
       });
+      await auditLog({ action: "DELETE_TEAM", actorId, targetId: id, targetType: "Team", organizationId: team?.organizationId, metadata: { hardDelete: !!hardDelete } });
       return true;
     },
 

@@ -734,3 +734,22 @@ model MedicalInfo {
   @@index([userId])
   @@index([organizationId])
 }
+
+// ============================================
+// Audit Logging
+// ============================================
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  action         String
+  actorId        String?
+  targetId       String?
+  targetType     String?
+  organizationId String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([actorId])
+  @@index([organizationId])
+  @@index([createdAt])
+}

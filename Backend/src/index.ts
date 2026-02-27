@@ -3,6 +3,8 @@ import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin
 import { expressMiddleware } from "@as-integrations/express5";
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
+import { CognitoJwtVerifier } from "aws-jwt-verify";
 import { typeDefs } from "./schema.js";
 import { resolvers } from "./resolvers/index.js";
 import { prisma } from "./db.js";
@@ -16,17 +18,21 @@ interface Context {
   userId?: string;
 }
 
-// Decode a JWT payload without verification (extracts claims only)
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const payload = Buffer.from(parts[1], "base64url").toString("utf-8");
-    return JSON.parse(payload);
-  } catch {
-    return null;
-  }
-}
+// Verify Cognito ID tokens (signature + expiry + issuer + audience)
+const cognitoVerifier = CognitoJwtVerifier.create({
+  userPoolId: process.env.COGNITO_USER_POOL_ID || "us-east-2_jHLnfwOqy",
+  tokenUse: "id",
+  clientId: process.env.COGNITO_CLIENT_ID || "3e0jmpi1vpsbkntof8h6u7eov0",
+});
+
+// Rate limiter — 120 requests per minute per IP
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { errors: [{ message: "Too many requests, please try again later." }] },
+});
 
 // Basic Auth middleware — only applies to GET requests (playground page load).
 // POST requests (actual GraphQL queries) skip this and use Cognito JWT instead.
@@ -83,6 +89,7 @@ async function main() {
     "/graphql",
     cors<cors.CorsRequest>({ origin: true }),
     express.json(),
+    apiLimiter,
     playgroundAuth,
     expressMiddleware(server, {
       context: async ({ req }) => {
@@ -105,28 +112,31 @@ async function main() {
         }
 
         const token = authHeader.slice(7);
-        const payload = decodeJwtPayload(token);
-        if (!payload || typeof payload.email !== "string") {
+
+        let payload: Record<string, unknown>;
+        try {
+          payload = await cognitoVerifier.verify(token) as Record<string, unknown>;
+        } catch {
+          // Token invalid, expired, or tampered — treat as unauthenticated
           return {};
         }
 
-        let user = await prisma.user.findUnique({
-          where: { email: payload.email },
-        });
+        if (typeof payload.email !== "string") return {};
 
-        // Auto-create DB record for authenticated Cognito users (handles
-        // cases where registration DB setup failed but Cognito account exists)
+        let user = await prisma.user.findUnique({ where: { email: payload.email } });
+
+        // Auto-create DB record for authenticated Cognito users
         if (!user) {
           user = await prisma.user.create({
             data: {
               email: payload.email,
-              firstName: (payload.given_name as string) || payload.email.toString().split("@")[0],
+              firstName: (payload.given_name as string) || payload.email.split("@")[0],
               lastName: (payload.family_name as string) || "",
             },
           });
         }
 
-        return { userId: user.id, cognitoUsername: payload.sub as string };
+        return { userId: user.id };
       },
     })
   );
