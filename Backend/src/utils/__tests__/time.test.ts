@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseTimeString } from "../time.js";
+import { parseTimeString, computeEventDuration } from "../time.js";
 
 describe("parseTimeString", () => {
   // 12-hour AM/PM format
@@ -43,5 +43,35 @@ describe("parseTimeString", () => {
 
   it("parses edge-case single-digit hour", () => {
     expect(parseTimeString("1:00 PM")).toEqual({ hours: 13, minutes: 0 });
+  });
+});
+
+describe("computeEventDuration", () => {
+  it("computes a standard 5-hour practice (2:30 PM – 7:30 PM)", () => {
+    expect(computeEventDuration("2:30 PM", "7:30 PM")).toBe(5);
+  });
+
+  it("computes a 2-hour event (6:00 PM – 8:00 PM)", () => {
+    expect(computeEventDuration("6:00 PM", "8:00 PM")).toBe(2);
+  });
+
+  it("computes a 1.5-hour event (9:00 AM – 10:30 AM)", () => {
+    expect(computeEventDuration("9:00 AM", "10:30 AM")).toBeCloseTo(1.5);
+  });
+
+  it("returns 0 for All Day events", () => {
+    expect(computeEventDuration("All Day", "All Day")).toBe(0);
+  });
+
+  it("returns 0 when startTime is All Day", () => {
+    expect(computeEventDuration("All Day", "5:00 PM")).toBe(0);
+  });
+
+  it("returns 0 for empty/missing times", () => {
+    expect(computeEventDuration("", "")).toBe(0);
+  });
+
+  it("returns 0 when end is before start (invalid data)", () => {
+    expect(computeEventDuration("8:00 PM", "6:00 PM")).toBe(0);
   });
 });

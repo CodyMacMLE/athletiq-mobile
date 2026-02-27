@@ -2,7 +2,7 @@ import { prisma } from "../db.js";
 import { AttendanceStatus, EventType, ExcuseRequestStatus, InviteStatus, OrgRole, RecurrenceFrequency, TeamRole, Platform, AnnouncementTarget, ReportFrequency, RsvpStatus } from "@prisma/client";
 import { sendInviteEmail, sendFeedbackEmail } from "../email.js";
 import { generateProfilePictureUploadUrl } from "../s3.js";
-import { parseTimeString } from "../utils/time.js";
+import { parseTimeString, computeEventDuration } from "../utils/time.js";
 import { markAbsentForEndedEvents } from "../services/markAbsent.js";
 import { CognitoIdentityProviderClient, AdminDeleteUserCommand, ListUsersCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { registerPushToken, sendPushToEndpoint } from "../notifications/sns.js";
@@ -1202,7 +1202,23 @@ export const resolvers = {
         });
 
         const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
-        const hoursRequired = membership.hoursRequired;
+
+        // Compute hoursRequired as total duration of all events in the period,
+        // not the static per-member quota (which defaults to 0 when unset).
+        const teamEvents = await prisma.event.findMany({
+          where: {
+            OR: [
+              { teamId },
+              { participatingTeams: { some: { id: teamId } } },
+            ],
+            date: { gte: startDate, lte: endDate },
+            isAdHoc: false,
+          },
+          select: { startTime: true, endTime: true },
+        });
+        const hoursRequired = teamEvents.reduce(
+          (sum, e) => sum + computeEventDuration(e.startTime, e.endTime), 0
+        );
         const attendancePercent = hoursRequired > 0 ? (hoursLogged / hoursRequired) * 100 : 0;
 
         // Team rank — athletes only
@@ -1270,7 +1286,19 @@ export const resolvers = {
       });
 
       const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
-      const hoursRequired = memberships.reduce((sum, m) => sum + m.hoursRequired, 0);
+
+      // Compute hoursRequired as total duration of all org events in the period
+      const orgEvents = await prisma.event.findMany({
+        where: {
+          organizationId,
+          date: { gte: startDate, lte: endDate },
+          isAdHoc: false,
+        },
+        select: { startTime: true, endTime: true },
+      });
+      const hoursRequired = orgEvents.reduce(
+        (sum, e) => sum + computeEventDuration(e.startTime, e.endTime), 0
+      );
       const attendancePercent = hoursRequired > 0 ? (hoursLogged / hoursRequired) * 100 : 0;
 
       // Org rank — athletes only
@@ -1363,6 +1391,19 @@ export const resolvers = {
         ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
         : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
 
+      // Compute total event hours once — shared as hoursRequired for every member
+      const teamEvents = await prisma.event.findMany({
+        where: {
+          OR: [{ teamId }, { participatingTeams: { some: { id: teamId } } }],
+          date: { gte: startDate, lte: endDate },
+          isAdHoc: false,
+        },
+        select: { startTime: true, endTime: true },
+      });
+      const totalEventHours = teamEvents.reduce(
+        (sum, e) => sum + computeEventDuration(e.startTime, e.endTime), 0
+      );
+
       const leaderboard = await Promise.all(
         members.map(async (member) => {
           const checkIns = await prisma.checkIn.findMany({
@@ -1376,12 +1417,12 @@ export const resolvers = {
 
           const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
           const attendancePercent =
-            member.hoursRequired > 0 ? Math.min(100, (hoursLogged / member.hoursRequired) * 100) : 0;
+            totalEventHours > 0 ? Math.min(100, (hoursLogged / totalEventHours) * 100) : 0;
 
           return {
             user: member.user,
             hoursLogged,
-            hoursRequired: member.hoursRequired,
+            hoursRequired: totalEventHours,
             attendancePercent,
           };
         })
@@ -1420,6 +1461,19 @@ export const resolvers = {
         ? getSeasonDateRange(firstTeam.orgSeason.startMonth, firstTeam.orgSeason.endMonth, firstTeam.seasonYear)
         : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
 
+      // Compute total event hours once — shared as hoursRequired for every member
+      const orgEvents = await prisma.event.findMany({
+        where: {
+          organizationId,
+          date: { gte: startDate, lte: endDate },
+          isAdHoc: false,
+        },
+        select: { startTime: true, endTime: true },
+      });
+      const totalEventHours = orgEvents.reduce(
+        (sum, e) => sum + computeEventDuration(e.startTime, e.endTime), 0
+      );
+
       const leaderboard = await Promise.all(
         uniqueUsers.map(async (member) => {
           const checkIns = await prisma.checkIn.findMany({
@@ -1433,12 +1487,12 @@ export const resolvers = {
 
           const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
           const attendancePercent =
-            member.hoursRequired > 0 ? Math.min(100, (hoursLogged / member.hoursRequired) * 100) : 0;
+            totalEventHours > 0 ? Math.min(100, (hoursLogged / totalEventHours) * 100) : 0;
 
           return {
             user: member.user,
             hoursLogged,
-            hoursRequired: member.hoursRequired,
+            hoursRequired: totalEventHours,
             attendancePercent,
           };
         })

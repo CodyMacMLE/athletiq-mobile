@@ -12,3 +12,15 @@ export function parseTimeString(timeStr: string): { hours: number; minutes: numb
   const [h, m] = timeStr.split(":").map(Number);
   return { hours: h, minutes: m };
 }
+
+/**
+ * Compute the duration of an event in hours given its startTime and endTime strings.
+ * Returns 0 for "All Day" events or any unparseable/invalid input.
+ */
+export function computeEventDuration(startTime: string, endTime: string): number {
+  if (!startTime || !endTime || startTime === "All Day" || endTime === "All Day") return 0;
+  const start = parseTimeString(startTime);
+  const end = parseTimeString(endTime);
+  const minutes = (end.hours * 60 + end.minutes) - (start.hours * 60 + start.minutes);
+  return Math.max(0, minutes / 60);
+}
