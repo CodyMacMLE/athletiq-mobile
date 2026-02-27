@@ -29,7 +29,10 @@ vi.mock("../../db.js", () => ({
 
 vi.mock("../../email.js", () => ({ sendInviteEmail: vi.fn(), sendFeedbackEmail: vi.fn() }));
 vi.mock("../../s3.js", () => ({ generateProfilePictureUploadUrl: vi.fn() }));
-vi.mock("../../utils/time.js", () => ({ parseTimeString: vi.fn() }));
+vi.mock("../../utils/time.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../utils/time.js")>();
+  return { ...actual, parseTimeString: vi.fn() };
+});
 vi.mock("../../services/markAbsent.js", () => ({ markAbsentForEndedEvents: vi.fn() }));
 vi.mock("../../notifications/sns.js", () => ({ registerPushToken: vi.fn(), sendPushToEndpoint: vi.fn() }));
 vi.mock("../../notifications/pushNotifications.js", () => ({ sendPushNotification: vi.fn() }));
