@@ -145,6 +145,7 @@ model Team {
 
   // Relations
   members             TeamMember[]
+  memberHistory       TeamMemberHistory[]
   events              Event[]
   recurringEvents     RecurringEvent[]
   participatingEvents Event[]          @relation("EventParticipatingTeams")
@@ -165,6 +166,20 @@ model TeamMember {
   @@unique([userId, teamId])
   @@index([teamId])
   @@index([userId])
+}
+
+// Tracks every join/leave cycle so hours can be scoped to active membership periods.
+// leftAt = null means the member is currently active.
+model TeamMemberHistory {
+  id       String    @id @default(cuid())
+  userId   String
+  teamId   String
+  team     Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  joinedAt DateTime
+  leftAt   DateTime?
+
+  @@index([userId, teamId])
+  @@index([teamId])
 }
 
 enum TeamRole {

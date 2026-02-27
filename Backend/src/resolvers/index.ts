@@ -3,6 +3,7 @@ import { AttendanceStatus, EventType, ExcuseRequestStatus, InviteStatus, OrgRole
 import { sendInviteEmail, sendFeedbackEmail } from "../email.js";
 import { generateProfilePictureUploadUrl } from "../s3.js";
 import { parseTimeString, computeEventDuration } from "../utils/time.js";
+import { filterEventsByMembership, MembershipPeriod } from "../utils/membershipPeriods.js";
 import { markAbsentForEndedEvents } from "../services/markAbsent.js";
 import { CognitoIdentityProviderClient, AdminDeleteUserCommand, ListUsersCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { registerPushToken, sendPushToEndpoint } from "../notifications/sns.js";
@@ -1186,39 +1187,52 @@ export const resolvers = {
           ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
           : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
 
-        // Get check-ins for events belonging to this team
-        const checkIns = await prisma.checkIn.findMany({
-          where: {
-            userId,
-            event: {
-              OR: [
-                { teamId },
-                { participatingTeams: { some: { id: teamId } } },
-              ],
-            },
-            createdAt: { gte: startDate, lte: endDate },
-            approved: true,
-          },
+        // Cap the season end at today — only count hours that have already occurred
+        const now = new Date();
+        const cappedEnd = new Date(Math.min(endDate.getTime(), now.getTime()));
+
+        // Fetch membership history for this user+team so we can filter events
+        // to only the windows when the member was actually active
+        const historyRows = await prisma.teamMemberHistory.findMany({
+          where: { userId, teamId },
+          orderBy: { joinedAt: "asc" },
         });
+        // Fallback for legacy data: treat the full season as one active period
+        const periods: MembershipPeriod[] = historyRows.length > 0
+          ? historyRows
+          : [{ joinedAt: startDate, leftAt: null }];
 
-        const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
-
-        // Compute hoursRequired as total duration of all events in the period,
-        // not the static per-member quota (which defaults to 0 when unset).
-        const teamEvents = await prisma.event.findMany({
+        // Fetch all team events in the (capped) season window
+        const allTeamEvents = await prisma.event.findMany({
           where: {
             OR: [
               { teamId },
               { participatingTeams: { some: { id: teamId } } },
             ],
-            date: { gte: startDate, lte: endDate },
+            date: { gte: startDate, lte: cappedEnd },
             isAdHoc: false,
           },
-          select: { startTime: true, endTime: true },
+          select: { id: true, date: true, startTime: true, endTime: true },
         });
-        const hoursRequired = teamEvents.reduce(
+
+        // Only include events during the member's active membership windows
+        const memberEvents = filterEventsByMembership(allTeamEvents, periods);
+        const memberEventIds = memberEvents.map((e) => e.id);
+
+        const hoursRequired = memberEvents.reduce(
           (sum, e) => sum + computeEventDuration(e.startTime, e.endTime), 0
         );
+
+        // Check-ins scoped to those specific events
+        const checkIns = await prisma.checkIn.findMany({
+          where: {
+            userId,
+            eventId: { in: memberEventIds },
+            approved: true,
+          },
+        });
+
+        const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
         const attendancePercent = hoursRequired > 0 ? (hoursLogged / hoursRequired) * 100 : 0;
 
         // Team rank — athletes only
@@ -1275,30 +1289,59 @@ export const resolvers = {
         ? getSeasonDateRange(firstTeam.orgSeason.startMonth, firstTeam.orgSeason.endMonth, firstTeam.seasonYear)
         : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
 
-      // Get all check-ins across the org
+      // Cap at today so future events don't inflate hoursRequired
+      const now = new Date();
+      const cappedEnd = new Date(Math.min(endDate.getTime(), now.getTime()));
+
+      // For each team the user is in, filter events to their active membership windows.
+      // This handles multiple join/leave cycles per team.
+      const allEventIdsSet = new Set<string>();
+      let totalHoursRequired = 0;
+
+      for (const m of memberships) {
+        const tid = m.teamId;
+        const { start: tStart, end: tEnd } = m.team?.orgSeason && m.team?.seasonYear
+          ? getSeasonDateRange(m.team.orgSeason.startMonth, m.team.orgSeason.endMonth, m.team.seasonYear)
+          : { start: new Date(0), end: new Date() };
+        const tCappedEnd = new Date(Math.min(tEnd.getTime(), now.getTime()));
+
+        const historyRows = await prisma.teamMemberHistory.findMany({
+          where: { userId, teamId: tid },
+          orderBy: { joinedAt: "asc" },
+        });
+        const periods: MembershipPeriod[] = historyRows.length > 0
+          ? historyRows
+          : [{ joinedAt: tStart, leftAt: null }];
+
+        const teamEvents = await prisma.event.findMany({
+          where: {
+            OR: [{ teamId: tid }, { participatingTeams: { some: { id: tid } } }],
+            date: { gte: tStart, lte: tCappedEnd },
+            isAdHoc: false,
+          },
+          select: { id: true, date: true, startTime: true, endTime: true },
+        });
+
+        const memberEvents = filterEventsByMembership(teamEvents, periods);
+        for (const e of memberEvents) {
+          if (!allEventIdsSet.has(e.id)) {
+            allEventIdsSet.add(e.id);
+            totalHoursRequired += computeEventDuration(e.startTime, e.endTime);
+          }
+        }
+      }
+
+      const allEventIds = [...allEventIdsSet];
       const checkIns = await prisma.checkIn.findMany({
         where: {
           userId,
-          event: { organizationId },
-          createdAt: { gte: startDate, lte: endDate },
+          eventId: { in: allEventIds },
           approved: true,
         },
       });
 
       const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
-
-      // Compute hoursRequired as total duration of all org events in the period
-      const orgEvents = await prisma.event.findMany({
-        where: {
-          organizationId,
-          date: { gte: startDate, lte: endDate },
-          isAdHoc: false,
-        },
-        select: { startTime: true, endTime: true },
-      });
-      const hoursRequired = orgEvents.reduce(
-        (sum, e) => sum + computeEventDuration(e.startTime, e.endTime), 0
-      );
+      const hoursRequired = totalHoursRequired;
       const attendancePercent = hoursRequired > 0 ? (hoursLogged / hoursRequired) * 100 : 0;
 
       // Org rank — athletes only
@@ -1391,38 +1434,53 @@ export const resolvers = {
         ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
         : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
 
-      // Compute total event hours once — shared as hoursRequired for every member
-      const teamEvents = await prisma.event.findMany({
+      // Cap at today so future events don't inflate hoursRequired
+      const now = new Date();
+      const cappedEnd = new Date(Math.min(endDate.getTime(), now.getTime()));
+
+      // Fetch all team events in the capped window — each member may have a different
+      // active subset depending on their join/leave history
+      const allTeamEvents = await prisma.event.findMany({
         where: {
           OR: [{ teamId }, { participatingTeams: { some: { id: teamId } } }],
-          date: { gte: startDate, lte: endDate },
+          date: { gte: startDate, lte: cappedEnd },
           isAdHoc: false,
         },
-        select: { startTime: true, endTime: true },
+        select: { id: true, date: true, startTime: true, endTime: true },
       });
-      const totalEventHours = teamEvents.reduce(
-        (sum, e) => sum + computeEventDuration(e.startTime, e.endTime), 0
-      );
 
       const leaderboard = await Promise.all(
         members.map(async (member) => {
+          const historyRows = await prisma.teamMemberHistory.findMany({
+            where: { userId: member.userId, teamId },
+            orderBy: { joinedAt: "asc" },
+          });
+          const periods: MembershipPeriod[] = historyRows.length > 0
+            ? historyRows
+            : [{ joinedAt: startDate, leftAt: null }];
+
+          const memberEvents = filterEventsByMembership(allTeamEvents, periods);
+          const memberEventIds = memberEvents.map((e) => e.id);
+          const hoursRequired = memberEvents.reduce(
+            (sum, e) => sum + computeEventDuration(e.startTime, e.endTime), 0
+          );
+
           const checkIns = await prisma.checkIn.findMany({
             where: {
               userId: member.userId,
-              event: { teamId },
-              createdAt: { gte: startDate, lte: endDate },
+              eventId: { in: memberEventIds },
               approved: true,
             },
           });
 
           const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
           const attendancePercent =
-            totalEventHours > 0 ? Math.min(100, (hoursLogged / totalEventHours) * 100) : 0;
+            hoursRequired > 0 ? Math.min(100, (hoursLogged / hoursRequired) * 100) : 0;
 
           return {
             user: member.user,
             hoursLogged,
-            hoursRequired: totalEventHours,
+            hoursRequired,
             attendancePercent,
           };
         })
@@ -1455,44 +1513,79 @@ export const resolvers = {
       // Deduplicate users (they might be in multiple teams)
       const uniqueUsers = Array.from(new Map(currentSeasonMembers.map((m) => [m.userId, m])).values());
 
-      // Use season date range from first team (all should be in current season)
-      const firstTeam = currentSeasonMembers[0]?.team;
-      const { start: startDate, end: endDate } = firstTeam?.orgSeason && firstTeam?.seasonYear
-        ? getSeasonDateRange(firstTeam.orgSeason.startMonth, firstTeam.orgSeason.endMonth, firstTeam.seasonYear)
-        : { start: new Date(0), end: new Date() }; // Fallback for legacy teams
+      const now = new Date();
 
-      // Compute total event hours once — shared as hoursRequired for every member
-      const orgEvents = await prisma.event.findMany({
-        where: {
-          organizationId,
-          date: { gte: startDate, lte: endDate },
-          isAdHoc: false,
-        },
-        select: { startTime: true, endTime: true },
-      });
-      const totalEventHours = orgEvents.reduce(
-        (sum, e) => sum + computeEventDuration(e.startTime, e.endTime), 0
-      );
-
+      // For each unique user, compute per-team attendance and average across teams.
+      // Users in multiple teams get an averaged rank rather than a pooled one.
       const leaderboard = await Promise.all(
-        uniqueUsers.map(async (member) => {
-          const checkIns = await prisma.checkIn.findMany({
-            where: {
-              userId: member.userId,
-              event: { organizationId },
-              createdAt: { gte: startDate, lte: endDate },
-              approved: true,
-            },
-          });
+        uniqueUsers.map(async (memberEntry) => {
+          const userId = memberEntry.userId;
 
-          const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
+          // All team memberships this user has in current-season teams
+          const userTeamMemberships = currentSeasonMembers.filter((m) => m.userId === userId);
+
+          let totalHoursLogged = 0;
+          let totalHoursRequired = 0;
+          const teamAttendancePercents: number[] = [];
+
+          for (const m of userTeamMemberships) {
+            const tid = m.teamId;
+            const { start: tStart, end: tEnd } = m.team?.orgSeason && m.team?.seasonYear
+              ? getSeasonDateRange(m.team.orgSeason.startMonth, m.team.orgSeason.endMonth, m.team.seasonYear)
+              : { start: new Date(0), end: new Date() };
+            const tCappedEnd = new Date(Math.min(tEnd.getTime(), now.getTime()));
+
+            const historyRows = await prisma.teamMemberHistory.findMany({
+              where: { userId, teamId: tid },
+              orderBy: { joinedAt: "asc" },
+            });
+            const periods: MembershipPeriod[] = historyRows.length > 0
+              ? historyRows
+              : [{ joinedAt: tStart, leftAt: null }];
+
+            const teamEvents = await prisma.event.findMany({
+              where: {
+                OR: [{ teamId: tid }, { participatingTeams: { some: { id: tid } } }],
+                date: { gte: tStart, lte: tCappedEnd },
+                isAdHoc: false,
+              },
+              select: { id: true, date: true, startTime: true, endTime: true },
+            });
+
+            const memberEvents = filterEventsByMembership(teamEvents, periods);
+            const teamHoursRequired = memberEvents.reduce(
+              (sum, e) => sum + computeEventDuration(e.startTime, e.endTime), 0
+            );
+
+            const checkIns = await prisma.checkIn.findMany({
+              where: {
+                userId,
+                eventId: { in: memberEvents.map((e) => e.id) },
+                approved: true,
+              },
+            });
+            const teamHoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
+
+            totalHoursLogged += teamHoursLogged;
+            totalHoursRequired += teamHoursRequired;
+
+            if (teamHoursRequired > 0) {
+              teamAttendancePercents.push(
+                Math.min(100, (teamHoursLogged / teamHoursRequired) * 100)
+              );
+            }
+          }
+
+          // Average attendance across teams; fall back to 0 if none had events yet
           const attendancePercent =
-            totalEventHours > 0 ? Math.min(100, (hoursLogged / totalEventHours) * 100) : 0;
+            teamAttendancePercents.length > 0
+              ? teamAttendancePercents.reduce((s, p) => s + p, 0) / teamAttendancePercents.length
+              : 0;
 
           return {
-            user: member.user,
-            hoursLogged,
-            hoursRequired: totalEventHours,
+            user: memberEntry.user,
+            hoursLogged: totalHoursLogged,
+            hoursRequired: totalHoursRequired,
             attendancePercent,
           };
         })
@@ -2463,26 +2556,47 @@ export const resolvers = {
       _: unknown,
       { input }: { input: { userId: string; teamId: string; role?: TeamRole; hoursRequired?: number } }
     ) => {
-      return prisma.teamMember.upsert({
-        where: {
-          userId_teamId: {
+      return prisma.$transaction(async (tx) => {
+        const existing = await tx.teamMember.findUnique({
+          where: { userId_teamId: { userId: input.userId, teamId: input.teamId } },
+        });
+
+        const member = await tx.teamMember.upsert({
+          where: { userId_teamId: { userId: input.userId, teamId: input.teamId } },
+          update: {},
+          create: {
             userId: input.userId,
             teamId: input.teamId,
+            role: input.role || "MEMBER",
+            hoursRequired: input.hoursRequired || 0,
           },
-        },
-        update: {},
-        create: {
-          userId: input.userId,
-          teamId: input.teamId,
-          role: input.role || "MEMBER",
-          hoursRequired: input.hoursRequired || 0,
-        },
+        });
+
+        // Only create a history entry on new memberships (not idempotent re-adds)
+        if (!existing) {
+          await tx.teamMemberHistory.create({
+            data: {
+              userId: input.userId,
+              teamId: input.teamId,
+              joinedAt: new Date(),
+            },
+          });
+        }
+
+        return member;
       });
     },
 
     removeTeamMember: async (_: unknown, { userId, teamId }: { userId: string; teamId: string }) => {
-      await prisma.teamMember.delete({
-        where: { userId_teamId: { userId, teamId } },
+      await prisma.$transaction(async (tx) => {
+        // Close the open membership history window
+        await tx.teamMemberHistory.updateMany({
+          where: { userId, teamId, leftAt: null },
+          data: { leftAt: new Date() },
+        });
+        await tx.teamMember.delete({
+          where: { userId_teamId: { userId, teamId } },
+        });
       });
       return true;
     },
@@ -4560,46 +4674,83 @@ export const resolvers = {
       context.loaders.user.load(parent.userId),
     team: (parent: { teamId: string }, _: unknown, context: Context) =>
       context.loaders.team.load(parent.teamId),
-    hoursLogged: async (parent: { userId: string; teamId: string }, _: unknown, context: Context) => {
-      // Use team loader (batched) instead of a separate findUnique per member
+    hoursLogged: async (parent: { userId: string; teamId: string; joinedAt?: Date }, _: unknown, context: Context) => {
       const team = await context.loaders.team.load(parent.teamId) as any;
 
-      const { start: startDate, end: endDate } = team?.orgSeason && team?.seasonYear
+      const { start: startDate, end: rawEnd } = team?.orgSeason && team?.seasonYear
         ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
         : { start: new Date(0), end: new Date() };
+      const cappedEnd = new Date(Math.min(rawEnd.getTime(), Date.now()));
+
+      const historyRows = await prisma.teamMemberHistory.findMany({
+        where: { userId: parent.userId, teamId: parent.teamId },
+        orderBy: { joinedAt: "asc" },
+      });
+      const periods: MembershipPeriod[] = historyRows.length > 0
+        ? historyRows
+        : [{ joinedAt: parent.joinedAt ?? startDate, leftAt: null }];
+
+      const teamEvents = await prisma.event.findMany({
+        where: {
+          OR: [{ teamId: parent.teamId }, { participatingTeams: { some: { id: parent.teamId } } }],
+          date: { gte: startDate, lte: cappedEnd },
+          isAdHoc: false,
+        },
+        select: { id: true, date: true },
+      });
+      const memberEventIds = filterEventsByMembership(teamEvents, periods).map((e) => e.id);
 
       const checkIns = await prisma.checkIn.findMany({
         where: {
           userId: parent.userId,
-          event: { teamId: parent.teamId },
-          createdAt: { gte: startDate, lte: endDate },
+          eventId: { in: memberEventIds },
           approved: true,
         },
       });
       return checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
     },
     attendancePercent: async (
-      parent: { userId: string; teamId: string; hoursRequired: number },
+      parent: { userId: string; teamId: string; hoursRequired: number; joinedAt?: Date },
       _: unknown,
       context: Context
     ) => {
-      // Use team loader (batched) instead of a separate findUnique per member
       const team = await context.loaders.team.load(parent.teamId) as any;
 
-      const { start: startDate, end: endDate } = team?.orgSeason && team?.seasonYear
+      const { start: startDate, end: rawEnd } = team?.orgSeason && team?.seasonYear
         ? getSeasonDateRange(team.orgSeason.startMonth, team.orgSeason.endMonth, team.seasonYear)
         : { start: new Date(0), end: new Date() };
+      const cappedEnd = new Date(Math.min(rawEnd.getTime(), Date.now()));
+
+      const historyRows = await prisma.teamMemberHistory.findMany({
+        where: { userId: parent.userId, teamId: parent.teamId },
+        orderBy: { joinedAt: "asc" },
+      });
+      const periods: MembershipPeriod[] = historyRows.length > 0
+        ? historyRows
+        : [{ joinedAt: parent.joinedAt ?? startDate, leftAt: null }];
+
+      const teamEvents = await prisma.event.findMany({
+        where: {
+          OR: [{ teamId: parent.teamId }, { participatingTeams: { some: { id: parent.teamId } } }],
+          date: { gte: startDate, lte: cappedEnd },
+          isAdHoc: false,
+        },
+        select: { id: true, date: true, startTime: true, endTime: true },
+      });
+      const memberEvents = filterEventsByMembership(teamEvents, periods);
+      const hoursRequired = memberEvents.reduce(
+        (sum, e) => sum + computeEventDuration(e.startTime, e.endTime), 0
+      );
 
       const checkIns = await prisma.checkIn.findMany({
         where: {
           userId: parent.userId,
-          event: { teamId: parent.teamId },
-          createdAt: { gte: startDate, lte: endDate },
+          eventId: { in: memberEvents.map((e) => e.id) },
           approved: true,
         },
       });
       const hoursLogged = checkIns.reduce((sum, c) => sum + (c.hoursLogged || 0), 0);
-      return parent.hoursRequired > 0 ? Math.min(100, (hoursLogged / parent.hoursRequired) * 100) : 0;
+      return hoursRequired > 0 ? Math.min(100, (hoursLogged / hoursRequired) * 100) : 0;
     },
     joinedAt: (parent: any) => toISO(parent.joinedAt),
   },
