@@ -201,14 +201,24 @@ export default function LandingPage() {
               </button>
             </div>
           </div>
-          <div className="flex justify-center">
-            <div className="w-64 h-[500px] bg-white/5 rounded-[2.5rem] border-2 border-white/8 flex items-center justify-center p-8">
-              <div className="text-center">
-                <Smartphone className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-                <p className="text-white/50 text-sm">
-                  Mobile app coming soon to iOS and Android
-                </p>
-              </div>
+          <div className="flex justify-center gap-4">
+            <div className="w-56 h-[480px] rounded-[2.5rem] border-2 border-white/8 overflow-hidden shadow-2xl">
+              <Image
+                src="/previews/mobile_1.PNG"
+                alt="Athletiq mobile app"
+                width={224}
+                height={480}
+                className="w-full h-full object-cover object-top"
+              />
+            </div>
+            <div className="hidden sm:block w-56 h-[480px] rounded-[2.5rem] border-2 border-white/8 overflow-hidden shadow-2xl">
+              <Image
+                src="/previews/mobile_2.PNG"
+                alt="Athletiq mobile app screen"
+                width={224}
+                height={480}
+                className="w-full h-full object-cover object-top"
+              />
             </div>
           </div>
         </div>
@@ -219,25 +229,14 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 py-20">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div className="order-2 lg:order-1 flex justify-center">
-              <div className="w-full max-w-md bg-white/5 rounded-xl border border-white/8 p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-8 h-8 bg-purple-600/20 rounded-lg flex items-center justify-center">
-                    <Monitor className="w-4 h-4 text-purple-400" />
-                  </div>
-                  <span className="text-sm font-medium text-white/80">
-                    Dashboard Preview
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  <div className="h-3 bg-white/10 rounded-full w-3/4"></div>
-                  <div className="h-3 bg-white/10 rounded-full w-1/2"></div>
-                  <div className="grid grid-cols-3 gap-3 mt-4">
-                    <div className="h-20 bg-purple-600/10 border border-purple-500/20 rounded-lg"></div>
-                    <div className="h-20 bg-blue-600/10 border border-blue-500/20 rounded-lg"></div>
-                    <div className="h-20 bg-green-600/10 border border-green-500/20 rounded-lg"></div>
-                  </div>
-                  <div className="h-32 bg-white/5 rounded-lg mt-4"></div>
-                </div>
+              <div className="w-full max-w-lg rounded-xl border border-white/8 overflow-hidden shadow-2xl">
+                <Image
+                  src="/previews/web_1.png"
+                  alt="Athletiq web dashboard"
+                  width={640}
+                  height={400}
+                  className="w-full h-auto object-cover object-top"
+                />
               </div>
             </div>
             <div className="order-1 lg:order-2">
