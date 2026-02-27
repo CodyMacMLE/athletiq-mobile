@@ -183,6 +183,15 @@ function isTeamInCurrentSeason(team: { orgSeasonId?: string | null; seasonYear?:
   return now >= start && now <= end;
 }
 
+function toWeekStart(date: Date): string {
+  const d = new Date(date);
+  const day = d.getUTCDay(); // 0=Sun
+  const diff = day === 0 ? -6 : 1 - day; // shift to Monday
+  d.setUTCDate(d.getUTCDate() + diff);
+  d.setUTCHours(0, 0, 0, 0);
+  return d.toISOString().split("T")[0];
+}
+
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function generateSeasonDisplayString(seasonName: string, seasonYear: number): string {
@@ -1644,6 +1653,111 @@ export const resolvers = {
         ...entry,
         rank: index + 1,
       }));
+    },
+
+    attendanceTrends: async (
+      _: unknown,
+      { organizationId, teamId }: { organizationId: string; teamId?: string }
+    ) => {
+      // Resolve season date range from the org's active teams
+      const teams = await prisma.team.findMany({
+        where: { organizationId, archivedAt: null },
+        include: { orgSeason: true },
+      });
+      const currentTeams = teams.filter(isTeamInCurrentSeason);
+
+      const now = new Date();
+      let startDate: Date;
+      let endDate: Date;
+
+      // Use the first current-season team's date range, or fall back to full year
+      const referenceTeam = teamId
+        ? currentTeams.find((t) => t.id === teamId) ?? currentTeams[0]
+        : currentTeams[0];
+
+      if (referenceTeam?.orgSeason && referenceTeam?.seasonYear) {
+        const range = getSeasonDateRange(
+          referenceTeam.orgSeason.startMonth,
+          referenceTeam.orgSeason.endMonth,
+          referenceTeam.seasonYear
+        );
+        startDate = range.start;
+        endDate = range.end;
+      } else {
+        startDate = new Date(Date.UTC(now.getUTCFullYear(), 0, 1)); // Jan 1 current year
+        endDate = new Date(Date.UTC(now.getUTCFullYear(), 11, 31)); // Dec 31 current year
+      }
+
+      // Cap end at today so future events don't appear
+      const cappedEnd = new Date(Math.min(endDate.getTime(), now.getTime()));
+
+      // Fetch all non-adhoc events in range
+      const eventWhere = teamId
+        ? {
+            organizationId,
+            isAdHoc: false,
+            date: { gte: startDate, lte: cappedEnd },
+            OR: [
+              { teamId },
+              { participatingTeams: { some: { id: teamId } } },
+            ],
+          }
+        : {
+            organizationId,
+            isAdHoc: false,
+            date: { gte: startDate, lte: cappedEnd },
+          };
+
+      const events = await prisma.event.findMany({
+        where: eventWhere,
+        select: { id: true, date: true, startTime: true, endTime: true },
+      });
+
+      if (events.length === 0) return [];
+
+      const eventIds = events.map((e) => e.id);
+
+      // Fetch all approved check-ins for these events
+      const checkIns = await prisma.checkIn.findMany({
+        where: { eventId: { in: eventIds }, approved: true },
+        select: { eventId: true, hoursLogged: true },
+      });
+
+      // Build a map: eventId → total hoursLogged from check-ins
+      const checkInByEvent = new Map<string, number>();
+      for (const c of checkIns) {
+        checkInByEvent.set(c.eventId, (checkInByEvent.get(c.eventId) ?? 0) + (c.hoursLogged ?? 0));
+      }
+
+      // Group events by ISO week (Monday as week start)
+      const weekMap = new Map<string, { hoursRequired: number; hoursLogged: number; eventsCount: number }>();
+      for (const event of events) {
+        const weekStart = toWeekStart(event.date);
+        const duration = computeEventDuration(event.startTime, event.endTime);
+        const logged = checkInByEvent.get(event.id) ?? 0;
+        const existing = weekMap.get(weekStart);
+        if (existing) {
+          existing.hoursRequired += duration;
+          existing.hoursLogged += logged;
+          existing.eventsCount += 1;
+        } else {
+          weekMap.set(weekStart, { hoursRequired: duration, hoursLogged: logged, eventsCount: 1 });
+        }
+      }
+
+      // Build and sort result
+      const result = Array.from(weekMap.entries())
+        .filter(([, w]) => w.eventsCount > 0)
+        .map(([weekStart, w]) => ({
+          weekStart,
+          hoursRequired: w.hoursRequired,
+          hoursLogged: w.hoursLogged,
+          eventsCount: w.eventsCount,
+          attendancePercent: w.hoursRequired > 0 ? Math.min(100, (w.hoursLogged / w.hoursRequired) * 100) : 0,
+        }));
+
+      result.sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+      return result;
     },
 
     recentActivity: async (

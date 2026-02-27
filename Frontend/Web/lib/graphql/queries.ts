@@ -894,3 +894,15 @@ export const GET_ORG_COACH_HOURS = gql`
     }
   }
 `;
+
+export const GET_ATTENDANCE_TRENDS = gql`
+  query GetAttendanceTrends($organizationId: ID!, $teamId: ID) {
+    attendanceTrends(organizationId: $organizationId, teamId: $teamId) {
+      weekStart
+      attendancePercent
+      hoursLogged
+      hoursRequired
+      eventsCount
+    }
+  }
+`;

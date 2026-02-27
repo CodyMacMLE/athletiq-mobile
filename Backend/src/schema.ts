@@ -608,6 +608,14 @@ export const typeDefs = `#graphql
     eventCount: Int!
   }
 
+  type AttendanceTrendPoint {
+    weekStart: String!
+    attendancePercent: Float!
+    hoursLogged: Float!
+    hoursRequired: Float!
+    eventsCount: Int!
+  }
+
   type EventsCount {
     PRACTICE: Int!
     MEETING: Int!
@@ -945,6 +953,7 @@ export const typeDefs = `#graphql
     teamLeaderboard(teamId: ID!, timeRange: TimeRange, limit: Int): [LeaderboardEntry!]!
     organizationLeaderboard(organizationId: ID!, timeRange: TimeRange, limit: Int): [LeaderboardEntry!]!
     teamRankings(organizationId: ID!, timeRange: TimeRange): [TeamRanking!]!
+    attendanceTrends(organizationId: ID!, teamId: ID): [AttendanceTrendPoint!]!
     recentActivity(organizationId: ID!, teamId: ID, limit: Int): [RecentActivity!]!
 
     # Coach hours / payroll queries
