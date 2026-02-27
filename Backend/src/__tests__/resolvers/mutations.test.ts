@@ -21,6 +21,9 @@ vi.mock("../../db.js", () => ({
     checkIn: { deleteMany: vi.fn() },
     event: { findMany: vi.fn(), deleteMany: vi.fn() },
     auditLog: { create: vi.fn() },
+    customRole: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    teamChallenge: { create: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
+    athleteRecognition: { create: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn(), delete: vi.fn() },
   },
 }));
 
@@ -46,10 +49,16 @@ import { prisma } from "../../db.js";
 const mockOrgCreate = vi.mocked(prisma.organization.create);
 const mockOrgMemberCreate = vi.mocked(prisma.organizationMember.create);
 const mockOrgMemberFindUnique = vi.mocked(prisma.organizationMember.findUnique);
+const mockOrgMemberUpdate = vi.mocked(prisma.organizationMember.update);
 const mockOrgFindUnique = vi.mocked(prisma.organization.findUnique);
 const mockOrgDelete = vi.mocked(prisma.organization.delete);
 const mockAuditCreate = vi.mocked(prisma.auditLog.create);
 const mockUserUpdate = vi.mocked(prisma.user.update);
+const mockCustomRoleCreate = vi.mocked(prisma.customRole.create);
+const mockCustomRoleFindUnique = vi.mocked(prisma.customRole.findUnique);
+const mockTeamChallengeCreate = vi.mocked(prisma.teamChallenge.create);
+const mockAthleteRecognitionCreate = vi.mocked(prisma.athleteRecognition.create);
+const mockAthleteRecognitionDeleteMany = vi.mocked(prisma.athleteRecognition.deleteMany);
 
 const makeContext = (userId?: string) => ({
   userId,
@@ -206,3 +215,201 @@ describe("Mutation.deleteOrganization", () => {
     );
   });
 });
+
+// ─── createCustomRole ─────────────────────────────────────────────────────────
+describe("Mutation.createCustomRole", () => {
+  it("creates a custom role when called by an admin", async () => {
+    // requireOrgAdmin → findUnique returns ADMIN role
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "ADMIN" } as any);
+    const role = {
+      id: "role-1", organizationId: "org-1", name: "Video Coordinator",
+      canEditEvents: false, canApproveExcuses: false, canViewAnalytics: true,
+      canManageMembers: false, canManageTeams: false, canManagePayments: false,
+    };
+    mockCustomRoleCreate.mockResolvedValue(role as any);
+
+    const result = await resolvers.Mutation.createCustomRole(
+      null,
+      { organizationId: "org-1", name: "Video Coordinator", canViewAnalytics: true },
+      makeContext("admin-1")
+    );
+
+    expect(mockCustomRoleCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ name: "Video Coordinator", organizationId: "org-1" }) })
+    );
+    expect(result).toEqual(role);
+  });
+
+  it("throws FORBIDDEN when called by a non-admin", async () => {
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "COACH" } as any);
+    await expect(
+      resolvers.Mutation.createCustomRole(
+        null,
+        { organizationId: "org-1", name: "Test Role" },
+        makeContext("coach-1")
+      )
+    ).rejects.toThrow(
+      expect.objectContaining({ extensions: expect.objectContaining({ code: "FORBIDDEN" }) })
+    );
+    expect(mockCustomRoleCreate).not.toHaveBeenCalled();
+  });
+
+  it("throws UNAUTHENTICATED when unauthenticated", async () => {
+    await expect(
+      resolvers.Mutation.createCustomRole(null, { organizationId: "org-1", name: "Test" }, makeContext())
+    ).rejects.toThrow(
+      expect.objectContaining({ extensions: expect.objectContaining({ code: "UNAUTHENTICATED" }) })
+    );
+  });
+});
+
+// ─── assignCustomRole ─────────────────────────────────────────────────────────
+describe("Mutation.assignCustomRole", () => {
+  it("assigns a custom role to a member", async () => {
+    // First findUnique: OrganizationMember lookup to get organizationId
+    // Second findUnique (via requireOrgAdmin): to check the caller's role
+    mockOrgMemberFindUnique
+      .mockResolvedValueOnce({ organizationId: "org-1" } as any)  // get member's org
+      .mockResolvedValueOnce({ role: "ADMIN" } as any);            // auth check
+    const updatedMember = { id: "mem-1", customRoleId: "role-1" };
+    mockOrgMemberUpdate.mockResolvedValue(updatedMember as any);
+
+    const result = await resolvers.Mutation.assignCustomRole(
+      null,
+      { memberId: "mem-1", customRoleId: "role-1" },
+      makeContext("admin-1")
+    );
+
+    expect(mockOrgMemberUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "mem-1" }, data: { customRoleId: "role-1" } })
+    );
+    expect(result).toEqual(updatedMember);
+  });
+
+  it("unassigns a custom role when customRoleId is null", async () => {
+    mockOrgMemberFindUnique
+      .mockResolvedValueOnce({ organizationId: "org-1" } as any)
+      .mockResolvedValueOnce({ role: "OWNER" } as any);
+    mockOrgMemberUpdate.mockResolvedValue({ id: "mem-1", customRoleId: null } as any);
+
+    await resolvers.Mutation.assignCustomRole(
+      null,
+      { memberId: "mem-1", customRoleId: null },
+      makeContext("owner-1")
+    );
+
+    expect(mockOrgMemberUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { customRoleId: null } })
+    );
+  });
+});
+
+// ─── createTeamChallenge ──────────────────────────────────────────────────────
+describe("Mutation.createTeamChallenge", () => {
+  it("creates a team challenge when called by a coach", async () => {
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "COACH" } as any);
+    const challenge = {
+      id: "chal-1", teamId: "team-1", title: "80% Attendance",
+      targetPercent: 80, startDate: new Date("2025-01-01"), endDate: new Date("2025-03-31"),
+      createdBy: "coach-1", creator: { id: "coach-1" }, team: { id: "team-1" },
+    };
+    mockTeamChallengeCreate.mockResolvedValue(challenge as any);
+
+    const result = await resolvers.Mutation.createTeamChallenge(
+      null,
+      {
+        teamId: "team-1",
+        organizationId: "org-1",
+        title: "80% Attendance",
+        targetPercent: 80,
+        startDate: "2025-01-01",
+        endDate: "2025-03-31",
+      },
+      makeContext("coach-1")
+    );
+
+    expect(mockTeamChallengeCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          teamId: "team-1",
+          organizationId: "org-1",
+          title: "80% Attendance",
+          targetPercent: 80,
+          createdBy: "coach-1",
+        }),
+      })
+    );
+    expect(result).toMatchObject({ id: "chal-1", currentPercent: 0 });
+  });
+
+  it("throws FORBIDDEN when called by an athlete", async () => {
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "ATHLETE" } as any);
+    await expect(
+      resolvers.Mutation.createTeamChallenge(
+        null,
+        { teamId: "t1", organizationId: "org-1", title: "Test", targetPercent: 80, startDate: "2025-01-01", endDate: "2025-03-31" },
+        makeContext("athlete-1")
+      )
+    ).rejects.toThrow(
+      expect.objectContaining({ extensions: expect.objectContaining({ code: "FORBIDDEN" }) })
+    );
+  });
+});
+
+// ─── createAthleteRecognition ─────────────────────────────────────────────────
+describe("Mutation.createAthleteRecognition", () => {
+  it("creates an athlete recognition when called by a coach", async () => {
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "COACH" } as any);
+    mockAthleteRecognitionDeleteMany.mockResolvedValue({ count: 0 } as any);
+    const recognition = {
+      id: "rec-1", userId: "athlete-1", teamId: "team-1",
+      period: expect.any(String), periodType: "WEEK",
+      user: { id: "athlete-1" }, team: { id: "team-1" }, nominator: { id: "coach-1" },
+      createdAt: new Date(),
+    };
+    mockAthleteRecognitionCreate.mockResolvedValue(recognition as any);
+
+    const result = await resolvers.Mutation.createAthleteRecognition(
+      null,
+      {
+        userId: "athlete-1",
+        teamId: "team-1",
+        organizationId: "org-1",
+        periodType: "WEEK",
+        note: "Great hustle this week",
+      },
+      makeContext("coach-1")
+    );
+
+    expect(mockAthleteRecognitionDeleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ teamId: "team-1" }) })
+    );
+    expect(mockAthleteRecognitionCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: "athlete-1",
+          teamId: "team-1",
+          organizationId: "org-1",
+          nominatedBy: "coach-1",
+          periodType: "WEEK",
+          note: "Great hustle this week",
+        }),
+      })
+    );
+    expect(result).toEqual(recognition);
+  });
+
+  it("throws FORBIDDEN when called by an athlete", async () => {
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "ATHLETE" } as any);
+    await expect(
+      resolvers.Mutation.createAthleteRecognition(
+        null,
+        { userId: "a1", teamId: "t1", organizationId: "org-1", periodType: "WEEK" },
+        makeContext("athlete-1")
+      )
+    ).rejects.toThrow(
+      expect.objectContaining({ extensions: expect.objectContaining({ code: "FORBIDDEN" }) })
+    );
+  });
+});
+

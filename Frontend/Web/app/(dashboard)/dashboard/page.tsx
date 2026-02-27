@@ -2,11 +2,11 @@
 
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
-import { GET_ORGANIZATION, GET_ORGANIZATION_STATS, GET_PENDING_EXCUSE_REQUESTS, GET_PENDING_AD_HOC_CHECK_INS } from "@/lib/graphql";
+import { GET_ORGANIZATION, GET_ORGANIZATION_STATS, GET_PENDING_EXCUSE_REQUESTS, GET_PENDING_AD_HOC_CHECK_INS, GET_USER_BADGES } from "@/lib/graphql";
 import { UPDATE_EXCUSE_REQUEST } from "@/lib/graphql/mutations";
-import { Users, Calendar, TrendingUp, AlertCircle, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, Calendar, TrendingUp, AlertCircle, CheckCircle, XCircle, Clock, ChevronLeft, ChevronRight, Award, X } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const PAGE_SIZE = 5;
 
@@ -36,10 +36,11 @@ function Pagination({ page, totalPages, onPrev, onNext }: { page: number; totalP
 }
 
 export default function Dashboard() {
-  const { selectedOrganizationId, canEdit } = useAuth();
+  const { selectedOrganizationId, canEdit, user: currentUser } = useAuth();
   const [rankingsPage, setRankingsPage] = useState(1);
   const [excusesPage, setExcusesPage] = useState(1);
   const [updatingExcuseId, setUpdatingExcuseId] = useState<string | null>(null);
+  const [newBadgeToasts, setNewBadgeToasts] = useState<{ id: string; name: string; icon: string }[]>([]);
 
   const STAFF_ROLES = ["OWNER", "ADMIN", "MANAGER", "COACH"];
 
@@ -62,6 +63,24 @@ export default function Dashboard() {
     variables: { organizationId: selectedOrganizationId },
     skip: !selectedOrganizationId,
   });
+
+  const { data: badgesData } = useQuery<any>(GET_USER_BADGES, {
+    variables: { userId: currentUser?.id, organizationId: selectedOrganizationId },
+    skip: !currentUser?.id || !selectedOrganizationId,
+  });
+
+  useEffect(() => {
+    if (!badgesData?.getUserBadges?.badges) return;
+    const newBadges = badgesData.getUserBadges.badges.filter((b: any) => b.isNew);
+    if (newBadges.length === 0) return;
+
+    // Filter out already-dismissed badges in this session
+    const dismissed = new Set(JSON.parse(sessionStorage.getItem("dismissedBadges") || "[]"));
+    const toShow = newBadges.filter((b: any) => !dismissed.has(b.id));
+    if (toShow.length > 0) {
+      setNewBadgeToasts(toShow.map((b: any) => ({ id: b.id, name: b.name, icon: b.icon })));
+    }
+  }, [badgesData]);
 
   const [updateExcuse] = useMutation(UPDATE_EXCUSE_REQUEST, {
     onCompleted: () => setUpdatingExcuseId(null),
@@ -92,8 +111,41 @@ export default function Dashboard() {
     );
   }
 
+  const dismissBadgeToast = (badgeId: string) => {
+    const dismissed = new Set(JSON.parse(sessionStorage.getItem("dismissedBadges") || "[]"));
+    dismissed.add(badgeId);
+    sessionStorage.setItem("dismissedBadges", JSON.stringify([...dismissed]));
+    setNewBadgeToasts((prev) => prev.filter((b) => b.id !== badgeId));
+  };
+
   return (
     <div>
+      {/* Badge achievement toasts */}
+      {newBadgeToasts.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+          {newBadgeToasts.map((badge) => (
+            <div
+              key={badge.id}
+              className="flex items-center gap-3 bg-[#1a1a2e] border border-[#6c5ce7]/40 rounded-xl px-4 py-3 shadow-2xl min-w-[280px] animate-in slide-in-from-right"
+            >
+              <div className="w-10 h-10 bg-[#6c5ce7]/20 rounded-full flex items-center justify-center text-xl shrink-0">
+                {badge.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[#a78bfa] text-xs font-medium uppercase tracking-wide">Achievement Unlocked!</p>
+                <p className="text-white font-semibold text-sm truncate">{badge.name}</p>
+              </div>
+              <button
+                onClick={() => dismissBadgeToast(badge.id)}
+                className="p-1 text-white/40 hover:text-white transition-colors shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white">{org?.name || "Dashboard"}</h1>
         <p className="text-white/55 mt-1">Organization overview and quick stats</p>

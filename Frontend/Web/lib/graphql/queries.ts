@@ -402,6 +402,10 @@ export const GET_ORGANIZATION_USERS = gql`
         id
         role
         athleteStatus
+        customRole {
+          id
+          name
+        }
         user {
           ...UserFields
           memberships {
@@ -628,24 +632,6 @@ export const GET_USER_STATS = gql`
       orgSize
       currentStreak
       bestStreak
-    }
-  }
-`;
-
-export const GET_USER_BADGES = gql`
-  query GetUserBadges($userId: ID!, $organizationId: ID!) {
-    getUserBadges(userId: $userId, organizationId: $organizationId) {
-      totalEarned
-      badges {
-        id
-        name
-        description
-        category
-        icon
-        earned
-        progress
-        threshold
-      }
     }
   }
 `;
@@ -903,6 +889,116 @@ export const GET_ATTENDANCE_TRENDS = gql`
       hoursLogged
       hoursRequired
       eventsCount
+    }
+  }
+`;
+
+export const GET_CUSTOM_ROLES = gql`
+  query GetCustomRoles($organizationId: ID!) {
+    customRoles(organizationId: $organizationId) {
+      id
+      name
+      description
+      canEditEvents
+      canApproveExcuses
+      canViewAnalytics
+      canManageMembers
+      canManageTeams
+      canManagePayments
+    }
+  }
+`;
+
+export const GET_USER_BADGES = gql`
+  query GetUserBadges($userId: ID!, $organizationId: ID!) {
+    getUserBadges(userId: $userId, organizationId: $organizationId) {
+      totalEarned
+      badges {
+        id
+        name
+        description
+        category
+        icon
+        earned
+        earnedAt
+        isNew
+        progress
+        threshold
+      }
+    }
+  }
+`;
+
+export const GET_TEAM_CHALLENGES = gql`
+  query GetTeamChallenges($teamId: ID!) {
+    teamChallenges(teamId: $teamId) {
+      id
+      title
+      description
+      targetPercent
+      startDate
+      endDate
+      currentPercent
+      completedAt
+      createdBy {
+        id
+        firstName
+        lastName
+      }
+      team {
+        id
+        name
+      }
+    }
+  }
+`;
+
+export const GET_TEAM_RECOGNITIONS = gql`
+  query GetTeamRecognitions($teamId: ID!, $limit: Int) {
+    teamRecognitions(teamId: $teamId, limit: $limit) {
+      id
+      period
+      periodType
+      note
+      createdAt
+      user {
+        id
+        firstName
+        lastName
+        image
+      }
+      nominatedBy {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
+
+export const GET_RECENT_RECOGNITIONS = gql`
+  query GetRecentRecognitions($organizationId: ID!, $limit: Int) {
+    recentRecognitions(organizationId: $organizationId, limit: $limit) {
+      id
+      period
+      periodType
+      note
+      createdAt
+      user {
+        id
+        firstName
+        lastName
+        image
+      }
+      team {
+        id
+        name
+      }
+      nominatedBy {
+        id
+        firstName
+        lastName
+      }
     }
   }
 `;

@@ -11,8 +11,10 @@ import {
   CREATE_INVITE,
   CANCEL_INVITE,
   RESEND_INVITE,
+  GET_CUSTOM_ROLES,
 } from "@/lib/graphql";
-import { Search, Trash2, X, UserPlus, Mail, RefreshCw, Clock, ChevronDown } from "lucide-react";
+import { ASSIGN_CUSTOM_ROLE } from "@/lib/graphql/mutations";
+import { Search, Trash2, X, UserPlus, Mail, RefreshCw, Clock, ChevronDown, Tag } from "lucide-react";
 
 type TeamAssignment = {
   id: string;
@@ -23,9 +25,15 @@ type TeamAssignment = {
   };
 };
 
+type CustomRole = {
+  id: string;
+  name: string;
+};
+
 type OrgMember = {
   id: string;
   role: string;
+  customRole?: CustomRole | null;
   user: {
     id: string;
     email: string;
@@ -63,6 +71,13 @@ export default function UsersPage() {
   const [removeOrgMember] = useMutation<any>(REMOVE_ORG_MEMBER);
   const [cancelInvite] = useMutation<any>(CANCEL_INVITE);
   const [resendInvite] = useMutation<any>(RESEND_INVITE);
+  const [assignCustomRole] = useMutation<any>(ASSIGN_CUSTOM_ROLE);
+
+  const { data: rolesData } = useQuery<any>(GET_CUSTOM_ROLES, {
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId || (!isOwner && !isAdmin),
+  });
+  const customRoles: CustomRole[] = rolesData?.customRoles || [];
 
   const orgMembers: OrgMember[] = data?.organization?.members || [];
   const pendingInvites: Invite[] = data?.organization?.invites || [];
@@ -262,13 +277,37 @@ export default function UsersPage() {
                   </Link>
                 </td>
                 <td className="px-6 py-4">
-                  <Link href={`/users/${member.user.id}`}>
-                    <span
-                      className={`px-2 py-1 text-xs font-medium rounded ${roleBadge(member.role)}`}
-                    >
-                      {member.role}
-                    </span>
-                  </Link>
+                  <div className="flex flex-col gap-1">
+                    <Link href={`/users/${member.user.id}`}>
+                      <span className={`px-2 py-1 text-xs font-medium rounded ${roleBadge(member.role)}`}>
+                        {member.role}
+                      </span>
+                    </Link>
+                    {member.customRole && (
+                      <span className="flex items-center gap-1 px-2 py-0.5 bg-[#6c5ce7]/20 text-[#a78bfa] rounded text-xs w-fit">
+                        <Tag className="w-3 h-3" />
+                        {member.customRole.name}
+                      </span>
+                    )}
+                    {(isOwner || isAdmin) && customRoles.length > 0 && (
+                      <select
+                        value={member.customRole?.id || ""}
+                        onChange={(e) => {
+                          assignCustomRole({
+                            variables: { memberId: member.id, customRoleId: e.target.value || null },
+                            onCompleted: () => refetch(),
+                          });
+                        }}
+                        className="mt-0.5 appearance-none px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-white/60 hover:text-white cursor-pointer focus:outline-none max-w-[140px]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <option value="">No custom role</option>
+                        {customRoles.map((r) => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4">
                   <Link href={`/users/${member.user.id}`}>

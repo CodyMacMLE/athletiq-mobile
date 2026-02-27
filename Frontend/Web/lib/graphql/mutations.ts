@@ -730,3 +730,177 @@ export const UPDATE_COACH_HOURLY_RATE = gql`
     }
   }
 `;
+
+export const CREATE_CUSTOM_ROLE = gql`
+  mutation CreateCustomRole(
+    $organizationId: ID!
+    $name: String!
+    $description: String
+    $canEditEvents: Boolean
+    $canApproveExcuses: Boolean
+    $canViewAnalytics: Boolean
+    $canManageMembers: Boolean
+    $canManageTeams: Boolean
+    $canManagePayments: Boolean
+  ) {
+    createCustomRole(
+      organizationId: $organizationId
+      name: $name
+      description: $description
+      canEditEvents: $canEditEvents
+      canApproveExcuses: $canApproveExcuses
+      canViewAnalytics: $canViewAnalytics
+      canManageMembers: $canManageMembers
+      canManageTeams: $canManageTeams
+      canManagePayments: $canManagePayments
+    ) {
+      id
+      name
+      description
+      canEditEvents
+      canApproveExcuses
+      canViewAnalytics
+      canManageMembers
+      canManageTeams
+      canManagePayments
+    }
+  }
+`;
+
+export const UPDATE_CUSTOM_ROLE = gql`
+  mutation UpdateCustomRole(
+    $id: ID!
+    $name: String
+    $description: String
+    $canEditEvents: Boolean
+    $canApproveExcuses: Boolean
+    $canViewAnalytics: Boolean
+    $canManageMembers: Boolean
+    $canManageTeams: Boolean
+    $canManagePayments: Boolean
+  ) {
+    updateCustomRole(
+      id: $id
+      name: $name
+      description: $description
+      canEditEvents: $canEditEvents
+      canApproveExcuses: $canApproveExcuses
+      canViewAnalytics: $canViewAnalytics
+      canManageMembers: $canManageMembers
+      canManageTeams: $canManageTeams
+      canManagePayments: $canManagePayments
+    ) {
+      id
+      name
+      description
+      canEditEvents
+      canApproveExcuses
+      canViewAnalytics
+      canManageMembers
+      canManageTeams
+      canManagePayments
+    }
+  }
+`;
+
+export const DELETE_CUSTOM_ROLE = gql`
+  mutation DeleteCustomRole($id: ID!) {
+    deleteCustomRole(id: $id)
+  }
+`;
+
+export const ASSIGN_CUSTOM_ROLE = gql`
+  mutation AssignCustomRole($memberId: ID!, $customRoleId: ID) {
+    assignCustomRole(memberId: $memberId, customRoleId: $customRoleId) {
+      id
+      role
+      customRole {
+        id
+        name
+      }
+      user {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
+
+export const CREATE_TEAM_CHALLENGE = gql`
+  mutation CreateTeamChallenge(
+    $teamId: ID!
+    $organizationId: ID!
+    $title: String!
+    $description: String
+    $targetPercent: Float!
+    $startDate: String!
+    $endDate: String!
+  ) {
+    createTeamChallenge(
+      teamId: $teamId
+      organizationId: $organizationId
+      title: $title
+      description: $description
+      targetPercent: $targetPercent
+      startDate: $startDate
+      endDate: $endDate
+    ) {
+      id
+      title
+      description
+      targetPercent
+      startDate
+      endDate
+      currentPercent
+      completedAt
+    }
+  }
+`;
+
+export const DELETE_TEAM_CHALLENGE = gql`
+  mutation DeleteTeamChallenge($id: ID!) {
+    deleteTeamChallenge(id: $id)
+  }
+`;
+
+export const CREATE_ATHLETE_RECOGNITION = gql`
+  mutation CreateAthleteRecognition(
+    $userId: ID!
+    $teamId: ID!
+    $organizationId: ID!
+    $periodType: String!
+    $note: String
+  ) {
+    createAthleteRecognition(
+      userId: $userId
+      teamId: $teamId
+      organizationId: $organizationId
+      periodType: $periodType
+      note: $note
+    ) {
+      id
+      period
+      periodType
+      note
+      createdAt
+      user {
+        id
+        firstName
+        lastName
+        image
+      }
+      nominatedBy {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
+
+export const DELETE_ATHLETE_RECOGNITION = gql`
+  mutation DeleteAthleteRecognition($id: ID!) {
+    deleteAthleteRecognition(id: $id)
+  }
+`;

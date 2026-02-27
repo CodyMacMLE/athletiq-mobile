@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
-import { GET_ORG_SEASONS, CREATE_ORG_SEASON, UPDATE_ORG_SEASON, DELETE_ORG_SEASON, GET_ORGANIZATION, UPDATE_ORGANIZATION_SETTINGS, GET_ORGANIZATION_VENUES, CREATE_VENUE, UPDATE_VENUE, DELETE_VENUE } from "@/lib/graphql";
-import { UPDATE_PAYROLL_CONFIG } from "@/lib/graphql/mutations";
-import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield, Heart, Building2, Bell, DollarSign, Percent } from "lucide-react";
+import { GET_ORG_SEASONS, CREATE_ORG_SEASON, UPDATE_ORG_SEASON, DELETE_ORG_SEASON, GET_ORGANIZATION, UPDATE_ORGANIZATION_SETTINGS, GET_ORGANIZATION_VENUES, CREATE_VENUE, UPDATE_VENUE, DELETE_VENUE, GET_CUSTOM_ROLES } from "@/lib/graphql";
+import { UPDATE_PAYROLL_CONFIG, CREATE_CUSTOM_ROLE, UPDATE_CUSTOM_ROLE, DELETE_CUSTOM_ROLE } from "@/lib/graphql/mutations";
+import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield, Heart, Building2, Bell, DollarSign, Percent, Users } from "lucide-react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -34,6 +34,27 @@ type Venue = {
   country?: string | null;
   notes?: string | null;
 };
+
+type CustomRole = {
+  id: string;
+  name: string;
+  description?: string | null;
+  canEditEvents: boolean;
+  canApproveExcuses: boolean;
+  canViewAnalytics: boolean;
+  canManageMembers: boolean;
+  canManageTeams: boolean;
+  canManagePayments: boolean;
+};
+
+const PERMISSION_LABELS: { key: keyof Omit<CustomRole, "id" | "name" | "description">; label: string }[] = [
+  { key: "canEditEvents", label: "Edit Events" },
+  { key: "canApproveExcuses", label: "Approve Excuses" },
+  { key: "canViewAnalytics", label: "View Analytics" },
+  { key: "canManageMembers", label: "Manage Members" },
+  { key: "canManageTeams", label: "Manage Teams" },
+  { key: "canManagePayments", label: "Manage Payments" },
+];
 
 export default function SettingsPage() {
   const { selectedOrganizationId, canEdit, canManageOrg } = useAuth();
@@ -67,6 +88,13 @@ export default function SettingsPage() {
   const [editingVenue, setEditingVenue] = useState<Venue | null>(null);
   const [venueForm, setVenueForm] = useState({ name: "", address: "", city: "", state: "", country: "", notes: "" });
   const [venueError, setVenueError] = useState("");
+
+  // Custom Roles
+  const defaultRolePerms = { canEditEvents: false, canApproveExcuses: false, canViewAnalytics: true, canManageMembers: false, canManageTeams: false, canManagePayments: false };
+  const [showRoleForm, setShowRoleForm] = useState(false);
+  const [editingRole, setEditingRole] = useState<CustomRole | null>(null);
+  const [roleForm, setRoleForm] = useState<{ name: string; description: string } & typeof defaultRolePerms>({ name: "", description: "", ...defaultRolePerms });
+  const [roleError, setRoleError] = useState("");
 
   const { data, refetch } = useQuery<any>(GET_ORG_SEASONS, {
     variables: { organizationId: selectedOrganizationId },
@@ -115,6 +143,74 @@ export default function SettingsPage() {
   const [deleteVenue] = useMutation<any>(DELETE_VENUE);
 
   const venues: Venue[] = venuesData?.organizationVenues || [];
+
+  const { data: rolesData, refetch: refetchRoles } = useQuery<any>(GET_CUSTOM_ROLES, {
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId || !canManageOrg,
+  });
+  const [createCustomRole] = useMutation<any>(CREATE_CUSTOM_ROLE);
+  const [updateCustomRole] = useMutation<any>(UPDATE_CUSTOM_ROLE);
+  const [deleteCustomRole] = useMutation<any>(DELETE_CUSTOM_ROLE);
+  const customRoles: CustomRole[] = rolesData?.customRoles || [];
+
+  const resetRoleForm = () => {
+    setRoleForm({ name: "", description: "", ...defaultRolePerms });
+    setShowRoleForm(false);
+    setEditingRole(null);
+    setRoleError("");
+  };
+
+  const handleCreateRole = async () => {
+    if (!selectedOrganizationId || !roleForm.name.trim()) return;
+    setRoleError("");
+    try {
+      const { name, description, ...perms } = roleForm;
+      await createCustomRole({ variables: { organizationId: selectedOrganizationId, name: name.trim(), description: description.trim() || undefined, ...perms } });
+      resetRoleForm();
+      refetchRoles();
+    } catch (err: any) {
+      setRoleError(err.message || "Failed to create role");
+    }
+  };
+
+  const handleUpdateRole = async () => {
+    if (!editingRole) return;
+    setRoleError("");
+    try {
+      const { name, description, ...perms } = roleForm;
+      await updateCustomRole({ variables: { id: editingRole.id, name: name.trim(), description: description.trim() || undefined, ...perms } });
+      resetRoleForm();
+      refetchRoles();
+    } catch (err: any) {
+      setRoleError(err.message || "Failed to update role");
+    }
+  };
+
+  const handleDeleteRole = async (role: CustomRole) => {
+    if (!confirm(`Delete "${role.name}"? This cannot be undone.`)) return;
+    setRoleError("");
+    try {
+      await deleteCustomRole({ variables: { id: role.id } });
+      refetchRoles();
+    } catch (err: any) {
+      setRoleError(err.message || "Failed to delete role");
+    }
+  };
+
+  const handleStartEditRole = (role: CustomRole) => {
+    setEditingRole(role);
+    setRoleForm({
+      name: role.name,
+      description: role.description || "",
+      canEditEvents: role.canEditEvents,
+      canApproveExcuses: role.canApproveExcuses,
+      canViewAnalytics: role.canViewAnalytics,
+      canManageMembers: role.canManageMembers,
+      canManageTeams: role.canManageTeams,
+      canManagePayments: role.canManagePayments,
+    });
+    setShowRoleForm(false);
+  };
 
   const seasons: OrgSeason[] = data?.orgSeasons || [];
 
@@ -868,6 +964,136 @@ export default function SettingsPage() {
             )}
 
             {showVenueForm && <VenueForm isEditing={false} values={venueForm} onChange={setVenueForm} onCancel={resetVenueForm} onSubmit={handleCreateVenue} />}
+          </div>
+        </section>
+      )}
+
+      {/* Custom Roles */}
+      {canManageOrg && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-[#a78bfa]" />
+              <h2 className="text-lg font-semibold text-white">Roles</h2>
+            </div>
+            {!showRoleForm && !editingRole && (
+              <button
+                onClick={() => { setShowRoleForm(true); setEditingRole(null); setRoleError(""); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Role
+              </button>
+            )}
+          </div>
+
+          <div className="bg-white/8 rounded-lg border border-white/8 p-4">
+            <p className="text-sm text-white/55 mb-4">
+              Create custom roles with specific permission sets. Assign them to organization members for fine-grained access control.
+            </p>
+
+            {roleError && (
+              <div className="mb-4 p-3 bg-red-600/10 border border-red-600/20 rounded-lg text-red-400 text-sm">
+                {roleError}
+              </div>
+            )}
+
+            {/* Role form (inline) */}
+            {(showRoleForm || editingRole) && (
+              <div className="bg-white/5 rounded-lg p-4 space-y-3 mb-4">
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-white/55 mb-1">Role Name</label>
+                    <input
+                      type="text"
+                      value={roleForm.name}
+                      onChange={(e) => setRoleForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="e.g., Video Coordinator"
+                      className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                      autoFocus
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white/55 mb-1">Description (optional)</label>
+                    <input
+                      type="text"
+                      value={roleForm.description}
+                      onChange={(e) => setRoleForm(f => ({ ...f, description: e.target.value }))}
+                      placeholder="Brief description of this role"
+                      className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white/55 mb-2">Permissions</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {PERMISSION_LABELS.map(({ key, label }) => (
+                      <label key={key} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={roleForm[key]}
+                          onChange={(e) => setRoleForm(f => ({ ...f, [key]: e.target.checked }))}
+                          className="rounded border-white/20 bg-white/8 text-[#6c5ce7] focus:ring-[#6c5ce7]"
+                        />
+                        <span className="text-sm text-white/75">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button onClick={resetRoleForm} className="px-3 py-1.5 text-sm text-white/55 hover:text-white transition-colors">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={editingRole ? handleUpdateRole : handleCreateRole}
+                    disabled={!roleForm.name.trim()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Check className="w-4 h-4" />
+                    {editingRole ? "Save" : "Add Role"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {customRoles.length > 0 && (
+              <div className="space-y-2">
+                {customRoles.map((role) => (
+                  <div key={role.id} className="flex items-start justify-between px-3 py-2.5 bg-white/5 rounded-lg gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-white font-medium">{role.name}</span>
+                        {role.description && <span className="text-white/40 text-sm">— {role.description}</span>}
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {PERMISSION_LABELS.filter(p => role[p.key]).map(p => (
+                          <span key={p.key} className="px-1.5 py-0.5 bg-[#6c5ce7]/20 text-[#a78bfa] rounded text-xs">
+                            {p.label}
+                          </span>
+                        ))}
+                        {PERMISSION_LABELS.every(p => !role[p.key]) && (
+                          <span className="text-white/30 text-xs italic">No permissions</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => handleStartEditRole(role)} className="p-1.5 text-white/55 hover:text-white transition-colors">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeleteRole(role)} className="p-1.5 text-white/55 hover:text-red-500 transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {customRoles.length === 0 && !showRoleForm && !editingRole && (
+              <p className="text-white/40 text-sm text-center py-4">
+                No custom roles defined yet. Add one to get started.
+              </p>
+            )}
           </div>
         </section>
       )}

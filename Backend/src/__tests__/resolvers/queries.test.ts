@@ -13,7 +13,10 @@ vi.mock("../../db.js", () => ({
     teamMember: { findMany: vi.fn(), count: vi.fn() },
     team: { findMany: vi.fn(), findUnique: vi.fn() },
     event: { findMany: vi.fn() },
-    checkIn: { findMany: vi.fn() },
+    checkIn: { findMany: vi.fn(), count: vi.fn() },
+    customRole: { findMany: vi.fn() },
+    teamChallenge: { findMany: vi.fn() },
+    athleteRecognition: { findMany: vi.fn() },
   },
 }));
 
@@ -39,6 +42,12 @@ import { prisma } from "../../db.js";
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique);
 const mockOrgFindUnique = vi.mocked(prisma.organization.findUnique);
 const mockOrgMemberFindMany = vi.mocked(prisma.organizationMember.findMany);
+const mockOrgMemberFindUnique = vi.mocked(prisma.organizationMember.findUnique);
+const mockCustomRoleFindMany = vi.mocked(prisma.customRole.findMany);
+const mockTeamChallengeFindMany = vi.mocked(prisma.teamChallenge.findMany);
+const mockAthleteRecognitionFindMany = vi.mocked(prisma.athleteRecognition.findMany);
+const mockEventFindManyQ = vi.mocked(prisma.event.findMany);
+const mockCheckInCount = vi.mocked(prisma.checkIn.count);
 
 /** Minimal loaders stub — queries tests don't exercise field resolvers */
 const makeContext = (userId?: string) => ({
@@ -212,5 +221,105 @@ describe("Query.attendanceTrends", () => {
     expect(result).toHaveLength(2);
     expect(result[0].weekStart).toBe("2025-09-08");
     expect(result[1].weekStart).toBe("2025-09-15");
+  });
+});
+
+// ─── customRoles ──────────────────────────────────────────────────────────────
+describe("Query.customRoles", () => {
+  it("returns custom roles ordered by name for an admin", async () => {
+    // requireOrgAdmin → findUnique returns ADMIN role
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "ADMIN" } as any);
+    const roles = [
+      { id: "r1", name: "Analyst" },
+      { id: "r2", name: "Video Coordinator" },
+    ];
+    mockCustomRoleFindMany.mockResolvedValue(roles as any);
+
+    const result = await resolvers.Query.customRoles(
+      null,
+      { organizationId: "org-1" },
+      makeContext("admin-1")
+    );
+
+    expect(mockCustomRoleFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { organizationId: "org-1" }, orderBy: { name: "asc" } })
+    );
+    expect(result).toEqual(roles);
+  });
+
+  it("throws FORBIDDEN when called by a non-admin", async () => {
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "COACH" } as any);
+    await expect(
+      resolvers.Query.customRoles(null, { organizationId: "org-1" }, makeContext("coach-1"))
+    ).rejects.toThrow(
+      expect.objectContaining({ extensions: expect.objectContaining({ code: "FORBIDDEN" }) })
+    );
+    expect(mockCustomRoleFindMany).not.toHaveBeenCalled();
+  });
+});
+
+// ─── teamChallenges ───────────────────────────────────────────────────────────
+describe("Query.teamChallenges", () => {
+  it("returns team challenges with currentPercent computed", async () => {
+    const now = new Date();
+    const challenges = [
+      {
+        id: "chal-1",
+        teamId: "team-1",
+        title: "80% Challenge",
+        targetPercent: 80,
+        startDate: new Date("2025-01-01"),
+        endDate: new Date("2025-03-31"),
+        completedAt: null,
+        createdBy: "coach-1",
+        creator: { id: "coach-1" },
+        team: { id: "team-1" },
+      },
+    ];
+    mockTeamChallengeFindMany.mockResolvedValue(challenges as any);
+    mockEventFindManyQ.mockResolvedValue([{ id: "e1" }, { id: "e2" }] as any);
+    mockCheckInCount
+      .mockResolvedValueOnce(8)   // attended (ON_TIME | LATE)
+      .mockResolvedValueOnce(10); // total check-ins
+
+    const result = await resolvers.Query.teamChallenges(
+      null,
+      { teamId: "team-1" },
+      makeContext("coach-1")
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0].currentPercent).toBeCloseTo(80);
+  });
+
+  it("returns empty array when no challenges exist", async () => {
+    mockTeamChallengeFindMany.mockResolvedValue([] as any);
+    const result = await resolvers.Query.teamChallenges(null, { teamId: "t1" }, makeContext("u1"));
+    expect(result).toEqual([]);
+  });
+});
+
+// ─── teamRecognitions ─────────────────────────────────────────────────────────
+describe("Query.teamRecognitions", () => {
+  it("returns recognitions ordered by createdAt desc", async () => {
+    const recognitions = [
+      { id: "rec-1", userId: "a1", teamId: "team-1", period: "2025-W37", user: {}, team: {}, nominator: {}, createdAt: new Date() },
+    ];
+    mockAthleteRecognitionFindMany.mockResolvedValue(recognitions as any);
+
+    const result = await resolvers.Query.teamRecognitions(
+      null,
+      { teamId: "team-1", limit: 5 },
+      makeContext("coach-1")
+    );
+
+    expect(mockAthleteRecognitionFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { teamId: "team-1" },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      })
+    );
+    expect(result).toEqual(recognitions);
   });
 });

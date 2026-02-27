@@ -258,6 +258,19 @@ export const typeDefs = `#graphql
     hourlyRate: Float
     salaryAmount: Float
     joinedAt: String!
+    customRole: CustomRole
+  }
+
+  type CustomRole {
+    id: ID!
+    name: String!
+    description: String
+    canEditEvents: Boolean!
+    canApproveExcuses: Boolean!
+    canViewAnalytics: Boolean!
+    canManageMembers: Boolean!
+    canManageTeams: Boolean!
+    canManagePayments: Boolean!
   }
 
   type AthleteStatusRecord {
@@ -520,8 +533,34 @@ export const typeDefs = `#graphql
     category: String!
     icon: String!
     earned: Boolean!
+    earnedAt: String
+    isNew: Boolean!
     progress: Float!
     threshold: Float!
+  }
+
+  type TeamChallenge {
+    id: ID!
+    title: String!
+    description: String
+    targetPercent: Float!
+    startDate: String!
+    endDate: String!
+    currentPercent: Float!
+    completedAt: String
+    createdBy: User!
+    team: Team!
+  }
+
+  type AthleteRecognition {
+    id: ID!
+    user: User!
+    team: Team!
+    nominatedBy: User!
+    period: String!
+    periodType: String!
+    note: String
+    createdAt: String!
   }
 
   type UserBadges {
@@ -966,6 +1005,14 @@ export const typeDefs = `#graphql
     myEmailReportConfigs: [EmailReportConfig!]!
     organizationAnnouncements(organizationId: ID!, limit: Int): [Announcement!]!
     notificationHistory(limit: Int): [NotificationDelivery!]!
+
+    # Custom role queries
+    customRoles(organizationId: ID!): [CustomRole!]!
+
+    # Gamification queries
+    teamChallenges(teamId: ID!): [TeamChallenge!]!
+    teamRecognitions(teamId: ID!, limit: Int): [AthleteRecognition!]!
+    recentRecognitions(organizationId: ID!, limit: Int): [AthleteRecognition!]!
   }
 
   # ============================================
@@ -1103,5 +1150,17 @@ export const typeDefs = `#graphql
     upsertMedicalInfo(input: UpsertMedicalInfoInput!): MedicalInfo!
     updateOrganizationSettings(id: ID!, adminHealthAccess: AdminHealthAccess, coachHealthAccess: CoachHealthAccess, allowCoachHourEdit: Boolean, reportFrequencies: [String!]): Organization!
     updateCheckInTimes(checkInId: ID!, checkInTime: String, checkOutTime: String): CheckIn!
+
+    # Custom role mutations
+    createCustomRole(organizationId: ID!, name: String!, description: String, canEditEvents: Boolean, canApproveExcuses: Boolean, canViewAnalytics: Boolean, canManageMembers: Boolean, canManageTeams: Boolean, canManagePayments: Boolean): CustomRole!
+    updateCustomRole(id: ID!, name: String, description: String, canEditEvents: Boolean, canApproveExcuses: Boolean, canViewAnalytics: Boolean, canManageMembers: Boolean, canManageTeams: Boolean, canManagePayments: Boolean): CustomRole!
+    deleteCustomRole(id: ID!): Boolean!
+    assignCustomRole(memberId: ID!, customRoleId: ID): OrganizationMember!
+
+    # Gamification mutations
+    createTeamChallenge(teamId: ID!, organizationId: ID!, title: String!, description: String, targetPercent: Float!, startDate: String!, endDate: String!): TeamChallenge!
+    deleteTeamChallenge(id: ID!): Boolean!
+    createAthleteRecognition(userId: ID!, teamId: ID!, organizationId: ID!, periodType: String!, note: String): AthleteRecognition!
+    deleteAthleteRecognition(id: ID!): Boolean!
   }
 `;

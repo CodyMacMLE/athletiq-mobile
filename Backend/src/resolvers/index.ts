@@ -11,7 +11,7 @@ import { sendPushNotification } from "../notifications/pushNotifications.js";
 import { broadcastAnnouncement } from "../notifications/announcements.js";
 import { generateGuardianReport } from "../notifications/emailReports.js";
 import { sendExcuseStatusEmail } from "../notifications/emailNotifications.js";
-import { requireAuth, requireOrgAdmin, requireOrgOwner } from "../utils/permissions.js";
+import { requireAuth, requireOrgAdmin, requireOrgOwner, requireCoachOrAbove } from "../utils/permissions.js";
 import { auditLog } from "../utils/audit.js";
 import type { Loaders } from "../utils/dataLoaders.js";
 
@@ -1405,8 +1405,31 @@ export const resolvers = {
         bestStreak,
       };
 
+      // Fetch already-persisted earned badges
+      const existingEarned = await prisma.earnedBadge.findMany({
+        where: { userId, organizationId },
+        select: { badgeId: true, earnedAt: true },
+      });
+      const earnedMap = new Map(existingEarned.map((b) => [b.badgeId, b.earnedAt]));
+
+      // Upsert newly earned badges
+      const newlyEarned: string[] = [];
+      for (const def of BADGE_DEFINITIONS) {
+        const progress = stats[def.field] ?? 0;
+        if (progress >= def.threshold && !earnedMap.has(def.id)) {
+          await prisma.earnedBadge.upsert({
+            where: { userId_organizationId_badgeId: { userId, organizationId, badgeId: def.id } },
+            create: { userId, organizationId, badgeId: def.id },
+            update: {},
+          });
+          newlyEarned.push(def.id);
+          earnedMap.set(def.id, new Date());
+        }
+      }
+
       const badges = BADGE_DEFINITIONS.map((def) => {
         const progress = stats[def.field] ?? 0;
+        const earnedAt = earnedMap.get(def.id);
         return {
           id: def.id,
           name: def.name,
@@ -1414,6 +1437,8 @@ export const resolvers = {
           category: def.category,
           icon: def.icon,
           earned: progress >= def.threshold,
+          earnedAt: earnedAt ? earnedAt.toISOString() : null,
+          isNew: newlyEarned.includes(def.id),
           progress,
           threshold: def.threshold,
         };
@@ -2088,6 +2113,83 @@ export const resolvers = {
       );
 
       return { coaches, month, year };
+    },
+
+    // Custom role queries
+    customRoles: async (
+      _: unknown,
+      { organizationId }: { organizationId: string },
+      context: { userId?: string }
+    ) => {
+      await requireOrgAdmin(context, organizationId);
+      return prisma.customRole.findMany({ where: { organizationId }, orderBy: { name: "asc" } });
+    },
+
+    // Gamification queries
+    teamChallenges: async (
+      _: unknown,
+      { teamId }: { teamId: string },
+      context: { userId?: string }
+    ) => {
+      requireAuth(context);
+      const challenges = await prisma.teamChallenge.findMany({
+        where: { teamId },
+        include: { creator: true, team: true },
+        orderBy: { startDate: "desc" },
+      });
+
+      // Compute currentPercent for each challenge
+      return Promise.all(
+        challenges.map(async (challenge) => {
+          const { startDate, endDate } = challenge;
+          // Count events in range for this team
+          const events = await prisma.event.findMany({
+            where: {
+              OR: [{ teamId }, { participatingTeams: { some: { id: teamId } } }],
+              date: { gte: startDate, lte: endDate },
+            },
+            select: { id: true },
+          });
+          const eventIds = events.map((e) => e.id);
+          const totalExpected = eventIds.length;
+          const attended = await prisma.checkIn.count({
+            where: { eventId: { in: eventIds }, status: { in: ["ON_TIME", "LATE"] } },
+          });
+          const totalCheckIns = await prisma.checkIn.count({
+            where: { eventId: { in: eventIds } },
+          });
+          const currentPercent = totalCheckIns > 0 ? (attended / totalCheckIns) * 100 : 0;
+          return { ...challenge, currentPercent };
+        })
+      );
+    },
+
+    teamRecognitions: async (
+      _: unknown,
+      { teamId, limit }: { teamId: string; limit?: number },
+      context: { userId?: string }
+    ) => {
+      requireAuth(context);
+      return prisma.athleteRecognition.findMany({
+        where: { teamId },
+        include: { user: true, team: true, nominator: true },
+        orderBy: { createdAt: "desc" },
+        take: limit || 20,
+      });
+    },
+
+    recentRecognitions: async (
+      _: unknown,
+      { organizationId, limit }: { organizationId: string; limit?: number },
+      context: { userId?: string }
+    ) => {
+      requireAuth(context);
+      return prisma.athleteRecognition.findMany({
+        where: { organizationId },
+        include: { user: true, team: true, nominator: true },
+        orderBy: { createdAt: "desc" },
+        take: limit || 10,
+      });
     },
   },
 
@@ -2768,8 +2870,10 @@ export const resolvers = {
           venueId?: string;
           participatingTeamIds?: string[];
         };
-      }
+      },
+      context: { userId?: string }
     ) => {
+      await requireCoachOrAbove(context, input.organizationId);
       const { participatingTeamIds, endDate, ...eventData } = input;
       return prisma.event.create({
         data: {
@@ -2809,8 +2913,11 @@ export const resolvers = {
         location?: string;
         description?: string;
         venueId?: string | null;
-      }
+      },
+      context: { userId?: string }
     ) => {
+      const event = await prisma.event.findUnique({ where: { id }, select: { organizationId: true } });
+      if (event) await requireCoachOrAbove(context, event.organizationId);
       return prisma.event.update({
         where: { id },
         data: {
@@ -2827,7 +2934,9 @@ export const resolvers = {
       });
     },
 
-    deleteEvent: async (_: unknown, { id }: { id: string }) => {
+    deleteEvent: async (_: unknown, { id }: { id: string }, context: { userId?: string }) => {
+      const event = await prisma.event.findUnique({ where: { id }, select: { organizationId: true } });
+      if (event) await requireCoachOrAbove(context, event.organizationId);
       await prisma.$transaction(async (tx) => {
         await tx.checkIn.deleteMany({ where: { eventId: id } });
         await tx.excuseRequest.deleteMany({ where: { eventId: id } });
@@ -4013,8 +4122,14 @@ export const resolvers = {
 
     updateExcuseRequest: async (
       _: unknown,
-      { input }: { input: { id: string; status: ExcuseRequestStatus } }
+      { input }: { input: { id: string; status: ExcuseRequestStatus } },
+      context: { userId?: string }
     ) => {
+      const excuse = await prisma.excuseRequest.findUnique({
+        where: { id: input.id },
+        select: { event: { select: { organizationId: true } } },
+      });
+      if (excuse?.event) await requireCoachOrAbove(context, excuse.event.organizationId);
       const updated = await prisma.excuseRequest.update({
         where: { id: input.id },
         data: { status: input.status },
@@ -4664,6 +4779,194 @@ export const resolvers = {
       await prisma.recurringEventAthleteExclude.deleteMany({ where: { recurringEventId, userId } });
       return prisma.recurringEvent.findUnique({ where: { id: recurringEventId } });
     },
+
+    // Custom role mutations
+    createCustomRole: async (
+      _: unknown,
+      {
+        organizationId, name, description,
+        canEditEvents, canApproveExcuses, canViewAnalytics,
+        canManageMembers, canManageTeams, canManagePayments,
+      }: {
+        organizationId: string; name: string; description?: string;
+        canEditEvents?: boolean; canApproveExcuses?: boolean; canViewAnalytics?: boolean;
+        canManageMembers?: boolean; canManageTeams?: boolean; canManagePayments?: boolean;
+      },
+      context: { userId?: string }
+    ) => {
+      await requireOrgAdmin(context, organizationId);
+      return prisma.customRole.create({
+        data: {
+          organizationId, name,
+          ...(description !== undefined && { description }),
+          ...(canEditEvents !== undefined && { canEditEvents }),
+          ...(canApproveExcuses !== undefined && { canApproveExcuses }),
+          ...(canViewAnalytics !== undefined && { canViewAnalytics }),
+          ...(canManageMembers !== undefined && { canManageMembers }),
+          ...(canManageTeams !== undefined && { canManageTeams }),
+          ...(canManagePayments !== undefined && { canManagePayments }),
+        },
+      });
+    },
+
+    updateCustomRole: async (
+      _: unknown,
+      {
+        id, name, description,
+        canEditEvents, canApproveExcuses, canViewAnalytics,
+        canManageMembers, canManageTeams, canManagePayments,
+      }: {
+        id: string; name?: string; description?: string;
+        canEditEvents?: boolean; canApproveExcuses?: boolean; canViewAnalytics?: boolean;
+        canManageMembers?: boolean; canManageTeams?: boolean; canManagePayments?: boolean;
+      },
+      context: { userId?: string }
+    ) => {
+      const role = await prisma.customRole.findUnique({ where: { id }, select: { organizationId: true } });
+      if (role) await requireOrgAdmin(context, role.organizationId);
+      return prisma.customRole.update({
+        where: { id },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(description !== undefined && { description }),
+          ...(canEditEvents !== undefined && { canEditEvents }),
+          ...(canApproveExcuses !== undefined && { canApproveExcuses }),
+          ...(canViewAnalytics !== undefined && { canViewAnalytics }),
+          ...(canManageMembers !== undefined && { canManageMembers }),
+          ...(canManageTeams !== undefined && { canManageTeams }),
+          ...(canManagePayments !== undefined && { canManagePayments }),
+        },
+      });
+    },
+
+    deleteCustomRole: async (
+      _: unknown,
+      { id }: { id: string },
+      context: { userId?: string }
+    ) => {
+      const role = await prisma.customRole.findUnique({
+        where: { id },
+        select: { organizationId: true, _count: { select: { members: true } } },
+      });
+      if (!role) return false;
+      await requireOrgAdmin(context, role.organizationId);
+      if (role._count.members > 0) {
+        throw new Error("Cannot delete a role that is assigned to members. Remove the role from all members first.");
+      }
+      await prisma.customRole.delete({ where: { id } });
+      return true;
+    },
+
+    assignCustomRole: async (
+      _: unknown,
+      { memberId, customRoleId }: { memberId: string; customRoleId?: string | null },
+      context: { userId?: string }
+    ) => {
+      const member = await prisma.organizationMember.findUnique({
+        where: { id: memberId },
+        select: { organizationId: true },
+      });
+      if (!member) throw new Error("Member not found");
+      await requireOrgAdmin(context, member.organizationId);
+      return prisma.organizationMember.update({
+        where: { id: memberId },
+        data: { customRoleId: customRoleId ?? null },
+        include: { customRole: true },
+      });
+    },
+
+    // Gamification mutations
+    createTeamChallenge: async (
+      _: unknown,
+      {
+        teamId, organizationId, title, description, targetPercent, startDate, endDate,
+      }: {
+        teamId: string; organizationId: string; title: string; description?: string;
+        targetPercent: number; startDate: string; endDate: string;
+      },
+      context: { userId?: string }
+    ) => {
+      await requireCoachOrAbove(context, organizationId);
+      const createdBy = requireAuth(context);
+      const challenge = await prisma.teamChallenge.create({
+        data: {
+          teamId, organizationId, title,
+          ...(description !== undefined && { description }),
+          targetPercent,
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          createdBy,
+        },
+        include: { creator: true, team: true },
+      });
+      return { ...challenge, currentPercent: 0 };
+    },
+
+    deleteTeamChallenge: async (
+      _: unknown,
+      { id }: { id: string },
+      context: { userId?: string }
+    ) => {
+      const challenge = await prisma.teamChallenge.findUnique({
+        where: { id },
+        select: { organizationId: true },
+      });
+      if (!challenge) return false;
+      await requireCoachOrAbove(context, challenge.organizationId);
+      await prisma.teamChallenge.delete({ where: { id } });
+      return true;
+    },
+
+    createAthleteRecognition: async (
+      _: unknown,
+      {
+        userId, teamId, organizationId, periodType, note,
+      }: {
+        userId: string; teamId: string; organizationId: string;
+        periodType: string; note?: string;
+      },
+      context: { userId?: string }
+    ) => {
+      await requireCoachOrAbove(context, organizationId);
+      const nominatedBy = requireAuth(context);
+
+      // Build period key
+      const now = new Date();
+      let period: string;
+      if (periodType === "WEEK") {
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const weekNum = Math.ceil(((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7);
+        period = `${now.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+      } else {
+        period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      }
+
+      // Upsert — replace if same teamId+period already exists
+      await prisma.athleteRecognition.deleteMany({ where: { teamId, period } });
+      return prisma.athleteRecognition.create({
+        data: {
+          userId, teamId, organizationId, nominatedBy, period,
+          periodType: periodType as any,
+          ...(note !== undefined && { note }),
+        },
+        include: { user: true, team: true, nominator: true },
+      });
+    },
+
+    deleteAthleteRecognition: async (
+      _: unknown,
+      { id }: { id: string },
+      context: { userId?: string }
+    ) => {
+      const rec = await prisma.athleteRecognition.findUnique({
+        where: { id },
+        select: { organizationId: true },
+      });
+      if (!rec) return false;
+      await requireCoachOrAbove(context, rec.organizationId);
+      await prisma.athleteRecognition.delete({ where: { id } });
+      return true;
+    },
   },
 
   // Field resolvers
@@ -4980,6 +5283,30 @@ export const resolvers = {
     organization: (parent: { organizationId: string }, _: unknown, context: Context) =>
       context.loaders.organization.load(parent.organizationId),
     joinedAt: (parent: any) => toISO(parent.joinedAt),
+    customRole: (parent: { customRoleId?: string | null }) =>
+      parent.customRoleId ? prisma.customRole.findUnique({ where: { id: parent.customRoleId } }) : null,
+  },
+
+  TeamChallenge: {
+    createdBy: (parent: { createdBy: string }) =>
+      prisma.user.findUnique({ where: { id: parent.createdBy } }),
+    team: (parent: { teamId: string }, _: unknown, context: Context) =>
+      context.loaders.team.load(parent.teamId),
+    startDate: (parent: any) => toISO(parent.startDate),
+    endDate: (parent: any) => toISO(parent.endDate),
+    completedAt: (parent: any) => parent.completedAt ? toISO(parent.completedAt) : null,
+    createdAt: (parent: any) => toISO(parent.createdAt),
+    updatedAt: (parent: any) => toISO(parent.updatedAt),
+  },
+
+  AthleteRecognition: {
+    user: (parent: { userId: string }, _: unknown, context: Context) =>
+      context.loaders.user.load(parent.userId),
+    team: (parent: { teamId: string }, _: unknown, context: Context) =>
+      context.loaders.team.load(parent.teamId),
+    nominatedBy: (parent: { nominatedBy: string }) =>
+      prisma.user.findUnique({ where: { id: parent.nominatedBy } }),
+    createdAt: (parent: any) => toISO(parent.createdAt),
   },
 
   Invite: {

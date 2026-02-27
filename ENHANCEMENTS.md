@@ -107,11 +107,9 @@ Team engagement feature:
 
 Current analytics focus on attendance - expand:
 
-- Financial Dashboards: revenue, outstanding payments
 - Participation Trends: attendance trends over time (graphs)
 - Comparative Analytics: compare teams across seasons
 - Export Reports: PDF/CSV export for all analytics
-- Predictive Insights: "Alex is trending toward missing hours requirement"
 
 11. Multi-Sport & Tournament Support
 
@@ -139,12 +137,11 @@ Mobile app should work offline with sync:
 - Allow check-ins offline (sync when online)
 - View calendar offline
 
-14. Integrations
+14. ML/DL
 
-- Slack/Discord: Team communication integration
-- Stripe/PayPal: Payment processing
-- Google Calendar/Outlook: Two-way calendar sync
-- Zapier/Webhooks: Custom integrations
+- Predictive analytics
+- Churn for athletes at the end of the season
+- predictive scoring results
 
 15. Gamification
 
@@ -159,13 +156,7 @@ Enhance current streak tracking:
 
 Auto-alerts for weather-related cancellations
 
-17. Equipment Management
-
-- Inventory tracking (jerseys, balls, etc.)
-- Check-out system
-- Maintenance schedules
-
-18. Registration & Tryouts
+17. Registration & Tryouts
 
 - Season registration portal
 - Tryout scheduling and evaluation
@@ -175,39 +166,24 @@ Auto-alerts for weather-related cancellations
 
 Technical Improvements
 
-19. Security Enhancements
+18. Security Enhancements (IMPLEMENTED)
 
 - JWT Signature Verification: Currently only decoding tokens, not verifying (security risk!)
 - Rate Limiting: Protect API endpoints
 - Audit Logs: Track sensitive actions (role changes, data deletion)
 - RBAC Middleware: Centralized permission checking
 
-20. Performance Optimizations
+19. Performance Optimizations (IMPLEMENTED)
 
 - DataLoader: Batch GraphQL queries (N+1 problem prevention)
 - Caching: Redis for frequently accessed data
 - Pagination: Add cursor-based pagination for large lists
 - Database Indexing: Review and optimize indexes
 
-21. Testing
+20. Testing (IMPLEMENTED)
 
 No test files found - add:
 
 - Unit tests (Jest)
 - Integration tests (GraphQL resolvers)
 - E2E tests (Playwright/Cypress for web, Detox for mobile)
-
----
-
-Priority Roadmap Suggestion
-
-Phase 1 (Immediate - High ROI):
-
-1. Push notifications
-2. RSVP system
-3. Emergency contacts & medical info
-4. JWT signature verification (security fix)
-
-Phase 2 (Next Quarter): 5. Team messaging/announcements 6. Payment system 7. Enhanced guardian portal 8. Document management
-
-Phase 3 (Future): 9. Performance tracking 10. Media galleries 11. Advanced analytics 12. Tournament support

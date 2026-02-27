@@ -19,7 +19,15 @@ import {
   UNEXCLUDE_ATHLETE_FROM_RECURRING_EVENT,
   ADD_ATHLETE_TO_RECURRING_EVENT,
   REMOVE_ATHLETE_FROM_RECURRING_EVENT,
+  GET_TEAM_CHALLENGES,
+  GET_TEAM_RECOGNITIONS,
 } from "@/lib/graphql";
+import {
+  CREATE_TEAM_CHALLENGE,
+  DELETE_TEAM_CHALLENGE,
+  CREATE_ATHLETE_RECOGNITION,
+  DELETE_ATHLETE_RECOGNITION,
+} from "@/lib/graphql/mutations";
 import {
   Plus,
   Calendar,
@@ -38,6 +46,8 @@ import {
   UserMinus,
   Search,
   Check,
+  Trophy,
+  Star,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -110,7 +120,7 @@ export default function TeamDetail() {
   const teamId = params.id as string;
   const { canEdit, isOwner, isAdmin, isManager } = useAuth();
   const canManageRoles = isOwner || isAdmin || isManager;
-  const [activeTab, setActiveTab] = useState<"events" | "members" | "coaches" | "schedule">("events");
+  const [activeTab, setActiveTab] = useState<"events" | "members" | "coaches" | "schedule" | "hub">("events");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedTime, setSelectedTime] = useState<"upcoming" | "past">("upcoming");
@@ -136,6 +146,80 @@ export default function TeamDetail() {
   const [addTeamMember, { loading: assigning }] = useMutation<any>(ADD_TEAM_MEMBER);
   const [removeTeamMember] = useMutation<any>(REMOVE_TEAM_MEMBER);
   const [fetchOrgUsers, { data: orgUsersData, loading: orgUsersLoading }] = useLazyQuery<any>(GET_ORGANIZATION_USERS);
+
+  // Challenges & Recognition
+  const { data: challengesData, refetch: refetchChallenges } = useQuery<any>(GET_TEAM_CHALLENGES, {
+    variables: { teamId },
+    skip: !teamId,
+  });
+  const { data: recognitionsData, refetch: refetchRecognitions } = useQuery<any>(GET_TEAM_RECOGNITIONS, {
+    variables: { teamId, limit: 10 },
+    skip: !teamId,
+  });
+  const [createTeamChallenge] = useMutation<any>(CREATE_TEAM_CHALLENGE);
+  const [deleteTeamChallenge] = useMutation<any>(DELETE_TEAM_CHALLENGE);
+  const [createAthleteRecognition] = useMutation<any>(CREATE_ATHLETE_RECOGNITION);
+  const [deleteAthleteRecognition] = useMutation<any>(DELETE_ATHLETE_RECOGNITION);
+
+  const challenges = challengesData?.teamChallenges || [];
+  const recognitions = recognitionsData?.teamRecognitions || [];
+
+  const [showChallengeForm, setShowChallengeForm] = useState(false);
+  const [challengeForm, setChallengeForm] = useState({ title: "", description: "", targetPercent: "80", startDate: "", endDate: "" });
+  const [challengeError, setChallengeError] = useState("");
+  const [showRecognitionForm, setShowRecognitionForm] = useState(false);
+  const [recognitionForm, setRecognitionForm] = useState({ userId: "", periodType: "WEEK" as "WEEK" | "MONTH", note: "" });
+  const [recognitionError, setRecognitionError] = useState("");
+
+  const handleCreateChallenge = async () => {
+    if (!team || !challengeForm.title.trim() || !challengeForm.startDate || !challengeForm.endDate) return;
+    setChallengeError("");
+    try {
+      await createTeamChallenge({
+        variables: {
+          teamId,
+          organizationId: team.organization.id,
+          title: challengeForm.title.trim(),
+          description: challengeForm.description.trim() || undefined,
+          targetPercent: parseFloat(challengeForm.targetPercent),
+          startDate: challengeForm.startDate,
+          endDate: challengeForm.endDate,
+        },
+      });
+      setChallengeForm({ title: "", description: "", targetPercent: "80", startDate: "", endDate: "" });
+      setShowChallengeForm(false);
+      refetchChallenges();
+    } catch (err: any) {
+      setChallengeError(err.message || "Failed to create challenge");
+    }
+  };
+
+  const handleDeleteChallenge = async (id: string) => {
+    if (!confirm("Delete this challenge?")) return;
+    await deleteTeamChallenge({ variables: { id } });
+    refetchChallenges();
+  };
+
+  const handleNominate = async () => {
+    if (!team || !recognitionForm.userId) return;
+    setRecognitionError("");
+    try {
+      await createAthleteRecognition({
+        variables: {
+          userId: recognitionForm.userId,
+          teamId,
+          organizationId: team.organization.id,
+          periodType: recognitionForm.periodType,
+          note: recognitionForm.note.trim() || undefined,
+        },
+      });
+      setRecognitionForm({ userId: "", periodType: "WEEK", note: "" });
+      setShowRecognitionForm(false);
+      refetchRecognitions();
+    } catch (err: any) {
+      setRecognitionError(err.message || "Failed to nominate athlete");
+    }
+  };
 
   const team = data?.team;
   const events: Event[] = team?.events || [];
@@ -400,6 +484,7 @@ export default function TeamDetail() {
           { key: "members" as const, label: `Athletes (${members.length})`, icon: <Users className="w-4 h-4 mr-2" /> },
           { key: "coaches" as const, label: `Coaches (${coaches.length})`, icon: <Shield className="w-4 h-4 mr-2" /> },
           ...(canEdit ? [{ key: "schedule" as const, label: "Schedule", icon: <CalendarDays className="w-4 h-4 mr-2" /> }] : []),
+          { key: "hub" as const, label: "Team Hub", icon: <Trophy className="w-4 h-4 mr-2" /> },
         ]).map((tab) => (
           <button
             key={tab.key}
@@ -649,6 +734,206 @@ export default function TeamDetail() {
           canEdit={canEdit}
           refetch={refetch}
         />
+      )}
+
+      {/* Team Hub Tab */}
+      {activeTab === "hub" && (
+        <div className="space-y-6">
+          {/* Challenges */}
+          <div className="bg-white/8 rounded-xl border border-white/8 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-yellow-400" />
+                <h3 className="text-white font-semibold text-lg">Team Challenges</h3>
+              </div>
+              {canEdit && !showChallengeForm && (
+                <button
+                  onClick={() => setShowChallengeForm(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Challenge
+                </button>
+              )}
+            </div>
+
+            {challengeError && (
+              <div className="mb-3 p-3 bg-red-600/10 border border-red-600/20 rounded-lg text-red-400 text-sm">
+                {challengeError}
+              </div>
+            )}
+
+            {showChallengeForm && (
+              <div className="bg-white/5 rounded-lg p-4 space-y-3 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-white/55 mb-1">Title</label>
+                    <input type="text" value={challengeForm.title} onChange={(e) => setChallengeForm(f => ({ ...f, title: e.target.value }))}
+                      placeholder="e.g., 90% Attendance in January" className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" autoFocus />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-white/55 mb-1">Description (optional)</label>
+                    <input type="text" value={challengeForm.description} onChange={(e) => setChallengeForm(f => ({ ...f, description: e.target.value }))}
+                      placeholder="Describe the challenge goal" className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white/55 mb-1">Target %</label>
+                    <input type="number" min="1" max="100" value={challengeForm.targetPercent} onChange={(e) => setChallengeForm(f => ({ ...f, targetPercent: e.target.value }))}
+                      className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white/55 mb-1">Start Date</label>
+                    <input type="date" value={challengeForm.startDate} onChange={(e) => setChallengeForm(f => ({ ...f, startDate: e.target.value }))}
+                      className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-white/55 mb-1">End Date</label>
+                    <input type="date" value={challengeForm.endDate} onChange={(e) => setChallengeForm(f => ({ ...f, endDate: e.target.value }))}
+                      className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button onClick={() => setShowChallengeForm(false)} className="px-3 py-1.5 text-sm text-white/55 hover:text-white transition-colors">Cancel</button>
+                  <button onClick={handleCreateChallenge} disabled={!challengeForm.title.trim() || !challengeForm.startDate || !challengeForm.endDate}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <Check className="w-4 h-4" />
+                    Create Challenge
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {challenges.length === 0 && !showChallengeForm && (
+              <p className="text-white/40 text-sm text-center py-4">No challenges yet. {canEdit ? "Add one to motivate your team!" : ""}</p>
+            )}
+
+            <div className="space-y-3">
+              {challenges.map((challenge: any) => {
+                const progress = Math.min(100, challenge.currentPercent);
+                const isActive = new Date(Number(challenge.endDate)) >= new Date();
+                return (
+                  <div key={challenge.id} className="bg-white/5 rounded-lg p-4">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div>
+                        <span className="text-white font-medium">{challenge.title}</span>
+                        {challenge.description && <p className="text-white/40 text-sm mt-0.5">{challenge.description}</p>}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-xs px-2 py-0.5 rounded ${isActive ? "bg-green-600/20 text-green-400" : "bg-white/10 text-white/40"}`}>
+                          {isActive ? "Active" : "Ended"}
+                        </span>
+                        {canEdit && (
+                          <button onClick={() => handleDeleteChallenge(challenge.id)} className="p-1 text-white/40 hover:text-red-400 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 bg-white/10 rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full transition-all"
+                          style={{ width: `${progress}%`, background: progress >= challenge.targetPercent ? "#22c55e" : "#6c5ce7" }}
+                        />
+                      </div>
+                      <span className="text-sm font-medium text-white/75 shrink-0">
+                        {progress.toFixed(1)}% / {challenge.targetPercent}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Recognition */}
+          <div className="bg-white/8 rounded-xl border border-white/8 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-yellow-400" />
+                <h3 className="text-white font-semibold text-lg">Athlete Recognition</h3>
+              </div>
+              {canEdit && !showRecognitionForm && (
+                <button
+                  onClick={() => setShowRecognitionForm(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors"
+                >
+                  <Star className="w-4 h-4" />
+                  Nominate
+                </button>
+              )}
+            </div>
+
+            {recognitionError && (
+              <div className="mb-3 p-3 bg-red-600/10 border border-red-600/20 rounded-lg text-red-400 text-sm">
+                {recognitionError}
+              </div>
+            )}
+
+            {showRecognitionForm && (
+              <div className="bg-white/5 rounded-lg p-4 space-y-3 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/55 mb-1">Athlete</label>
+                  <select value={recognitionForm.userId} onChange={(e) => setRecognitionForm(f => ({ ...f, userId: e.target.value }))}
+                    className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]">
+                    <option value="">Select athlete...</option>
+                    {members.map((m: any) => (
+                      <option key={m.user.id} value={m.user.id}>{m.user.firstName} {m.user.lastName}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white/55 mb-1">Period</label>
+                  <select value={recognitionForm.periodType} onChange={(e) => setRecognitionForm(f => ({ ...f, periodType: e.target.value as "WEEK" | "MONTH" }))}
+                    className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]">
+                    <option value="WEEK">Athlete of the Week</option>
+                    <option value="MONTH">Athlete of the Month</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white/55 mb-1">Note (optional)</label>
+                  <input type="text" value={recognitionForm.note} onChange={(e) => setRecognitionForm(f => ({ ...f, note: e.target.value }))}
+                    placeholder="Why are you nominating this athlete?" className="w-full px-3 py-2 bg-white/8 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]" />
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button onClick={() => setShowRecognitionForm(false)} className="px-3 py-1.5 text-sm text-white/55 hover:text-white transition-colors">Cancel</button>
+                  <button onClick={handleNominate} disabled={!recognitionForm.userId}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    <Star className="w-4 h-4" />
+                    Nominate
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {recognitions.length === 0 && !showRecognitionForm && (
+              <p className="text-white/40 text-sm text-center py-4">No recognitions yet.</p>
+            )}
+
+            <div className="space-y-3">
+              {recognitions.map((rec: any) => (
+                <div key={rec.id} className="flex items-center gap-3 bg-white/5 rounded-lg px-4 py-3">
+                  <div className="w-10 h-10 rounded-full bg-yellow-600/20 flex items-center justify-center text-yellow-400 shrink-0">
+                    <Star className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium">{rec.user.firstName} {rec.user.lastName}</p>
+                    <p className="text-white/40 text-sm">
+                      {rec.periodType === "WEEK" ? "Athlete of the Week" : "Athlete of the Month"} · {rec.period}
+                      {rec.note && ` — ${rec.note}`}
+                    </p>
+                  </div>
+                  {canEdit && (
+                    <button onClick={() => { deleteAthleteRecognition({ variables: { id: rec.id } }); refetchRecognitions(); }}
+                      className="p-1.5 text-white/40 hover:text-red-400 transition-colors shrink-0">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Create Event Modal */}
