@@ -3768,7 +3768,7 @@ export const resolvers = {
 
     nfcCheckIn: async (
       _: unknown,
-      { token, forUserId }: { token: string; forUserId?: string },
+      { token, forUserId, teamId }: { token: string; forUserId?: string; teamId?: string },
       context: { userId?: string }
     ) => {
       if (!context.userId) throw new Error("Authentication required");
@@ -3794,12 +3794,30 @@ export const resolvers = {
       });
       if (!orgMembership) throw new Error("You are not a member of this organization");
 
-      // 3. Get target user's teamIds in this org
-      const teamMemberships = await prisma.teamMember.findMany({
-        where: { userId: targetUserId, team: { organizationId: tag.organizationId } },
-        select: { teamId: true },
-      });
-      const teamIds = teamMemberships.map((m) => m.teamId);
+      // 3. Resolve teamIds for event lookup
+      // When the client sends a specific teamId (selected team context), use it directly.
+      // Verify access: either via TeamMember record OR an elevated org-level role.
+      let teamIds: string[];
+      if (teamId) {
+        const teamMembership = await prisma.teamMember.findFirst({
+          where: { userId: targetUserId, teamId },
+          select: { teamId: true },
+        });
+        if (!teamMembership) {
+          // Allow org-level elevated roles (owner/admin/manager/coach) to check in to any team
+          const elevatedRoles = ["OWNER", "ADMIN", "MANAGER", "COACH"];
+          if (!elevatedRoles.includes(orgMembership.role)) {
+            throw new Error("You are not a member of this team");
+          }
+        }
+        teamIds = [teamId];
+      } else {
+        const teamMemberships = await prisma.teamMember.findMany({
+          where: { userId: targetUserId, team: { organizationId: tag.organizationId } },
+          select: { teamId: true },
+        });
+        teamIds = teamMemberships.map((m) => m.teamId);
+      }
 
       // 4. Find today's events matching those teams
       const now = new Date();

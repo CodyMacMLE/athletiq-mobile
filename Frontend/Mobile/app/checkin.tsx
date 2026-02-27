@@ -55,7 +55,7 @@ function extractNdefText(tag: any): string | null {
 
 export default function CheckIn() {
   const router = useRouter();
-  const { user, selectedOrganization, isViewingAsGuardian, selectedAthlete, targetUserId } = useAuth();
+  const { user, selectedOrganization, selectedTeam, isViewingAsGuardian, selectedAthlete, targetUserId } = useAuth();
   const { isOnline, refreshPendingCount } = useOffline();
   const [scanState, setScanState] = useState<ScanState>("scanning");
   const [nfcSupported, setNfcSupported] = useState(true);
@@ -88,9 +88,9 @@ export default function CheckIn() {
   });
   const [adHocNfcCheckIn] = useMutation(AD_HOC_NFC_CHECK_IN);
 
-  // Get user's teams in selected org (only teams where user is an athlete, not a coach)
+  // All teams the user is on in the selected org (athlete and coach roles)
   const userTeams = user?.memberships?.filter(
-    (m) => m.team.organization.id === selectedOrganization?.id && ["MEMBER", "CAPTAIN"].includes(m.role)
+    (m) => m.team.organization.id === selectedOrganization?.id
   ) || [];
 
   useEffect(() => {
@@ -200,6 +200,7 @@ export default function CheckIn() {
         variables: {
           token,
           forUserId: isViewingAsGuardian ? selectedAthlete?.id : undefined,
+          teamId: selectedTeam?.id,
         },
       });
       const result = data.nfcCheckIn;
@@ -243,9 +244,8 @@ export default function CheckIn() {
         setScanState("tooEarly");
       } else if (gqlError.includes("No events today")) {
         setScanState("noEvent");
-        if (userTeams.length === 1) {
-          setSelectedTeamId(userTeams[0].team.id);
-        }
+        // Pre-select the currently active team context
+        setSelectedTeamId(selectedTeam?.id ?? (userTeams.length === 1 ? userTeams[0].team.id : null));
       } else if (gqlError.includes("Unrecognized tag")) {
         setScanState("error");
         setResultMessage("Unrecognized Tag");

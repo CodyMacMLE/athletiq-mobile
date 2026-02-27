@@ -1099,7 +1099,7 @@ export const typeDefs = `#graphql
     # NFC mutations
     registerNfcTag(input: RegisterNfcTagInput!): NfcTag!
     deactivateNfcTag(id: ID!): NfcTag!
-    nfcCheckIn(token: String!, forUserId: ID): NfcCheckInResult!
+    nfcCheckIn(token: String!, forUserId: ID, teamId: ID): NfcCheckInResult!
     adHocNfcCheckIn(input: AdHocNfcCheckInInput!): NfcCheckInResult!
     approveAdHocCheckIn(checkInId: ID!): CheckIn!
     denyAdHocCheckIn(checkInId: ID!): Boolean!
