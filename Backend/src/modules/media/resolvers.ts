@@ -168,15 +168,23 @@ export const mediaResolvers = {
       const todayEnd = new Date(now);
       todayEnd.setHours(23, 59, 59, 999);
 
+      // Elevated roles with no explicit teamId and no TeamMember entries see all org events.
+      // This covers coaches who have an org-level role but are not in the TeamMember table.
+      const elevatedRoles = ["OWNER", "ADMIN", "MANAGER", "COACH"];
+      const isElevated = elevatedRoles.includes(orgMembership.role);
+      const skipTeamFilter = !teamId && isElevated && teamIds.length === 0;
+
       const todaysEvents = await prisma.event.findMany({
         where: {
           organizationId: tag.organizationId,
           date: { gte: todayStart, lte: todayEnd },
-          OR: [
-            { teamId: { in: teamIds } },
-            { participatingTeams: { some: { id: { in: teamIds } } } },
-            { teamId: null }, // org-wide events
-          ],
+          ...(!skipTeamFilter && {
+            OR: [
+              { teamId: { in: teamIds } },
+              { participatingTeams: { some: { id: { in: teamIds } } } },
+              { teamId: null }, // org-wide events
+            ],
+          }),
         },
         orderBy: { date: "asc" },
       });
