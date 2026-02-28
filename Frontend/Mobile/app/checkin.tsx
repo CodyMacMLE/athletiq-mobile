@@ -70,6 +70,11 @@ export default function CheckIn() {
   const [earlyEventTitle, setEarlyEventTitle] = useState("");
   const [earlyEventTime, setEarlyEventTime] = useState("");
 
+  // All teams the user is on in the selected org (athlete and coach roles)
+  const userTeams = user?.memberships?.filter(
+    (m: any) => m.team.organization.id === selectedOrganization?.id
+  ) || [];
+
   // Active team for this check-in session — pre-filled from selected context or auto-selected
   const initialTeamId = selectedTeam?.id ?? (userTeams.length === 1 ? userTeams[0].team.id : null);
   const [activeTeamId, setActiveTeamId] = useState<string | null>(initialTeamId);
@@ -95,11 +100,6 @@ export default function CheckIn() {
     refetchQueries: ["GetActiveCheckIn"],
   });
   const [adHocNfcCheckIn] = useMutation(AD_HOC_NFC_CHECK_IN);
-
-  // All teams the user is on in the selected org (athlete and coach roles)
-  const userTeams = user?.memberships?.filter(
-    (m) => m.team.organization.id === selectedOrganization?.id
-  ) || [];
 
   useEffect(() => {
     const pulse = Animated.loop(

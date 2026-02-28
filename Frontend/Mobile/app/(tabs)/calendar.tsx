@@ -427,7 +427,7 @@ export default function Calendar() {
 
   // Calculate stats for current month
   const practiceCount = currentMonthEvents.filter((e) => e.type === "practice").length;
-  const eventCount = currentMonthEvents.filter((e) => e.type === "event" || e.type === "game").length;
+  const eventCount = currentMonthEvents.filter((e) => e.type === "event").length;
   const meetingCount = currentMonthEvents.filter((e) => e.type === "meeting").length;
 
   const displayedEvents = eventsTab === "upcoming" ? monthUpcoming : monthPast;

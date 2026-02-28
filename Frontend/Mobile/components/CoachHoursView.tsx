@@ -774,28 +774,18 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
   },
   hintText: { color: "rgba(255,255,255,0.3)", fontSize: 13, flex: 1 },
-});
 
-// ─── Ring component styles ────────────────────────────────────────────────────
-
-const ringStyles = StyleSheet.create({
-  wrapper: { width: RING_SIZE, height: RING_SIZE, alignItems: "center", justifyContent: "center", marginVertical: 8 },
-  track:   { position: "absolute", width: RING_SIZE, height: RING_SIZE, borderRadius: RING_HALF },
-  inner: {
+  // ─── Ring component styles ───────────────────────────────────────────────
+  ringWrapper: { width: RING_SIZE, height: RING_SIZE, alignItems: "center", justifyContent: "center", marginVertical: 8 },
+  ringTrack:   { position: "absolute", width: RING_SIZE, height: RING_SIZE, borderRadius: RING_HALF },
+  ringInner: {
     position: "absolute",
     width: INNER_SIZE, height: INNER_SIZE, borderRadius: INNER_HALF,
     left: RING_STROKE, top: RING_STROKE,
     alignItems: "center", justifyContent: "center",
   },
-});
-
-// Inject ring styles into main styles object for JSX access
-Object.assign(styles, {
-  ringWrapper:  ringStyles.wrapper,
-  ringTrack:    ringStyles.track,
-  ringInner:    ringStyles.inner,
-  ringAmount:   { color: "white", fontSize: 26, fontWeight: "800" as const, letterSpacing: -0.5, textAlign: "center" as const },
-  ringLabel:    { color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 4, textAlign: "center" as const },
+  ringAmount: { color: "white", fontSize: 26, fontWeight: "800" as const, letterSpacing: -0.5, textAlign: "center" as const },
+  ringLabel:  { color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 4, textAlign: "center" as const },
 });
 
 // ─── Shared sheet styles ──────────────────────────────────────────────────────
