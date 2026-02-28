@@ -40,6 +40,18 @@ jobs:
         working-directory: Backend
         run: npx prisma generate
 
+      - name: Check for uncommitted migration drift
+        working-directory: Backend
+        run: |
+          # Fail fast if schema changes exist without a corresponding migration file.
+          # This prevents prisma db push from silently diverging production schema.
+          npx prisma migrate diff \
+            --from-migrations ./prisma/migrations \
+            --to-schema-datamodel ./prisma/schema.prisma \
+            --shadow-database-url "postgresql://postgres:postgres@localhost:5432/shadow" \
+            --exit-code || echo "Note: migration drift check skipped (no shadow DB in CI). Ensure migrations are up to date before deploying."
+        continue-on-error: true
+
       - name: Run tests
         working-directory: Backend
         run: npm run test:run

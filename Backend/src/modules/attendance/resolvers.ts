@@ -291,13 +291,19 @@ export const attendanceResolvers = {
       // Determine if on time or late (on-time = before start, late = after start)
       const status: AttendanceStatus = now.getTime() <= eventStart.getTime() ? "ON_TIME" : "LATE";
 
-      const checkIn = await prisma.checkIn.create({
-        data: {
+      // Upsert instead of create to make check-in idempotent.
+      // If two rapid taps hit the DB simultaneously, the unique constraint
+      // (userId, eventId) ensures only one record is created; the second
+      // call returns the existing record without throwing.
+      const checkIn = await prisma.checkIn.upsert({
+        where: { userId_eventId: { userId: input.userId, eventId: input.eventId } },
+        create: {
           userId: input.userId,
           eventId: input.eventId,
           status,
           checkInTime: now,
         },
+        update: {}, // Already checked in — return existing record unchanged
       });
 
       // Check for attendance milestones (non-blocking)

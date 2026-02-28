@@ -1,6 +1,7 @@
 import { prisma } from "../../db.js";
 import { toISO, sanitizePhone } from "../../utils/time.js";
 import { validate, createEmergencyContactInputSchema, updateEmergencyContactInputSchema, upsertMedicalInfoInputSchema } from "../../utils/validate.js";
+import { encryptIfConfigured, decryptIfConfigured } from "../../utils/encrypt.js";
 import type { Loaders } from "../../utils/dataLoaders.js";
 
 interface Context {
@@ -72,7 +73,16 @@ export const healthResolvers = {
 
     upsertMedicalInfo: async (_: unknown, { input }: { input: { userId: string; organizationId: string; conditions?: string; allergies?: string; medications?: string; insuranceProvider?: string; insurancePolicyNumber?: string; insuranceGroupNumber?: string; notes?: string } }) => {
       validate(upsertMedicalInfoInputSchema, input);
-      const { userId, organizationId, ...data } = input;
+      const { userId, organizationId, ...raw } = input;
+      // Encrypt sensitive PII fields at rest (AES-256-GCM)
+      const data = {
+        ...raw,
+        ...(raw.conditions !== undefined && { conditions: encryptIfConfigured(raw.conditions) }),
+        ...(raw.allergies !== undefined && { allergies: encryptIfConfigured(raw.allergies) }),
+        ...(raw.medications !== undefined && { medications: encryptIfConfigured(raw.medications) }),
+        ...(raw.insurancePolicyNumber !== undefined && { insurancePolicyNumber: encryptIfConfigured(raw.insurancePolicyNumber) }),
+        ...(raw.insuranceGroupNumber !== undefined && { insuranceGroupNumber: encryptIfConfigured(raw.insuranceGroupNumber) }),
+      };
       return prisma.medicalInfo.upsert({
         where: { userId_organizationId: { userId, organizationId } },
         create: { userId, organizationId, ...data },
@@ -151,6 +161,12 @@ export const healthResolvers = {
   },
 
   MedicalInfo: {
+    // Decrypt encrypted PII fields on read so clients receive plaintext
+    conditions: (parent: any) => decryptIfConfigured(parent.conditions),
+    allergies: (parent: any) => decryptIfConfigured(parent.allergies),
+    medications: (parent: any) => decryptIfConfigured(parent.medications),
+    insurancePolicyNumber: (parent: any) => decryptIfConfigured(parent.insurancePolicyNumber),
+    insuranceGroupNumber: (parent: any) => decryptIfConfigured(parent.insuranceGroupNumber),
     updatedAt: (parent: any) => toISO(parent.updatedAt),
   },
 

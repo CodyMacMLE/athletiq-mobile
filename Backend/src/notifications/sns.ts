@@ -4,7 +4,10 @@ import {
   PublishCommand,
   SetEndpointAttributesCommand,
   GetEndpointAttributesCommand,
+  type CreatePlatformEndpointCommandOutput,
+  type GetEndpointAttributesCommandOutput,
 } from "@aws-sdk/client-sns";
+import { createCircuitBreaker } from "../utils/circuitBreaker.js";
 
 const sns = new SNSClient({
   region: process.env.AWS_REGION || "us-east-2",
@@ -13,6 +16,10 @@ const sns = new SNSClient({
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
   },
 });
+
+// Circuit breaker for SNS — protects against SNS outages blocking the event loop.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const snsBreaker = createCircuitBreaker((command: any) => sns.send(command) as Promise<any>, "SNS");
 
 const SNS_IOS_PLATFORM_APP_ARN = process.env.SNS_IOS_PLATFORM_APP_ARN || "";
 const SNS_ANDROID_PLATFORM_APP_ARN = process.env.SNS_ANDROID_PLATFORM_APP_ARN || "";
@@ -43,7 +50,7 @@ export async function registerPushToken(
       Token: token,
     });
 
-    const response = await sns.send(command);
+    const response = await snsBreaker.fire(command) as CreatePlatformEndpointCommandOutput;
 
     if (!response.EndpointArn) {
       throw new Error("Failed to create SNS endpoint");
@@ -57,7 +64,7 @@ export async function registerPushToken(
       },
     });
 
-    await sns.send(setAttrsCommand);
+    await snsBreaker.fire(setAttrsCommand);
 
     return response.EndpointArn;
   } catch (error: any) {
@@ -76,7 +83,7 @@ export async function registerPushToken(
           },
         });
 
-        await sns.send(setAttrsCommand);
+        await snsBreaker.fire(setAttrsCommand);
         return existingArn;
       }
     }
@@ -100,7 +107,7 @@ export async function sendPushToEndpoint(
       EndpointArn: endpointArn,
     });
 
-    const attrs = await sns.send(getAttrsCommand);
+    const attrs = await snsBreaker.fire(getAttrsCommand) as GetEndpointAttributesCommandOutput;
 
     if (attrs.Attributes?.Enabled !== "true") {
       console.log(`Endpoint ${endpointArn} is disabled, skipping`);
@@ -138,7 +145,7 @@ export async function sendPushToEndpoint(
       MessageStructure: "json",
     });
 
-    await sns.send(command);
+    await snsBreaker.fire(command);
   } catch (error: any) {
     // If endpoint is invalid or deleted, log but don't throw
     if (error.code === "EndpointDisabled" || error.code === "InvalidParameter") {
@@ -175,5 +182,5 @@ export async function sendSMS(
     },
   });
 
-  await sns.send(command);
+  await snsBreaker.fire(command);
 }

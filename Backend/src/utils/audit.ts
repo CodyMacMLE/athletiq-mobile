@@ -22,7 +22,9 @@ export type AuditAction =
   // Invites
   | "CANCEL_INVITE"
   // NFC
-  | "DEACTIVATE_NFC_TAG";
+  | "DEACTIVATE_NFC_TAG"
+  // Security
+  | "SUSPICIOUS_ACTIVITY";
 
 interface AuditParams {
   action: AuditAction;

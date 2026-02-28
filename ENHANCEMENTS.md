@@ -22,6 +22,14 @@ Status legend: ✅ Implemented · 🔴 Critical · 🟠 High · 🟡 Medium · �
 15. ✅ GraphQL depth limit (max 10) + introspection off in production (#16)
 16. ✅ Zod input validation on all key mutations — 33 new tests (#17)
 17. ✅ Helmet HTTP security headers + CORS allowlist hardening (#18)
+18. ✅ PII encryption at rest (AES-256-GCM for medical info fields) (#19)
+19. ✅ Per-user rate limiting (100 req/min sliding window) + auth-failure tracking (#20)
+20. ✅ Structured logging (pino + Sentry) + slow resolver warnings (#21)
+21. ✅ Graceful shutdown with drain + 25s timeout + httpServer.close() (#22)
+22. ✅ Circuit breakers (opossum) on SES + SNS — graceful degradation (#23)
+23. ✅ Deep health check — GET /health (liveness) + /health/ready (DB readiness) (#24)
+24. ✅ Migrate deploy in CI — production uses prisma migrate deploy, not db push (#25)
+25. ✅ Idempotent check-in (upsert semantics on unique constraint) (#26)
 
 ---
 
@@ -68,7 +76,7 @@ Files: `Backend/src/index.ts`
 
 ---
 
-### #19 — PII Encryption at Rest
+### ✅ #19 — PII Encryption at Rest
 **Risk**: Medical information (conditions, allergies, medications, insurance numbers)
 and emergency contacts are stored as plaintext in RDS. A database breach
 exposes sensitive health data directly.
@@ -83,7 +91,7 @@ Files: `Backend/src/utils/encrypt.ts` (new), health resolvers
 
 ---
 
-### #20 — Per-User Rate Limiting + Abuse Detection
+### ✅ #20 — Per-User Rate Limiting + Abuse Detection
 **Risk**: Current rate limiter is IP-only (120 req/min). A single authenticated
 user can spam mutations (e.g., mass check-in attempts, bulk data scraping)
 from behind a shared IP without being throttled.
@@ -99,7 +107,7 @@ Files: `Backend/src/index.ts`, `Backend/src/utils/rateLimit.ts` (new)
 
 ## 🟠 High — Reliability & Observability
 
-### #21 — Structured Logging + Error Monitoring (Sentry)
+### ✅ #21 — Structured Logging + Error Monitoring (Sentry)
 **Risk**: The server currently uses `console.log/error`. In production, unhandled
 errors are silently swallowed or produce unstructured noise in CloudWatch.
 There is no alerting when the app crashes.
@@ -114,7 +122,7 @@ Files: `Backend/src/utils/logger.ts` (new), `Backend/src/index.ts`, all resolver
 
 ---
 
-### #22 — Graceful Shutdown + Connection Pool Limits
+### ✅ #22 — Graceful Shutdown + Connection Pool Limits
 **Risk**: When ECS replaces a task, the process receives SIGTERM. Currently
 the server closes immediately, dropping in-flight requests. Also, Prisma
 has no explicit connection limit — under load it will exhaust the RDS
@@ -129,7 +137,7 @@ Files: `Backend/src/index.ts`, `Backend/task-definition.json`
 
 ---
 
-### #23 — Circuit Breakers for External Services
+### ✅ #23 — Circuit Breakers for External Services
 **Risk**: If AWS SES goes down, every mutation that triggers an email
 (invites, excuse notifications) will hang for 30+ seconds waiting for a
 timeout, blocking the event loop. Same for S3 uploads and SNS pushes.
@@ -143,7 +151,7 @@ Files: `Backend/src/utils/circuitBreaker.ts` (new), communications and media res
 
 ---
 
-### #24 — Comprehensive Health Check
+### ✅ #24 — Comprehensive Health Check
 **Risk**: The current `/health` endpoint returns `200 OK` immediately without
 checking whether the database, Prisma client, or key external services
 are reachable. ECS considers the container healthy even if it can't reach RDS.
@@ -157,7 +165,7 @@ Files: `Backend/src/modules/health/resolvers.ts`, `Backend/src/index.ts`
 
 ---
 
-### #25 — Database Migrations Safety (migrate deploy in CI)
+### ✅ #25 — Database Migrations Safety (migrate deploy in CI)
 **Risk**: `prisma db push` (used in development) is destructive — it can drop
 columns without a migration history. Production should always use
 `prisma migrate deploy` which applies sequential, versioned migrations.
@@ -171,7 +179,7 @@ Files: `.github/workflows/deploy-backend.yml`
 
 ---
 
-### #26 — Idempotent Check-In (Prevent Double Check-Ins)
+### ✅ #26 — Idempotent Check-In (Prevent Double Check-Ins)
 **Risk**: Race condition — if a user double-taps the NFC tag quickly, two
 `checkIn` mutations can fire simultaneously and both pass the "no existing
 check-in" guard before either completes the insert, creating duplicate

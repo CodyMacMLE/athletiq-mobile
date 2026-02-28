@@ -25,7 +25,12 @@ const optionalEmail = z.string().email("Must be a valid email address").trim().t
 export function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {
   const result = schema.safeParse(data);
   if (!result.success) {
-    const message = result.error.issues.map((i) => i.message).join("; ");
+    // Zod v4: ZodError extends $ZodError which has .issues; use type assertion to access it.
+    const err = result.error as unknown as { issues?: Array<{ message: string }>; toString?(): string };
+    const issues = err.issues ?? [];
+    const message = issues.length > 0
+      ? issues.map((i) => i.message).join("; ")
+      : String(result.error);
     throw new Error(`Validation error: ${message}`);
   }
   return result.data;

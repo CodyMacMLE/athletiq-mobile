@@ -17,6 +17,9 @@ import { startAutoCheckoutCron, stopAutoCheckoutCron } from "./cron/autoCheckout
 import { startEventReminderCron, stopEventReminderCron } from "./cron/eventReminders.js";
 import { startEmailReportCron, stopEmailReportCron } from "./cron/emailReportScheduler.js";
 import { startScheduledAnnouncementCron, stopScheduledAnnouncementCron } from "./cron/scheduledAnnouncements.js";
+import { userRateLimiter } from "./utils/rateLimit.js";
+import { auditLog } from "./utils/audit.js";
+import { logger, captureError } from "./utils/logger.js";
 
 interface Context {
   userId?: string;
@@ -128,6 +131,22 @@ async function main() {
   // Disable contentSecurityPolicy for the GraphQL playground iframe to load correctly in dev.
   app.use(helmet({ contentSecurityPolicy: isProd }));
 
+  // ─── Health endpoints ────────────────────────────────────────────────────────
+  // GET /health  — fast liveness (ECS health check, no DB hit)
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok", uptime: process.uptime() });
+  });
+
+  // GET /health/ready — deep readiness check (DB connectivity)
+  app.get("/health/ready", async (_req, res) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      res.json({ status: "ready", db: "ok" });
+    } catch (err) {
+      res.status(503).json({ status: "not ready", db: "unreachable" });
+    }
+  });
+
   app.use(
     "/graphql",
     cors<cors.CorsRequest>({
@@ -155,7 +174,7 @@ async function main() {
           if (!email) throw new Error("PLAYGROUND_USER_EMAIL is not set");
           const user = await prisma.user.findUnique({ where: { email } });
           if (!user) throw new Error(`No user found for PLAYGROUND_USER_EMAIL: ${email}`);
-          console.log(`[playground] authenticated as ${email} (${user.id})`);
+          logger.info({ userId: user.id, email }, "[playground] authenticated");
           return { userId: user.id, loaders };
         }
 
@@ -189,44 +208,72 @@ async function main() {
           });
         }
 
+        // Per-user rate limiting — checked after we know who the user is
+        const rateLimitResult = userRateLimiter.check(user.id);
+        if (rateLimitResult) {
+          // Emit audit log entry for suspicious activity
+          auditLog({
+            action: "SUSPICIOUS_ACTIVITY",
+            actorId: user.id,
+            targetId: user.id,
+            targetType: "User",
+            organizationId: undefined,
+            metadata: { reason: "per-user rate limit exceeded" },
+          }).catch(() => {});
+          const retryAfterSec = Math.ceil(rateLimitResult.retryAfterMs / 1000);
+          throw Object.assign(new Error("Too many requests. Please slow down."), {
+            extensions: { code: "RATE_LIMITED", retryAfter: retryAfterSec },
+          });
+        }
+
+        // Successful auth — reset failed auth counter
+        userRateLimiter.resetFailedAuth(user.email);
+
         return { userId: user.id, loaders };
       },
     })
   );
 
-  app.listen(4000, "0.0.0.0", () => {
-    console.log(`🚀 Server ready at http://localhost:4000/graphql`);
+  const httpServer = app.listen(4000, "0.0.0.0", () => {
+    logger.info("🚀 Server ready at http://localhost:4000/graphql");
     startAbsentMarkerCron();
     startAutoCheckoutCron();
     startEventReminderCron();
     startEmailReportCron();
     startScheduledAnnouncementCron();
   });
+
+  // Graceful shutdown — stop accepting new requests, drain in-flight, then exit.
+  // ECS sends SIGTERM before forcibly killing (default 30s grace period).
+  async function shutdown(signal: string) {
+    logger.info({ signal }, "Received shutdown signal — draining in-flight requests...");
+    stopAbsentMarkerCron();
+    stopAutoCheckoutCron();
+    stopEventReminderCron();
+    stopEmailReportCron();
+    stopScheduledAnnouncementCron();
+
+    httpServer.close(async () => {
+      logger.info("HTTP server closed. Disconnecting Prisma...");
+      await prisma.$disconnect();
+      logger.info("Shutdown complete.");
+      process.exit(0);
+    });
+
+    // Force-exit after 25s if drain takes too long (ECS kills at 30s)
+    setTimeout(() => {
+      logger.error("Drain timeout — forcing exit.");
+      process.exit(1);
+    }, 25_000).unref();
+  }
+
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
 
-// Graceful shutdown
-process.on("SIGINT", async () => {
-  stopAbsentMarkerCron();
-  stopAutoCheckoutCron();
-  stopEventReminderCron();
-  stopEmailReportCron();
-  stopScheduledAnnouncementCron();
-  await prisma.$disconnect();
-  process.exit(0);
-});
-
-process.on("SIGTERM", async () => {
-  stopAbsentMarkerCron();
-  stopAutoCheckoutCron();
-  stopEventReminderCron();
-  stopEmailReportCron();
-  stopScheduledAnnouncementCron();
-  await prisma.$disconnect();
-  process.exit(0);
-});
-
 main().catch(async (e) => {
-  console.error(e);
+  logger.fatal({ err: e }, "Unhandled error during startup");
+  captureError(e, { context: "startup" });
   await prisma.$disconnect();
   process.exit(1);
 });

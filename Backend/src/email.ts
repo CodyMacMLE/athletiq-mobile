@@ -1,4 +1,5 @@
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { createCircuitBreaker } from "./utils/circuitBreaker.js";
 
 const ses = new SESClient({
   region: process.env.AWS_REGION || "us-east-2",
@@ -7,6 +8,12 @@ const ses = new SESClient({
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
   },
 });
+
+// Circuit breaker for SES — open after repeated failures, recover after 30s
+const sesBreaker = createCircuitBreaker(
+  (command: SendEmailCommand) => ses.send(command),
+  "SES"
+);
 
 const FROM_EMAIL = process.env.SES_FROM_EMAIL || "noreply@athletiq.app";
 const APP_URL = process.env.APP_URL || "https://athletiq.fitness";
@@ -179,7 +186,7 @@ export async function sendInviteEmail({
     },
   });
 
-  await ses.send(command);
+  await sesBreaker.fire(command);
 }
 
 export async function sendFeedbackEmail({
@@ -259,5 +266,5 @@ export async function sendFeedbackEmail({
     },
   });
 
-  await ses.send(command);
+  await sesBreaker.fire(command);
 }
