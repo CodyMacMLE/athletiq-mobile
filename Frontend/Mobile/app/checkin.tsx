@@ -70,8 +70,16 @@ export default function CheckIn() {
   const [earlyEventTitle, setEarlyEventTitle] = useState("");
   const [earlyEventTime, setEarlyEventTime] = useState("");
 
-  // Ad-hoc state
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  // Active team for this check-in session — pre-filled from selected context or auto-selected
+  const initialTeamId = selectedTeam?.id ?? (userTeams.length === 1 ? userTeams[0].team.id : null);
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(initialTeamId);
+  const activeTeamIdRef = useRef<string | null>(initialTeamId);
+  function selectTeam(id: string) {
+    setActiveTeamId(id);
+    activeTeamIdRef.current = id;
+  }
+
+  // Ad-hoc state (uses activeTeamId / selectTeam above)
   const [adHocStartTime, setAdHocStartTime] = useState<Date>(new Date());
   const [adHocEndTime, setAdHocEndTime] = useState<Date>(() => {
     const d = new Date();
@@ -200,7 +208,7 @@ export default function CheckIn() {
         variables: {
           token,
           forUserId: isViewingAsGuardian ? selectedAthlete?.id : undefined,
-          teamId: selectedTeam?.id,
+          teamId: activeTeamIdRef.current ?? undefined,
         },
       });
       const result = data.nfcCheckIn;
@@ -244,8 +252,6 @@ export default function CheckIn() {
         setScanState("tooEarly");
       } else if (gqlError.includes("No events today")) {
         setScanState("noEvent");
-        // Pre-select the currently active team context
-        setSelectedTeamId(selectedTeam?.id ?? (userTeams.length === 1 ? userTeams[0].team.id : null));
       } else if (gqlError.includes("Unrecognized tag")) {
         setScanState("error");
         setResultMessage("Unrecognized Tag");
@@ -281,14 +287,14 @@ export default function CheckIn() {
   }
 
   async function submitAdHocCheckIn() {
-    if (!scannedToken || !selectedTeamId) return;
+    if (!scannedToken || !activeTeamId) return;
     setAdHocSubmitting(true);
     try {
       await adHocNfcCheckIn({
         variables: {
           input: {
             token: scannedToken,
-            teamId: selectedTeamId,
+            teamId: activeTeamId,
             startTime: formatTimeForApi(adHocStartTime),
             endTime: formatTimeForApi(adHocEndTime),
             note: adHocNote.trim() || null,
@@ -363,6 +369,22 @@ export default function CheckIn() {
                   ? "NFC is not available on this device"
                   : "NFC is not supported on this device"}
             </Text>
+            {/* Team chip selector — shown when user belongs to multiple teams */}
+            {userTeams.length > 1 && (
+              <View style={styles.teamChipRow}>
+                {userTeams.map((m) => (
+                  <Pressable
+                    key={m.team.id}
+                    style={[styles.teamChip, activeTeamId === m.team.id && styles.teamChipActive]}
+                    onPress={() => selectTeam(m.team.id)}
+                  >
+                    <Text style={[styles.teamChipText, activeTeamId === m.team.id && styles.teamChipTextActive]}>
+                      {m.team.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </>
         )}
 
@@ -460,19 +482,19 @@ export default function CheckIn() {
                   key={m.team.id}
                   style={[
                     styles.teamOption,
-                    selectedTeamId === m.team.id && styles.teamOptionSelected,
+                    activeTeamId === m.team.id && styles.teamOptionSelected,
                   ]}
-                  onPress={() => setSelectedTeamId(m.team.id)}
+                  onPress={() => selectTeam(m.team.id)}
                 >
                   <Text
                     style={[
                       styles.teamOptionText,
-                      selectedTeamId === m.team.id && styles.teamOptionTextSelected,
+                      activeTeamId === m.team.id && styles.teamOptionTextSelected,
                     ]}
                   >
                     {m.team.name}
                   </Text>
-                  {selectedTeamId === m.team.id && (
+                  {activeTeamId === m.team.id && (
                     <Feather name="check" size={16} color="#a855f7" />
                   )}
                 </Pressable>
@@ -554,11 +576,11 @@ export default function CheckIn() {
             <Pressable
               style={({ pressed }) => [
                 styles.submitButton,
-                (!selectedTeamId || adHocSubmitting) && styles.submitButtonDisabled,
+                (!activeTeamId || adHocSubmitting) && styles.submitButtonDisabled,
                 pressed && { opacity: 0.8 },
               ]}
               onPress={submitAdHocCheckIn}
-              disabled={!selectedTeamId || adHocSubmitting}
+              disabled={!activeTeamId || adHocSubmitting}
             >
               <Text style={styles.submitButtonText}>
                 {adHocSubmitting ? "Submitting..." : "Submit Check-In"}
@@ -590,7 +612,7 @@ export default function CheckIn() {
                     variables: {
                       token: scannedToken,
                       forUserId: isViewingAsGuardian ? selectedAthlete?.id : undefined,
-                      teamId: selectedTeam?.id,
+                      teamId: activeTeamIdRef.current ?? undefined,
                       bypassEarlyCheck: true,
                     },
                   });
@@ -723,6 +745,36 @@ const styles = StyleSheet.create({
   scanIconDefault: {
     backgroundColor: "rgba(108,92,231,0.3)",
     borderColor: "rgba(108,92,231,0.4)",
+  },
+
+  // Team chip row (scanning state)
+  teamChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 20,
+  },
+  teamChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  teamChipActive: {
+    backgroundColor: "rgba(168,85,247,0.2)",
+    borderColor: "rgba(168,85,247,0.5)",
+  },
+  teamChipText: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  teamChipTextActive: {
+    color: "#c084fc",
+    fontWeight: "600",
   },
 
   // Too early card
