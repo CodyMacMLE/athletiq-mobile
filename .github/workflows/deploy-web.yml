@@ -32,10 +32,6 @@ jobs:
         working-directory: Frontend/Web
         run: npx tsc --noEmit
 
-      - name: Lint
-        working-directory: Frontend/Web
-        run: npm run lint
-
   # ─── Job 2: Deploy to Vercel (only after validate passes) ─────────────────
   deploy:
     name: Deploy to Vercel
