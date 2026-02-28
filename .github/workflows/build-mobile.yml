@@ -1,0 +1,63 @@
+name: Build Mobile (EAS Build)
+
+# Triggered manually from the GitHub Actions UI.
+# Use this when native dependencies change, app.json config changes,
+# or a new version needs to be submitted to the App Store / Play Store.
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform to build"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - ios
+          - android
+      profile:
+        description: "EAS build profile"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - preview
+
+jobs:
+  build:
+    name: EAS Build (${{ inputs.platform }} / ${{ inputs.profile }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: Frontend/Mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: Frontend/Mobile
+        run: npm ci
+
+      - name: TypeScript check
+        working-directory: Frontend/Mobile
+        run: npx tsc --noEmit
+
+      - name: Build with EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Trigger EAS build
+        working-directory: Frontend/Mobile
+        run: |
+          eas build \
+            --platform ${{ inputs.platform }} \
+            --profile ${{ inputs.profile }} \
+            --non-interactive

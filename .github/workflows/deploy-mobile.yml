@@ -1,0 +1,68 @@
+name: Deploy Mobile (EAS Update)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Frontend/Mobile/**"
+      - ".github/workflows/deploy-mobile.yml"
+
+jobs:
+  # ─── Job 1: Type-check ───────────────────────────────────────────────────
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: Frontend/Mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: Frontend/Mobile
+        run: npm ci
+
+      - name: TypeScript check
+        working-directory: Frontend/Mobile
+        run: npx tsc --noEmit
+
+  # ─── Job 2: EAS Update (OTA push to production channel) ──────────────────
+  update:
+    name: EAS Update
+    runs-on: ubuntu-latest
+    needs: typecheck
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: Frontend/Mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: Frontend/Mobile
+        run: npm ci
+
+      - name: Publish OTA update
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Push update to production channel
+        working-directory: Frontend/Mobile
+        run: |
+          eas update \
+            --branch production \
+            --message "${{ github.event.head_commit.message }}" \
+            --non-interactive
