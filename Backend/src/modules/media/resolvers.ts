@@ -111,7 +111,7 @@ export const mediaResolvers = {
 
     nfcCheckIn: async (
       _: unknown,
-      { token, forUserId, teamId }: { token: string; forUserId?: string; teamId?: string },
+      { token, forUserId, teamId, bypassEarlyCheck }: { token: string; forUserId?: string; teamId?: string; bypassEarlyCheck?: boolean },
       context: { userId?: string }
     ) => {
       if (!context.userId) throw new Error("Authentication required");
@@ -218,7 +218,7 @@ export const mediaResolvers = {
         }
       }
 
-      // If no event in window, find the next upcoming event and tell user to wait
+      // If no event in window, find the next upcoming event
       if (!selectedEvent) {
         for (const event of todaysEvents) {
           if (checkedOutEventIds.has(event.id)) continue;
@@ -227,11 +227,16 @@ export const mediaResolvers = {
           const eventStart = new Date(eventDate);
           eventStart.setHours(start.hours, start.minutes, 0, 0);
           if (eventStart > now) {
+            if (bypassEarlyCheck) {
+              // User confirmed early check-in — proceed with this event
+              selectedEvent = event;
+              break;
+            }
             throw new Error(`TOO_EARLY:${event.title}:${event.startTime}`);
           }
         }
-        // All remaining events already ended
-        throw new Error("No events today");
+        // All remaining events already ended (or bypass still left selectedEvent null)
+        if (!selectedEvent) throw new Error("No events today");
       }
 
       // 5. Toggle logic

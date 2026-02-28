@@ -579,12 +579,53 @@ export default function CheckIn() {
         )}
 
         {scanState === "tooEarly" && (
-          <Pressable
-            style={({ pressed }) => [styles.doneButton, pressed && { opacity: 0.8 }]}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.doneText}>Got It</Text>
-          </Pressable>
+          <View style={styles.earlyActions}>
+            <Pressable
+              style={({ pressed }) => [styles.earlyConfirmButton, pressed && { opacity: 0.8 }]}
+              onPress={async () => {
+                if (!scannedToken) return;
+                setScanState("scanning");
+                try {
+                  const { data } = await nfcCheckIn({
+                    variables: {
+                      token: scannedToken,
+                      forUserId: isViewingAsGuardian ? selectedAthlete?.id : undefined,
+                      teamId: selectedTeam?.id,
+                      bypassEarlyCheck: true,
+                    },
+                  });
+                  const result = data.nfcCheckIn;
+                  const action = result.action;
+                  const event = result.event;
+                  const checkInRecord = result.checkIn;
+                  setCheckAction(action);
+                  setScanState("success");
+                  if (action === "CHECKED_IN") {
+                    setResultMessage("Checked In!");
+                    setResultDetails(`${event.title} \u2022 Hours counted from event start`);
+                  } else {
+                    const hours = checkInRecord.hoursLogged
+                      ? `${checkInRecord.hoursLogged.toFixed(1)}h logged`
+                      : "";
+                    setResultMessage("Checked Out!");
+                    setResultDetails(`${event.title}${hours ? ` \u2022 ${hours}` : ""}`);
+                  }
+                } catch (err: any) {
+                  setScanState("error");
+                  setResultMessage("Check-In Failed");
+                  setResultDetails(err?.graphQLErrors?.[0]?.message || "Could not process check-in");
+                }
+              }}
+            >
+              <Text style={styles.earlyConfirmText}>Check In Anyway</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.earlyCancelButton, pressed && { opacity: 0.8 }]}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.earlyCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
         )}
 
         {(scanState === "success" || scanState === "adHocSuccess" || scanState === "queued") && (
@@ -810,6 +851,34 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+
+  // Early check-in action buttons
+  earlyActions: {
+    marginTop: 32,
+    width: "100%",
+    gap: 12,
+  },
+  earlyConfirmButton: {
+    backgroundColor: "#6c5ce7",
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  earlyConfirmText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  earlyCancelButton: {
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  earlyCancelText: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 16,
+    fontWeight: "500",
   },
 
   // Action buttons

@@ -52,7 +52,7 @@ export const mediaSchema = `#graphql
   extend type Mutation {
     registerNfcTag(input: RegisterNfcTagInput!): NfcTag!
     deactivateNfcTag(id: ID!): NfcTag!
-    nfcCheckIn(token: String!, forUserId: ID, teamId: ID): NfcCheckInResult!
+    nfcCheckIn(token: String!, forUserId: ID, teamId: ID, bypassEarlyCheck: Boolean): NfcCheckInResult!
     adHocNfcCheckIn(input: AdHocNfcCheckInInput!): NfcCheckInResult!
     approveAdHocCheckIn(checkInId: ID!): CheckIn!
     denyAdHocCheckIn(checkInId: ID!): Boolean!

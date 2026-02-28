@@ -192,7 +192,7 @@ export default function EventDetailPage() {
   const [earlyCheckInWarning, setEarlyCheckInWarning] = useState<{
     userId: string;
     name: string;
-    cappedTime: Date;
+    eventStart: Date;
   } | null>(null);
 
   const { data, loading, refetch } = useQuery<any>(GET_EVENT_DETAIL, {
@@ -767,11 +767,10 @@ export default function EventDetailPage() {
                             const now = new Date();
                             const eventStart = getEventStartDateTime(event!);
                             if (eventStart && (eventStart.getTime() - now.getTime()) > 30 * 60 * 1000) {
-                              const cappedTime = new Date(eventStart.getTime() - 30 * 60 * 1000);
                               setEarlyCheckInWarning({
                                 userId: row.user.id,
                                 name: `${row.user.firstName} ${row.user.lastName}`,
-                                cappedTime,
+                                eventStart,
                               });
                             } else {
                               adminCheckIn({
@@ -925,7 +924,7 @@ export default function EventDetailPage() {
               You are checking in <span className="text-white font-medium">{earlyCheckInWarning.name}</span> more than 30 minutes before the event starts.
             </p>
             <p className="text-white/55 text-sm mb-6">
-              The check-in time will be set to <span className="text-yellow-400 font-medium">{earlyCheckInWarning.cappedTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span> (30 minutes before start) so hours are counted correctly. Do you want to proceed?
+              Hours will be counted from the event start time (<span className="text-yellow-400 font-medium">{earlyCheckInWarning.eventStart.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>), not from arrival. Do you want to proceed?
             </p>
             <div className="flex gap-3 justify-end">
               <button
@@ -942,7 +941,7 @@ export default function EventDetailPage() {
                         userId: earlyCheckInWarning.userId,
                         eventId,
                         status: "ON_TIME",
-                        checkInTime: earlyCheckInWarning.cappedTime.toISOString(),
+                        checkInTime: new Date().toISOString(),
                       },
                     },
                   }).then(() => { refetch(); setEarlyCheckInWarning(null); });

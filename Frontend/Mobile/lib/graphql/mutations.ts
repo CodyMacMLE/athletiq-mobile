@@ -88,8 +88,8 @@ export const CANCEL_EXCUSE_REQUEST = gql`
 // ============================================
 
 export const NFC_CHECK_IN = gql`
-  mutation NfcCheckIn($token: String!, $forUserId: ID, $teamId: ID) {
-    nfcCheckIn(token: $token, forUserId: $forUserId, teamId: $teamId) {
+  mutation NfcCheckIn($token: String!, $forUserId: ID, $teamId: ID, $bypassEarlyCheck: Boolean) {
+    nfcCheckIn(token: $token, forUserId: $forUserId, teamId: $teamId, bypassEarlyCheck: $bypassEarlyCheck) {
       checkIn {
         ...CheckInFields
       }
