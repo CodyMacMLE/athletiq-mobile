@@ -1,9 +1,12 @@
 import { ApolloServer } from "@apollo/server";
+import type { GraphQLFormattedError } from "graphql";
 import { ApolloServerPluginLandingPageLocalDefault } from "@apollo/server/plugin/landingPage/default";
 import { expressMiddleware } from "@as-integrations/express5";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import depthLimit from "graphql-depth-limit";
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import { typeDefs } from "./schema.js";
 import { resolvers } from "./resolvers/index.js";
@@ -26,6 +29,15 @@ const cognitoVerifier = CognitoJwtVerifier.create({
   tokenUse: "id",
   clientId: process.env.COGNITO_CLIENT_ID || "3e0jmpi1vpsbkntof8h6u7eov0",
 });
+
+const isProd = process.env.NODE_ENV === "production";
+
+// ─── CORS allowlist ────────────────────────────────────────────────────────────
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:4000",
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim()) : []),
+];
 
 // Rate limiter — 120 requests per minute per IP
 const apiLimiter = rateLimit({
@@ -79,17 +91,54 @@ async function main() {
   const server = new ApolloServer<Context>({
     typeDefs,
     resolvers,
-    introspection: true,
+    // Disable introspection in production to avoid leaking schema to attackers
+    introspection: !isProd,
+    // Mask internal error details in production (no stack traces in responses)
+    formatError: (formattedError: GraphQLFormattedError, error: unknown) => {
+      if (isProd) {
+        // Preserve validation errors and explicit user-facing errors
+        if (formattedError.extensions?.code === "GRAPHQL_VALIDATION_FAILED") {
+          return formattedError;
+        }
+        if (
+          formattedError.message.startsWith("Validation error:") ||
+          formattedError.message.startsWith("Authentication required") ||
+          formattedError.message.startsWith("Not authorized") ||
+          formattedError.message.startsWith("Cannot delete") ||
+          formattedError.message.startsWith("You must ")
+        ) {
+          return { message: formattedError.message };
+        }
+        return { message: "Internal server error" };
+      }
+      return formattedError;
+    },
+    validationRules: [
+      // Prevent deeply nested queries that cause exponential DB load
+      depthLimit(10),
+    ],
     plugins: [
-      ApolloServerPluginLandingPageLocalDefault({ embed: true }),
+      ...(!isProd ? [ApolloServerPluginLandingPageLocalDefault({ embed: true })] : []),
     ],
   });
 
   await server.start();
 
+  // Helmet — HTTP security headers (CSP, HSTS, X-Frame-Options, MIME sniff prevention, etc.)
+  // Disable contentSecurityPolicy for the GraphQL playground iframe to load correctly in dev.
+  app.use(helmet({ contentSecurityPolicy: isProd }));
+
   app.use(
     "/graphql",
-    cors<cors.CorsRequest>({ origin: true }),
+    cors<cors.CorsRequest>({
+      origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, server-to-server)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        callback(new Error(`CORS: origin ${origin} not allowed`));
+      },
+      credentials: true,
+    }),
     express.json(),
     apiLimiter,
     playgroundAuth,

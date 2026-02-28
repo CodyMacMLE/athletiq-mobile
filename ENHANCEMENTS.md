@@ -15,16 +15,19 @@ Status legend: ✅ Implemented · 🔴 Critical · 🟠 High · 🟡 Medium · �
 8. ✅ Offline check-in (queue + sync)
 9. ✅ Gamification (badges, team challenges, athlete recognition)
 10. ✅ Performance optimizations (DataLoaders, compound indexes)
-11. ✅ Testing infrastructure (99 tests, Vitest, CI gate)
+11. ✅ Testing infrastructure (132 tests, Vitest, CI gate)
 12. ✅ Modular backend architecture (12 domain modules)
 13. ✅ CI/CD (backend → ECS, mobile → EAS, web → Vercel)
 14. ✅ Membership period tracking (per-team hours accuracy)
+15. ✅ GraphQL depth limit (max 10) + introspection off in production (#16)
+16. ✅ Zod input validation on all key mutations — 33 new tests (#17)
+17. ✅ Helmet HTTP security headers + CORS allowlist hardening (#18)
 
 ---
 
 ## 🔴 Critical — Production Security
 
-### #16 — GraphQL Hardening
+### ✅ #16 — GraphQL Hardening
 **Risk**: The API currently allows unbounded query depth and complexity.
 A malicious actor can send a deeply nested query (e.g. `user { teams { members { teams { members { ... } } } } }`)
 that causes exponential DB load, taking the server down.
@@ -38,7 +41,7 @@ Files: `Backend/src/index.ts`
 
 ---
 
-### #17 — Input Validation (Zod)
+### ✅ #17 — Input Validation (Zod)
 **Risk**: All GraphQL mutation inputs go directly to Prisma with no validation.
 A user can submit `firstName: "A".repeat(100000)` or malformed dates/times that
 crash the server or corrupt data.
@@ -52,7 +55,7 @@ Files: `Backend/src/utils/validate.ts` (new), all module resolvers
 
 ---
 
-### #18 — HTTP Security Headers (Helmet) + CORS Hardening
+### ✅ #18 — HTTP Security Headers (Helmet) + CORS Hardening
 **Risk**: `cors({ origin: true })` allows any origin — any website can make
 credentialed requests to the API. No security headers means the API is
 vulnerable to clickjacking, MIME sniffing, etc.

@@ -1,5 +1,6 @@
 import { prisma } from "../../db.js";
 import { requireOrgAdmin } from "../../utils/permissions.js";
+import { validate, createCustomRoleInputSchema, updateCustomRoleInputSchema } from "../../utils/validate.js";
 
 export const rolesResolvers = {
   Query: {
@@ -28,6 +29,7 @@ export const rolesResolvers = {
       context: { userId?: string }
     ) => {
       await requireOrgAdmin(context, organizationId);
+      validate(createCustomRoleInputSchema, { name, description, canEditEvents, canApproveExcuses, canViewAnalytics, canManageMembers, canManageTeams, canManagePayments });
       return prisma.customRole.create({
         data: {
           organizationId, name,
@@ -57,6 +59,7 @@ export const rolesResolvers = {
     ) => {
       const role = await prisma.customRole.findUnique({ where: { id }, select: { organizationId: true } });
       if (role) await requireOrgAdmin(context, role.organizationId);
+      validate(updateCustomRoleInputSchema, { name, description, canEditEvents, canApproveExcuses, canViewAnalytics, canManageMembers, canManageTeams, canManagePayments });
       return prisma.customRole.update({
         where: { id },
         data: {

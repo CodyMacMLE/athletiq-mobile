@@ -1,6 +1,7 @@
 import { prisma } from "../../db.js";
 import { CognitoIdentityProviderClient, AdminDeleteUserCommand, ListUsersCommand } from "@aws-sdk/client-cognito-identity-provider";
 import { toISO, sanitizePhone } from "../../utils/time.js";
+import { validate, createUserInputSchema, updateUserInputSchema } from "../../utils/validate.js";
 import type { Loaders } from "../../utils/dataLoaders.js";
 
 interface Context {
@@ -36,6 +37,7 @@ export const userResolvers = {
 
   Mutation: {
     createUser: async (_: unknown, { input }: { input: { email: string; firstName: string; lastName: string; phone?: string; address?: string; city?: string; country?: string; image?: string } }) => {
+      validate(createUserInputSchema, input);
       const sanitized = { ...input, phone: sanitizePhone(input.phone) };
       return prisma.user.upsert({
         where: { email: input.email },
@@ -45,6 +47,7 @@ export const userResolvers = {
     },
 
     updateUser: async (_: unknown, { id, input }: { id: string; input: { firstName?: string; lastName?: string; dateOfBirth?: string; phone?: string; address?: string; city?: string; country?: string; image?: string } }) => {
+      validate(updateUserInputSchema, input);
       const { dateOfBirth, phone, ...rest } = input;
       return prisma.user.update({
         where: { id },

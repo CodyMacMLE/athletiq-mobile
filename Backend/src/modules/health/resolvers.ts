@@ -1,5 +1,6 @@
 import { prisma } from "../../db.js";
 import { toISO, sanitizePhone } from "../../utils/time.js";
+import { validate, createEmergencyContactInputSchema, updateEmergencyContactInputSchema, upsertMedicalInfoInputSchema } from "../../utils/validate.js";
 import type { Loaders } from "../../utils/dataLoaders.js";
 
 interface Context {
@@ -36,6 +37,7 @@ export const healthResolvers = {
 
   Mutation: {
     createEmergencyContact: async (_: unknown, { input }: { input: { userId: string; organizationId: string; name: string; relationship: string; phone: string; email?: string; isPrimary?: boolean } }) => {
+      validate(createEmergencyContactInputSchema, input);
       if (input.isPrimary) {
         await prisma.emergencyContact.updateMany({
           where: { userId: input.userId, organizationId: input.organizationId },
@@ -46,6 +48,7 @@ export const healthResolvers = {
     },
 
     updateEmergencyContact: async (_: unknown, { id, input }: { id: string; input: { name?: string; relationship?: string; phone?: string; email?: string; isPrimary?: boolean } }) => {
+      validate(updateEmergencyContactInputSchema, input);
       if (input.isPrimary) {
         const existing = await prisma.emergencyContact.findUnique({ where: { id } });
         if (existing) {
@@ -68,6 +71,7 @@ export const healthResolvers = {
     },
 
     upsertMedicalInfo: async (_: unknown, { input }: { input: { userId: string; organizationId: string; conditions?: string; allergies?: string; medications?: string; insuranceProvider?: string; insurancePolicyNumber?: string; insuranceGroupNumber?: string; notes?: string } }) => {
+      validate(upsertMedicalInfoInputSchema, input);
       const { userId, organizationId, ...data } = input;
       return prisma.medicalInfo.upsert({
         where: { userId_organizationId: { userId, organizationId } },

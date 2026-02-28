@@ -1,5 +1,6 @@
 import { prisma } from "../../db.js";
 import { requireAuth, requireCoachOrAbove } from "../../utils/permissions.js";
+import { validate, createTeamChallengeInputSchema } from "../../utils/validate.js";
 import { toISO } from "../../utils/time.js";
 import type { Loaders } from "../../utils/dataLoaders.js";
 
@@ -89,6 +90,7 @@ export const gamificationResolvers = {
       context: { userId?: string }
     ) => {
       await requireCoachOrAbove(context, organizationId);
+      validate(createTeamChallengeInputSchema, { teamId, organizationId, title, description, targetPercent, startDate, endDate });
       const createdBy = requireAuth(context);
       const challenge = await prisma.teamChallenge.create({
         data: {
