@@ -88,6 +88,10 @@ model Organization {
   reportFrequencies   String[]
   payrollConfig       Json?
 
+  // Stripe Connect — set when the org admin completes onboarding
+  stripeAccountId      String?
+  stripeAccountEnabled Boolean @default(false)
+
   // Relations
   teams                Team[]
   events               Event[]

@@ -52,6 +52,14 @@ export const paymentsSchema = `#graphql
     paymentIntentId: String!
   }
 
+  type StripeConnectStatus {
+    connected: Boolean!
+    enabled: Boolean!
+    accountId: String
+    # URL to Stripe Express dashboard (only present when connected + enabled)
+    dashboardUrl: String
+  }
+
   enum InvoiceStatus {
     DRAFT
     SENT
@@ -74,6 +82,7 @@ export const paymentsSchema = `#graphql
     memberInvoices(userId: ID!, organizationId: ID!): [Invoice!]!
     invoice(id: ID!): Invoice
     orgBalanceSummary(organizationId: ID!): OrgBalanceSummary!
+    stripeConnectStatus(organizationId: ID!): StripeConnectStatus!
   }
 
   # ---- Mutations ----
@@ -85,5 +94,8 @@ export const paymentsSchema = `#graphql
     recordPayment(invoiceId: ID!, amountCents: Int!, method: PaymentMethod, note: String, paidAt: String): Payment!
     createStripePaymentIntent(invoiceId: ID!): StripePaymentIntentResult!
     sendPaymentReminder(invoiceId: ID!): Boolean!
+    # Stripe Connect — org admin onboarding
+    createStripeConnectLink(organizationId: ID!): String!
+    disconnectStripeAccount(organizationId: ID!): Boolean!
   }
 `;

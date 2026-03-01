@@ -214,6 +214,23 @@ async function main() {
       }
     }
 
+    // account.updated — fired when an Express account completes onboarding.
+    // Mark stripeAccountEnabled=true once charges_enabled flips to true.
+    if (event.type === "account.updated") {
+      const account = event.data.object as Stripe.Account;
+      if (account.charges_enabled) {
+        try {
+          await prisma.organization.updateMany({
+            where: { stripeAccountId: account.id },
+            data: { stripeAccountEnabled: true },
+          });
+          logger.info({ accountId: account.id }, "Stripe Connect account enabled");
+        } catch (err) {
+          captureError(err, { event: event.type, accountId: account.id });
+        }
+      }
+    }
+
     res.json({ received: true });
   });
 

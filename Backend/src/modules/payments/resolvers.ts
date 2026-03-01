@@ -11,9 +11,13 @@ import { sendInvoiceEmail, sendPaymentReminderEmail } from "../../email.js";
 import { toISO } from "../../utils/time.js";
 import { logger } from "../../utils/logger.js";
 
+// Platform Stripe client — used for Connect account management and split charges.
+// The same secret key doubles as the platform key when Connect is enabled.
 const stripeClient = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2026-02-25.clover" })
   : null;
+
+const PLATFORM_FEE_PERCENT = 0.02; // 2% platform fee
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -95,6 +99,40 @@ export const paymentsResolvers = {
         await requireCoachOrAbove(context, invoice.organizationId);
       }
       return withPaymentTotals(invoice);
+    },
+
+    stripeConnectStatus: async (
+      _: unknown,
+      { organizationId }: { organizationId: string },
+      context: { userId?: string }
+    ) => {
+      await requireOrgAdmin(context, organizationId);
+      const org = await prisma.organization.findUniqueOrThrow({
+        where: { id: organizationId },
+        select: { stripeAccountId: true, stripeAccountEnabled: true },
+      });
+
+      if (!org.stripeAccountId) {
+        return { connected: false, enabled: false, accountId: null, dashboardUrl: null };
+      }
+
+      // Fetch a fresh Express dashboard login link when fully enabled
+      let dashboardUrl: string | null = null;
+      if (org.stripeAccountEnabled && stripeClient) {
+        try {
+          const loginLink = await stripeClient.accounts.createLoginLink(org.stripeAccountId);
+          dashboardUrl = loginLink.url;
+        } catch {
+          // Non-fatal — just omit the dashboard link
+        }
+      }
+
+      return {
+        connected: true,
+        enabled: org.stripeAccountEnabled,
+        accountId: org.stripeAccountId,
+        dashboardUrl,
+      };
     },
 
     orgBalanceSummary: async (
@@ -312,11 +350,32 @@ export const paymentsResolvers = {
         throw new Error("Invoice is already fully paid");
       }
 
-      const intent = await stripeClient.paymentIntents.create({
-        amount: remaining,
-        currency: invoice.currency,
-        metadata: { invoiceId, organizationId: invoice.organizationId, userId: invoice.userId },
+      // Check if the org has a connected Stripe account — required for Stripe payments
+      const org = await prisma.organization.findUniqueOrThrow({
+        where: { id: invoice.organizationId },
+        select: { stripeAccountId: true, stripeAccountEnabled: true },
       });
+
+      if (!org.stripeAccountId || !org.stripeAccountEnabled) {
+        throw new Error(
+          "This organization has not connected a Stripe account. " +
+          "An admin must complete Stripe onboarding in Settings before accepting card payments."
+        );
+      }
+
+      // Create the PaymentIntent on the connected account.
+      // application_fee_amount goes to the platform (AthletiQ); the rest goes to the org.
+      const applicationFee = Math.round(remaining * PLATFORM_FEE_PERCENT);
+
+      const intent = await stripeClient.paymentIntents.create(
+        {
+          amount: remaining,
+          currency: invoice.currency,
+          application_fee_amount: applicationFee,
+          metadata: { invoiceId, organizationId: invoice.organizationId, userId: invoice.userId },
+        },
+        { stripeAccount: org.stripeAccountId }
+      );
 
       // Store the payment intent ID on the invoice for webhook reconciliation
       await prisma.invoice.update({
@@ -350,6 +409,84 @@ export const paymentsResolvers = {
         currency: invoice.currency,
         dueDate: invoice.dueDate ? toISO(invoice.dueDate) : undefined,
       }).catch((err) => logger.warn({ err, invoiceId }, "Failed to send payment reminder email"));
+
+      return true;
+    },
+
+    // ── Stripe Connect ──────────────────────────────────────────────────────
+
+    createStripeConnectLink: async (
+      _: unknown,
+      { organizationId }: { organizationId: string },
+      context: { userId?: string }
+    ) => {
+      await requireOrgAdmin(context, organizationId);
+
+      if (!stripeClient) {
+        throw new Error("Stripe is not configured on this server");
+      }
+
+      const org = await prisma.organization.findUniqueOrThrow({
+        where: { id: organizationId },
+        select: { stripeAccountId: true },
+      });
+
+      // Create an Express account if this org doesn't have one yet
+      let accountId = org.stripeAccountId;
+      if (!accountId) {
+        const account = await stripeClient.accounts.create({
+          type: "express",
+          metadata: { organizationId },
+        });
+        accountId = account.id;
+        await prisma.organization.update({
+          where: { id: organizationId },
+          data: { stripeAccountId: accountId, stripeAccountEnabled: false },
+        });
+      }
+
+      const appUrl = process.env.APP_URL ?? "https://athletiq.fitness";
+      const accountLink = await stripeClient.accountLinks.create({
+        account: accountId,
+        refresh_url: `${appUrl}/settings?stripe_connect=refresh`,
+        return_url: `${appUrl}/settings?stripe_connect=success`,
+        type: "account_onboarding",
+      });
+
+      return accountLink.url;
+    },
+
+    disconnectStripeAccount: async (
+      _: unknown,
+      { organizationId }: { organizationId: string },
+      context: { userId?: string }
+    ) => {
+      await requireOrgAdmin(context, organizationId);
+
+      const org = await prisma.organization.findUniqueOrThrow({
+        where: { id: organizationId },
+        select: { stripeAccountId: true },
+      });
+
+      if (!org.stripeAccountId) return true;
+
+      // Deauthorize the connected account from the platform
+      if (stripeClient) {
+        try {
+          await stripeClient.oauth?.deauthorize({
+            client_id: process.env.STRIPE_CLIENT_ID ?? "",
+            stripe_user_id: org.stripeAccountId,
+          });
+        } catch (err) {
+          // Non-fatal — account may already be disconnected on Stripe's side
+          logger.warn({ err, organizationId }, "Stripe deauthorize failed — clearing local state anyway");
+        }
+      }
+
+      await prisma.organization.update({
+        where: { id: organizationId },
+        data: { stripeAccountId: null, stripeAccountEnabled: false },
+      });
 
       return true;
     },

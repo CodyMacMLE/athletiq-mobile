@@ -986,3 +986,15 @@ export const SEND_PAYMENT_REMINDER = gql`
     sendPaymentReminder(invoiceId: $invoiceId)
   }
 `;
+
+export const CREATE_STRIPE_CONNECT_LINK = gql`
+  mutation CreateStripeConnectLink($organizationId: ID!) {
+    createStripeConnectLink(organizationId: $organizationId)
+  }
+`;
+
+export const DISCONNECT_STRIPE_ACCOUNT = gql`
+  mutation DisconnectStripeAccount($organizationId: ID!) {
+    disconnectStripeAccount(organizationId: $organizationId)
+  }
+`;

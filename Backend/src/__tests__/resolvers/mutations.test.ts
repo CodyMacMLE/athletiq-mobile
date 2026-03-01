@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("../../db.js", () => ({
   prisma: {
     user: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), upsert: vi.fn() },
-    organization: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    organization: { create: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), updateMany: vi.fn(), delete: vi.fn() },
     organizationMember: {
       create: vi.fn(),
       findUnique: vi.fn(),
@@ -64,7 +64,13 @@ vi.mock("@aws-sdk/client-cognito-identity-provider", () => ({
   ListUsersCommand: vi.fn(),
 }));
 vi.mock("stripe", () => ({
-  default: class { paymentIntents = { create: vi.fn() }; webhooks = { constructEvent: vi.fn() }; },
+  default: class {
+    paymentIntents = { create: vi.fn() };
+    webhooks = { constructEvent: vi.fn() };
+    accounts = { create: vi.fn(), createLoginLink: vi.fn() };
+    accountLinks = { create: vi.fn() };
+    oauth = { deauthorize: vi.fn() };
+  },
 }));
 
 import { resolvers } from "../../resolvers/index.js";
@@ -555,6 +561,79 @@ describe("Mutation.sendInvoice", () => {
     await expect(
       resolvers.Mutation.sendInvoice(null, { id: "inv-1" }, makeContext())
     ).rejects.toThrow("Authentication required");
+  });
+});
+
+// ─── createStripeConnectLink ──────────────────────────────────────────────────
+
+describe("Mutation.createStripeConnectLink", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("throws when unauthenticated", async () => {
+    await expect(
+      resolvers.Mutation.createStripeConnectLink(null, { organizationId: "org-1" }, makeContext())
+    ).rejects.toThrow("Authentication required");
+  });
+
+  it("throws FORBIDDEN for non-admin members", async () => {
+    vi.mocked(prisma.organizationMember.findUnique).mockResolvedValue({
+      role: "COACH", customRoleId: null, customRole: null,
+    } as any);
+    await expect(
+      resolvers.Mutation.createStripeConnectLink(null, { organizationId: "org-1" }, makeContext("user-1"))
+    ).rejects.toThrow("Insufficient permissions");
+  });
+});
+
+// ─── disconnectStripeAccount ──────────────────────────────────────────────────
+
+describe("Mutation.disconnectStripeAccount", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("clears stripeAccountId and returns true", async () => {
+    vi.mocked(prisma.organizationMember.findUnique).mockResolvedValue({
+      role: "ADMIN", customRoleId: null, customRole: null,
+    } as any);
+    vi.mocked(prisma.organization.findUniqueOrThrow).mockResolvedValue({
+      id: "org-1", stripeAccountId: "acct_test123",
+    } as any);
+    vi.mocked(prisma.organization.update).mockResolvedValue({} as any);
+
+    const result = await resolvers.Mutation.disconnectStripeAccount(
+      null,
+      { organizationId: "org-1" },
+      makeContext("user-1")
+    );
+    expect(result).toBe(true);
+    expect(prisma.organization.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { stripeAccountId: null, stripeAccountEnabled: false } })
+    );
+  });
+
+  it("returns true immediately when no account is connected", async () => {
+    vi.mocked(prisma.organizationMember.findUnique).mockResolvedValue({
+      role: "ADMIN", customRoleId: null, customRole: null,
+    } as any);
+    vi.mocked(prisma.organization.findUniqueOrThrow).mockResolvedValue({
+      id: "org-1", stripeAccountId: null,
+    } as any);
+
+    const result = await resolvers.Mutation.disconnectStripeAccount(
+      null,
+      { organizationId: "org-1" },
+      makeContext("user-1")
+    );
+    expect(result).toBe(true);
+    expect(prisma.organization.update).not.toHaveBeenCalled();
+  });
+
+  it("throws FORBIDDEN for non-admin members", async () => {
+    vi.mocked(prisma.organizationMember.findUnique).mockResolvedValue({
+      role: "COACH", customRoleId: null, customRole: null,
+    } as any);
+    await expect(
+      resolvers.Mutation.disconnectStripeAccount(null, { organizationId: "org-1" }, makeContext("user-1"))
+    ).rejects.toThrow("Insufficient permissions");
   });
 });
 

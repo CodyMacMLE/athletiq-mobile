@@ -1080,3 +1080,14 @@ export const GET_ORG_BALANCE_SUMMARY = gql`
     }
   }
 `;
+
+export const GET_STRIPE_CONNECT_STATUS = gql`
+  query GetStripeConnectStatus($organizationId: ID!) {
+    stripeConnectStatus(organizationId: $organizationId) {
+      connected
+      enabled
+      accountId
+      dashboardUrl
+    }
+  }
+`;

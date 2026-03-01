@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { GET_ORG_SEASONS, CREATE_ORG_SEASON, UPDATE_ORG_SEASON, DELETE_ORG_SEASON, GET_ORGANIZATION, UPDATE_ORGANIZATION_SETTINGS, GET_ORGANIZATION_VENUES, CREATE_VENUE, UPDATE_VENUE, DELETE_VENUE, GET_CUSTOM_ROLES } from "@/lib/graphql";
-import { UPDATE_PAYROLL_CONFIG, CREATE_CUSTOM_ROLE, UPDATE_CUSTOM_ROLE, DELETE_CUSTOM_ROLE } from "@/lib/graphql/mutations";
-import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield, Heart, Building2, Bell, DollarSign, Percent, Users } from "lucide-react";
+import { GET_STRIPE_CONNECT_STATUS } from "@/lib/graphql/queries";
+import { UPDATE_PAYROLL_CONFIG, CREATE_CUSTOM_ROLE, UPDATE_CUSTOM_ROLE, DELETE_CUSTOM_ROLE, CREATE_STRIPE_CONNECT_LINK, DISCONNECT_STRIPE_ACCOUNT } from "@/lib/graphql/mutations";
+import { HelpCircle, Calendar, Plus, Edit2, Trash2, X, Check, Shield, Heart, Building2, Bell, DollarSign, Percent, Users, CreditCard, ExternalLink, AlertCircle, Loader2 } from "lucide-react";
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -89,6 +90,11 @@ export default function SettingsPage() {
   const [venueForm, setVenueForm] = useState({ name: "", address: "", city: "", state: "", country: "", notes: "" });
   const [venueError, setVenueError] = useState("");
 
+  // Stripe Connect
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectError, setConnectError] = useState("");
+  const [disconnectConfirm, setDisconnectConfirm] = useState(false);
+
   // Custom Roles
   const defaultRolePerms = { canEditEvents: false, canApproveExcuses: false, canViewAnalytics: true, canManageMembers: false, canManageTeams: false, canManagePayments: false };
   const [showRoleForm, setShowRoleForm] = useState(false);
@@ -152,6 +158,14 @@ export default function SettingsPage() {
   const [updateCustomRole] = useMutation<any>(UPDATE_CUSTOM_ROLE);
   const [deleteCustomRole] = useMutation<any>(DELETE_CUSTOM_ROLE);
   const customRoles: CustomRole[] = rolesData?.customRoles || [];
+
+  const { data: connectData, refetch: refetchConnect } = useQuery<any>(GET_STRIPE_CONNECT_STATUS, {
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId || !canManageOrg,
+  });
+  const connectStatus = connectData?.stripeConnectStatus;
+  const [createConnectLink] = useMutation<any>(CREATE_STRIPE_CONNECT_LINK);
+  const [disconnectStripe] = useMutation<any>(DISCONNECT_STRIPE_ACCOUNT);
 
   const resetRoleForm = () => {
     setRoleForm({ name: "", description: "", ...defaultRolePerms });
@@ -1151,6 +1165,135 @@ export default function SettingsPage() {
             >
               {reportSaved ? <><Check className="w-4 h-4" /> Saved</> : reportSaving ? "Saving..." : <><Check className="w-4 h-4" /> Save</>}
             </button>
+          </div>
+        </section>
+      )}
+
+      {/* Stripe Connect */}
+      {canManageOrg && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <CreditCard className="w-5 h-5 text-[#a78bfa]" />
+            <h2 className="text-lg font-semibold text-white">Stripe Payments</h2>
+          </div>
+          <div className="bg-white/8 rounded-lg border border-white/8 p-4 space-y-4">
+            <p className="text-sm text-white/55">
+              Connect a Stripe account to accept card payments on invoices. AthletiQ takes a 2% platform fee; the rest goes directly to your account.
+            </p>
+
+            {connectStatus?.connected ? (
+              <div className="space-y-3">
+                {/* Status badge */}
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${connectStatus.enabled ? "bg-green-400" : "bg-yellow-400"}`} />
+                  <span className="text-sm text-white/80">
+                    {connectStatus.enabled ? "Connected and active" : "Connected — completing onboarding"}
+                  </span>
+                </div>
+
+                {!connectStatus.enabled && (
+                  <div className="flex items-start gap-2 p-3 bg-yellow-600/10 border border-yellow-600/20 rounded-lg">
+                    <AlertCircle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+                    <p className="text-sm text-yellow-300/80">
+                      Your Stripe account is connected but not yet enabled for charges. Complete Stripe's onboarding to start accepting payments.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  {!connectStatus.enabled && (
+                    <button
+                      onClick={async () => {
+                        setConnectLoading(true);
+                        setConnectError("");
+                        try {
+                          const { data } = await createConnectLink({ variables: { organizationId: selectedOrganizationId } });
+                          window.location.href = data.createStripeConnectLink;
+                        } catch (err: any) {
+                          setConnectError(err.message ?? "Failed to create onboarding link");
+                          setConnectLoading(false);
+                        }
+                      }}
+                      disabled={connectLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#6c5ce7] text-white rounded-lg text-sm hover:bg-[#5a4dd4] transition-colors disabled:opacity-50"
+                    >
+                      {connectLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Continue onboarding
+                    </button>
+                  )}
+
+                  {connectStatus.dashboardUrl && (
+                    <a
+                      href={connectStatus.dashboardUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white/8 text-white/70 hover:text-white rounded-lg text-sm hover:bg-white/12 transition-colors border border-white/10"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Stripe dashboard
+                    </a>
+                  )}
+
+                  {!disconnectConfirm ? (
+                    <button
+                      onClick={() => setDisconnectConfirm(true)}
+                      className="px-3 py-1.5 text-sm text-red-400/70 hover:text-red-400 transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-white/55">Are you sure?</span>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await disconnectStripe({ variables: { organizationId: selectedOrganizationId } });
+                            setDisconnectConfirm(false);
+                            refetchConnect();
+                          } catch (err: any) {
+                            setConnectError(err.message ?? "Disconnect failed");
+                          }
+                        }}
+                        className="px-3 py-1.5 text-sm text-red-400 hover:text-red-300 transition-colors"
+                      >
+                        Yes, disconnect
+                      </button>
+                      <button
+                        onClick={() => setDisconnectConfirm(false)}
+                        className="px-3 py-1.5 text-sm text-white/40 hover:text-white transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={async () => {
+                  setConnectLoading(true);
+                  setConnectError("");
+                  try {
+                    const { data } = await createConnectLink({ variables: { organizationId: selectedOrganizationId } });
+                    window.location.href = data.createStripeConnectLink;
+                  } catch (err: any) {
+                    setConnectError(err.message ?? "Failed to create onboarding link");
+                    setConnectLoading(false);
+                  }
+                }}
+                disabled={connectLoading}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#6c5ce7] text-white rounded-lg text-sm font-medium hover:bg-[#5a4dd4] transition-colors disabled:opacity-50"
+              >
+                {connectLoading
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting...</>
+                  : <><CreditCard className="w-4 h-4" /> Connect Stripe Account</>
+                }
+              </button>
+            )}
+
+            {connectError && (
+              <p className="text-sm text-red-400">{connectError}</p>
+            )}
           </div>
         </section>
       )}
