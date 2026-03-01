@@ -23,6 +23,7 @@
         { "name": "S3_SECRET_ACCESS_KEY",  "valueFrom": "arn:aws:ssm:us-east-2:555434054017:parameter/athletiq/S3_SECRET_ACCESS_KEY" }
       ],
       "environment": [
+        { "name": "NODE_ENV",              "value": "production" },
         { "name": "AWS_REGION",            "value": "us-east-2" },
         { "name": "CORS_ORIGIN",           "value": "https://athletiq.fitness,https://www.athletiq.fitness" },
         { "name": "SES_FROM_EMAIL",        "value": "no-reply@athletiq.fitness" },
