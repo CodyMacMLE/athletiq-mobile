@@ -328,8 +328,24 @@ function OrgReportToggles({
 
 export default function AccountPage() {
   const router = useRouter();
-  const { user, refetch, logout, selectedOrganizationId, setSelectedOrganizationId } = useAuth();
+  const { user, isLoading, isAuthenticated, refetch, logout, selectedOrganizationId, setSelectedOrganizationId } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Redirect unauthenticated users to sign-in (replaces RequireAuth since this
+  // layout does not use it — the account page must be accessible to all roles)
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/signin");
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500" />
+      </div>
+    );
+  }
 
   const [activeSection, setActiveSection] = useState<Section>("profile");
 
