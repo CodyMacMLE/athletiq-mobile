@@ -457,6 +457,7 @@ function InviteUserModal({
   onSuccess: () => void;
 }) {
   const [email, setEmail] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [role, setRole] = useState("ATHLETE");
   const [selectedTeams, setSelectedTeams] = useState<{ id: string; name: string }[]>([]);
   const [teamSearch, setTeamSearch] = useState("");
@@ -464,6 +465,7 @@ function InviteUserModal({
   const [submitting, setSubmitting] = useState(false);
   const [createAnother, setCreateAnother] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [error, setError] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
 
@@ -502,6 +504,11 @@ function InviteUserModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    if (email.toLowerCase() !== confirmEmail.toLowerCase()) {
+      setError("Email addresses do not match.");
+      return;
+    }
     setSubmitting(true);
     setSuccessMessage("");
     try {
@@ -521,6 +528,7 @@ function InviteUserModal({
       if (createAnother) {
         setSuccessMessage(`Invite sent to ${email}`);
         setEmail("");
+        setConfirmEmail("");
         setRole("ATHLETE");
         setSelectedTeams([]);
         setTimeout(() => emailRef.current?.focus(), 100);
@@ -528,9 +536,8 @@ function InviteUserModal({
       } else {
         onClose();
       }
-    } catch (error: any) {
-      const msg = error?.graphQLErrors?.[0]?.message || error?.message || "Failed to send invite";
-      alert(msg);
+    } catch (err: any) {
+      setError(err?.graphQLErrors?.[0]?.message || err?.message || "Failed to send invite.");
     } finally {
       setSubmitting(false);
     }
@@ -560,10 +567,29 @@ function InviteUserModal({
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); setError(""); }}
               className="w-full px-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7]"
               placeholder="user@example.com"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-white/55 mb-1">Confirm Email</label>
+            <input
+              type="email"
+              required
+              value={confirmEmail}
+              onChange={(e) => { setConfirmEmail(e.target.value); setError(""); }}
+              className={`w-full px-4 py-2 bg-white/15 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] ${
+                confirmEmail && email.toLowerCase() !== confirmEmail.toLowerCase()
+                  ? "border-red-500/60"
+                  : "border-white/25"
+              }`}
+              placeholder="Confirm email address"
+            />
+            {confirmEmail && email.toLowerCase() !== confirmEmail.toLowerCase() && (
+              <p className="mt-1 text-xs text-red-400">Emails do not match</p>
+            )}
           </div>
 
           {/* Role */}
@@ -618,19 +644,19 @@ function InviteUserModal({
                     setShowTeamDropdown(true);
                   }}
                   onFocus={() => setShowTeamDropdown(true)}
-                  className="w-full pl-9 pr-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm"
+                  className="w-full pl-9 pr-4 py-2 bg-white/15 border border-white/25 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#6c5ce7] text-sm placeholder:text-white/35"
                   placeholder="Search teams..."
                 />
               </div>
 
               {showTeamDropdown && filteredTeams.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white/8 border border-white/10 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                <div className="absolute z-10 w-full mt-1 bg-[#1e1a3a] border border-white/20 rounded-lg shadow-xl max-h-40 overflow-y-auto">
                   {filteredTeams.map((team) => (
                     <button
                       key={team.id}
                       type="button"
                       onClick={() => addTeam(team)}
-                      className="w-full px-4 py-2 text-left text-sm text-white/75 hover:bg-white/12 hover:text-white transition-colors"
+                      className="w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors"
                     >
                       {team.name}
                     </button>
@@ -639,7 +665,7 @@ function InviteUserModal({
               )}
 
               {showTeamDropdown && teamSearch && filteredTeams.length === 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white/8 border border-white/10 rounded-lg shadow-lg">
+                <div className="absolute z-10 w-full mt-1 bg-[#1e1a3a] border border-white/20 rounded-lg shadow-xl">
                   <p className="px-4 py-2 text-sm text-white/55">No teams found</p>
                 </div>
               )}
@@ -668,6 +694,12 @@ function InviteUserModal({
               />
             </button>
           </div>
+
+          {error && (
+            <div className="px-4 py-3 bg-red-600/20 border border-red-600/30 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
 
           <div className="flex justify-end space-x-3 mt-6">
             <button
