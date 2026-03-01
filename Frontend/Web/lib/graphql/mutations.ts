@@ -998,3 +998,12 @@ export const DISCONNECT_STRIPE_ACCOUNT = gql`
     disconnectStripeAccount(organizationId: $organizationId)
   }
 `;
+
+export const CREATE_STRIPE_PAYMENT_INTENT = gql`
+  mutation CreateStripePaymentIntent($invoiceId: ID!) {
+    createStripePaymentIntent(invoiceId: $invoiceId) {
+      clientSecret
+      paymentIntentId
+    }
+  }
+`;

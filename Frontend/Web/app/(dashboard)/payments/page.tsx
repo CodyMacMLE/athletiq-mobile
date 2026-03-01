@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@apollo/client/react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   GET_ORG_INVOICES,
   GET_ORG_BALANCE_SUMMARY,
   GET_ORGANIZATION_USERS,
+  GET_STRIPE_CONNECT_STATUS,
 } from "@/lib/graphql/queries";
 import {
   CREATE_INVOICE,
@@ -15,6 +18,7 @@ import {
   RECORD_PAYMENT,
   SEND_PAYMENT_REMINDER,
   UPDATE_INVOICE,
+  CREATE_STRIPE_PAYMENT_INTENT,
 } from "@/lib/graphql/mutations";
 import {
   DollarSign,
@@ -29,7 +33,13 @@ import {
   AlertCircle,
   FileText,
   ChevronDown,
+  CreditCard,
 } from "lucide-react";
+
+// Stripe singleton — initialised once outside render cycle
+const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
+  : null;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -353,17 +363,178 @@ function RecordPaymentModal({
   );
 }
 
+// ─── PayWithCardModal ─────────────────────────────────────────────────────────
+
+const CARD_STYLE = {
+  style: {
+    base: {
+      color: "#ffffff",
+      fontFamily: "inherit",
+      fontSize: "14px",
+      "::placeholder": { color: "#6b7280" },
+    },
+    invalid: { color: "#f87171" },
+  },
+};
+
+function CardPaymentForm({
+  clientSecret,
+  invoice,
+  onSuccess,
+  onCancel,
+}: {
+  clientSecret: string;
+  invoice: Invoice;
+  onSuccess: () => void;
+  onCancel: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [error, setError] = useState("");
+  const [processing, setProcessing] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+    setError("");
+    setProcessing(true);
+
+    const card = elements.getElement(CardElement);
+    if (!card) { setProcessing(false); return; }
+
+    const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: { card },
+    });
+
+    setProcessing(false);
+
+    if (stripeError) {
+      setError(stripeError.message ?? "Payment failed. Please try again.");
+    } else if (paymentIntent?.status === "succeeded") {
+      onSuccess();
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="p-5 space-y-4">
+      <p className="text-gray-400 text-sm">
+        Invoice: <span className="text-white">{invoice.title}</span>
+      </p>
+      <p className="text-gray-400 text-sm">
+        Amount:{" "}
+        <span className="text-[#a78bfa] font-semibold">
+          {formatCents(invoice.balanceCents, invoice.currency)}
+        </span>
+      </p>
+      <div>
+        <label className="block text-sm text-gray-400 mb-2">Card details</label>
+        <div className="bg-[#111827] border border-white/10 rounded-lg px-3 py-3 focus-within:border-[#6c5ce7] transition-colors">
+          <CardElement options={CARD_STYLE} />
+        </div>
+      </div>
+      <p className="text-gray-600 text-xs">
+        Payments are processed securely by Stripe. AthletiQ takes a 2% platform fee.
+      </p>
+      {error && <p className="text-red-400 text-sm">{error}</p>}
+      <div className="flex gap-3 pt-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={processing}
+          className="flex-1 px-4 py-2 rounded-lg border border-white/15 text-gray-300 text-sm hover:border-white/30 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={processing || !stripe}
+          className="flex-1 px-4 py-2 rounded-lg bg-[#6c5ce7] text-white text-sm font-medium hover:bg-[#5b4cd6] disabled:opacity-50"
+        >
+          {processing ? "Processing..." : `Pay ${formatCents(invoice.balanceCents, invoice.currency)}`}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function PayWithCardModal({
+  invoice,
+  onClose,
+  onPaid,
+}: {
+  invoice: Invoice;
+  onClose: () => void;
+  onPaid: () => void;
+}) {
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [initError, setInitError] = useState("");
+  const [createPaymentIntent] = useMutation(CREATE_STRIPE_PAYMENT_INTENT);
+
+  useEffect(() => {
+    createPaymentIntent({ variables: { invoiceId: invoice.id } })
+      .then(({ data }: any) => setClientSecret(data.createStripePaymentIntent.clientSecret))
+      .catch((err: any) => setInitError(err.message || "Failed to initialise payment."));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoice.id]);
+
+  function handleSuccess() {
+    onPaid();
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-[#1a1a2e] border border-white/15 rounded-xl w-full max-w-sm">
+        <div className="flex items-center justify-between p-5 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-[#a78bfa]" />
+            <h2 className="text-white font-semibold">Pay with Card</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {initError ? (
+          <div className="p-5">
+            <p className="text-red-400 text-sm">{initError}</p>
+            <button onClick={onClose} className="mt-3 w-full px-4 py-2 rounded-lg border border-white/15 text-gray-300 text-sm hover:border-white/30">
+              Close
+            </button>
+          </div>
+        ) : !clientSecret || !stripePromise ? (
+          <div className="p-5 flex items-center justify-center h-32">
+            <p className="text-gray-500 text-sm">Loading payment form...</p>
+          </div>
+        ) : (
+          <Elements stripe={stripePromise}>
+            <CardPaymentForm
+              clientSecret={clientSecret}
+              invoice={invoice}
+              onSuccess={handleSuccess}
+              onCancel={onClose}
+            />
+          </Elements>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── InvoiceRow ───────────────────────────────────────────────────────────────
 
 function InvoiceRow({
   invoice,
+  stripeEnabled,
   onRefetch,
 }: {
   invoice: Invoice;
+  stripeEnabled: boolean;
   onRefetch: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [showCardModal, setShowCardModal] = useState(false);
 
   const [sendInvoice, { loading: sending }] = useMutation(SEND_INVOICE);
   const [deleteInvoice, { loading: deleting }] = useMutation(DELETE_INVOICE);
@@ -423,6 +594,14 @@ function InvoiceRow({
           )}
           {["SENT", "OVERDUE"].includes(invoice.status) && (
             <>
+              {stripeEnabled && (
+                <button
+                  onClick={() => setShowCardModal(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#6c5ce7]/20 text-[#a78bfa] text-xs font-medium hover:bg-[#6c5ce7]/40"
+                >
+                  <CreditCard className="w-3 h-3" /> Pay with Card
+                </button>
+              )}
               <button
                 onClick={() => setShowPayModal(true)}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-900/30 text-green-400 text-xs font-medium hover:bg-green-900/50"
@@ -477,6 +656,13 @@ function InvoiceRow({
           onRecorded={onRefetch}
         />
       )}
+      {showCardModal && (
+        <PayWithCardModal
+          invoice={invoice}
+          onClose={() => setShowCardModal(false)}
+          onPaid={onRefetch}
+        />
+      )}
     </>
   );
 }
@@ -514,8 +700,15 @@ export default function PaymentsPage() {
     skip: !selectedOrganizationId || !canEdit,
   });
 
+  const { data: stripeData } = useQuery(GET_STRIPE_CONNECT_STATUS, {
+    variables: { organizationId: selectedOrganizationId },
+    skip: !selectedOrganizationId || !canEdit,
+    fetchPolicy: "cache-and-network",
+  });
+
   const invoices: Invoice[] = (invoiceData as any)?.orgInvoices ?? [];
   const summary: BalanceSummary | undefined = (summaryData as any)?.orgBalanceSummary;
+  const stripeEnabled: boolean = (stripeData as any)?.stripeConnectStatus?.enabled ?? false;
 
   const members = ((usersData as any)?.organizationMembers ?? [])
     .filter((m: any) => m.user.id)
@@ -627,7 +820,7 @@ export default function PaymentsPage() {
       ) : (
         <div className="space-y-3">
           {invoices.map((invoice) => (
-            <InvoiceRow key={invoice.id} invoice={invoice} onRefetch={refetch} />
+            <InvoiceRow key={invoice.id} invoice={invoice} stripeEnabled={stripeEnabled} onRefetch={refetch} />
           ))}
         </div>
       )}
