@@ -116,9 +116,29 @@ export const paymentsResolvers = {
         return { connected: false, enabled: false, accountId: null, dashboardUrl: null };
       }
 
+      let enabled = org.stripeAccountEnabled;
+
+      // Live-sync: if DB says not enabled, check Stripe directly and self-heal.
+      // This handles the case where the account.updated webhook was missed.
+      if (!enabled && stripeClient) {
+        try {
+          const account = await stripeClient.accounts.retrieve(org.stripeAccountId);
+          if (account.charges_enabled) {
+            await prisma.organization.update({
+              where: { id: organizationId },
+              data: { stripeAccountEnabled: true },
+            });
+            enabled = true;
+            logger.info({ organizationId, accountId: org.stripeAccountId }, "Stripe account self-healed to enabled");
+          }
+        } catch {
+          // Non-fatal — fall through with DB value
+        }
+      }
+
       // Fetch a fresh Express dashboard login link when fully enabled
       let dashboardUrl: string | null = null;
-      if (org.stripeAccountEnabled && stripeClient) {
+      if (enabled && stripeClient) {
         try {
           const loginLink = await stripeClient.accounts.createLoginLink(org.stripeAccountId);
           dashboardUrl = loginLink.url;
@@ -129,7 +149,7 @@ export const paymentsResolvers = {
 
       return {
         connected: true,
-        enabled: org.stripeAccountEnabled,
+        enabled,
         accountId: org.stripeAccountId,
         dashboardUrl,
       };
@@ -470,18 +490,9 @@ export const paymentsResolvers = {
 
       if (!org.stripeAccountId) return true;
 
-      // Deauthorize the connected account from the platform
-      if (stripeClient) {
-        try {
-          await stripeClient.oauth?.deauthorize({
-            client_id: process.env.STRIPE_CLIENT_ID ?? "",
-            stripe_user_id: org.stripeAccountId,
-          });
-        } catch (err) {
-          // Non-fatal — account may already be disconnected on Stripe's side
-          logger.warn({ err, organizationId }, "Stripe deauthorize failed — clearing local state anyway");
-        }
-      }
+      // Express accounts connected via AccountLinks are not OAuth accounts —
+      // oauth.deauthorize() does not apply. Just clear the local reference.
+      // If needed, the org can go through onboarding again to reconnect.
 
       await prisma.organization.update({
         where: { id: organizationId },
