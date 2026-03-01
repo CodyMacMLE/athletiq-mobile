@@ -339,14 +339,6 @@ export default function AccountPage() {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  if (isLoading || !isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500" />
-      </div>
-    );
-  }
-
   const [activeSection, setActiveSection] = useState<Section>("profile");
 
   // Profile form
@@ -474,6 +466,15 @@ export default function AccountPage() {
       setMedNotes(medicalInfo.notes || "");
     }
   }, [medicalInfo]);
+
+  // All hooks declared above — safe to return early now (Rules of Hooks satisfied)
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500" />
+      </div>
+    );
+  }
 
   const navItems: { id: Section; label: string; icon: React.ElementType; hidden?: boolean }[] = [
     { id: "profile",       label: "Profile",          icon: User },
