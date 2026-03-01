@@ -51,6 +51,10 @@ model User {
   createdChallenges        TeamChallenge[]
   recognitionsReceived     AthleteRecognition[] @relation("RecognitionAthlete")
   recognitionsGiven        AthleteRecognition[] @relation("RecognitionNominator")
+  invoicesReceived         Invoice[]            @relation("InvoiceRecipient")
+  invoicesCreated          Invoice[]            @relation("InvoiceCreator")
+  payments                 Payment[]            @relation("PaymentPayer")
+  paymentsRecorded         Payment[]            @relation("PaymentRecorder")
 }
 
 // ============================================
@@ -105,6 +109,8 @@ model Organization {
   earnedBadges         EarnedBadge[]
   teamChallenges       TeamChallenge[]
   athleteRecognitions  AthleteRecognition[]
+  invoices             Invoice[]
+  payments             Payment[]
 }
 
 // Tracks when each org-level report frequency was last sent
@@ -857,6 +863,77 @@ model AthleteRecognition {
   @@unique([teamId, period])
   @@index([teamId])
   @@index([organizationId])
+}
+
+// ============================================
+// Payments (#27)
+// ============================================
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  STRIPE
+  CASH
+  CHECK
+  BANK_TRANSFER
+  OTHER
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  userId         String
+  user           User          @relation("InvoiceRecipient", fields: [userId], references: [id])
+  title          String
+  description    String?
+  amountCents    Int
+  currency       String        @default("usd")
+  dueDate        DateTime?
+  status         InvoiceStatus @default(DRAFT)
+  stripeInvoiceId String?
+  sentAt         DateTime?
+  paidAt         DateTime?
+  createdBy      String
+  creator        User          @relation("InvoiceCreator", fields: [createdBy], references: [id])
+  payments       Payment[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([status])
+  @@index([organizationId, status])
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  invoiceId             String
+  invoice               Invoice       @relation(fields: [invoiceId], references: [id])
+  organizationId        String
+  organization          Organization  @relation(fields: [organizationId], references: [id])
+  userId                String
+  user                  User          @relation("PaymentPayer", fields: [userId], references: [id])
+  amountCents           Int
+  currency              String        @default("usd")
+  method                PaymentMethod @default(OTHER)
+  stripePaymentIntentId String?
+  stripeChargeId        String?
+  note                  String?
+  paidAt                DateTime      @default(now())
+  recordedBy            String
+  recorder              User          @relation("PaymentRecorder", fields: [recordedBy], references: [id])
+  createdAt             DateTime      @default(now())
+
+  @@index([invoiceId])
+  @@index([organizationId])
+  @@index([userId])
 }
 
 // ============================================

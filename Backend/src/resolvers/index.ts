@@ -10,6 +10,7 @@ import { communicationsResolvers } from "../modules/communications/resolvers.js"
 import { healthResolvers } from "../modules/health/resolvers.js";
 import { guardianResolvers } from "../modules/guardian/resolvers.js";
 import { mediaResolvers } from "../modules/media/resolvers.js";
+import { paymentsResolvers } from "../modules/payments/resolvers.js";
 
 // Deep-merge all module resolvers into a single resolvers map.
 // Each module exports Query/Mutation sub-keys plus field resolver type keys.
@@ -40,4 +41,5 @@ export const resolvers = mergeResolvers(
   healthResolvers,
   guardianResolvers,
   mediaResolvers,
+  paymentsResolvers,
 );

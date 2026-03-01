@@ -196,7 +196,7 @@ Files: `Backend/prisma/schema.prisma`, attendance resolvers
 
 ## 🟡 Medium — Product Features
 
-### #27 — Payment & Financial Management (Stripe)
+### ✅ #27 — Payment & Financial Management (Stripe)
 Season dues, equipment fees, and tournament fees are a core pain point for
 sports organizations — currently no financial tracking exists.
 

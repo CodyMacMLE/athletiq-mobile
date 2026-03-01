@@ -268,3 +268,133 @@ export async function sendFeedbackEmail({
 
   await sesBreaker.fire(command);
 }
+
+// ─── Invoice & payment emails (#27) ──────────────────────────────────────────
+
+function formatCents(amountCents: number, currency: string): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).format(amountCents / 100);
+}
+
+export async function sendInvoiceEmail({
+  to,
+  recipientName,
+  senderName,
+  invoiceTitle,
+  amountCents,
+  currency,
+  dueDate,
+}: {
+  to: string;
+  recipientName: string;
+  senderName: string;
+  invoiceTitle: string;
+  amountCents: number;
+  currency: string;
+  dueDate?: string;
+}) {
+  const amount = formatCents(amountCents, currency);
+  const dueLine = dueDate
+    ? `<p style="margin:0 0 8px;font-size:15px;color:#d1d5db;">Due date: <strong style="color:#ffffff;">${new Date(dueDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</strong></p>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#111827;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#111827;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#1f2937;border-radius:12px;border:1px solid #374151;">
+        <tr><td style="padding:32px 32px 24px;">
+          <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#ffffff;">Athletiq</h1>
+          <p style="margin:0;font-size:14px;color:#9ca3af;">Invoice from ${senderName}</p>
+        </td></tr>
+        <tr><td style="padding:0 32px 24px;">
+          <p style="margin:0 0 16px;font-size:15px;color:#d1d5db;">Hi <strong style="color:#ffffff;">${recipientName}</strong>,</p>
+          <p style="margin:0 0 16px;font-size:15px;color:#d1d5db;">You have a new invoice:</p>
+          <div style="background-color:#111827;border-radius:8px;padding:16px;border:1px solid #374151;margin-bottom:16px;">
+            <p style="margin:0 0 8px;font-size:16px;font-weight:600;color:#ffffff;">${invoiceTitle}</p>
+            <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#a78bfa;">${amount}</p>
+            ${dueLine}
+          </div>
+          <p style="margin:0;font-size:13px;color:#6b7280;">Log in to the Athletiq dashboard to view and pay this invoice.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const text = `Hi ${recipientName},\n\nYou have a new invoice from ${senderName}:\n\n${invoiceTitle}\nAmount: ${amount}${dueDate ? `\nDue: ${dueDate}` : ""}\n\nLog in to Athletiq to pay.`;
+
+  const command = new SendEmailCommand({
+    Source: FROM_EMAIL,
+    Destination: { ToAddresses: [to] },
+    Message: {
+      Subject: { Data: `Invoice: ${invoiceTitle} — ${amount}` },
+      Body: { Html: { Data: html }, Text: { Data: text } },
+    },
+  });
+  await sesBreaker.fire(command);
+}
+
+export async function sendPaymentReminderEmail({
+  to,
+  recipientName,
+  invoiceTitle,
+  amountCents,
+  currency,
+  dueDate,
+}: {
+  to: string;
+  recipientName: string;
+  invoiceTitle: string;
+  amountCents: number;
+  currency: string;
+  dueDate?: string;
+}) {
+  const amount = formatCents(amountCents, currency);
+  const dueLine = dueDate
+    ? `<p style="margin:0 0 8px;font-size:15px;color:#f87171;">Due: <strong>${new Date(dueDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</strong></p>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#111827;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#111827;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background-color:#1f2937;border-radius:12px;border:1px solid #374151;">
+        <tr><td style="padding:32px 32px 24px;">
+          <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#ffffff;">Athletiq</h1>
+          <p style="margin:0;font-size:14px;color:#f87171;">Payment reminder</p>
+        </td></tr>
+        <tr><td style="padding:0 32px 32px;">
+          <p style="margin:0 0 16px;font-size:15px;color:#d1d5db;">Hi <strong style="color:#ffffff;">${recipientName}</strong>, this is a friendly reminder that the following invoice is still outstanding:</p>
+          <div style="background-color:#111827;border-radius:8px;padding:16px;border:1px solid #374151;margin-bottom:16px;">
+            <p style="margin:0 0 8px;font-size:16px;font-weight:600;color:#ffffff;">${invoiceTitle}</p>
+            <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#f87171;">${amount} remaining</p>
+            ${dueLine}
+          </div>
+          <p style="margin:0;font-size:13px;color:#6b7280;">Log in to the Athletiq dashboard to pay.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const text = `Hi ${recipientName},\n\nThis is a reminder that the following invoice is outstanding:\n\n${invoiceTitle}\nAmount remaining: ${amount}${dueDate ? `\nDue: ${dueDate}` : ""}\n\nLog in to Athletiq to pay.`;
+
+  const command = new SendEmailCommand({
+    Source: FROM_EMAIL,
+    Destination: { ToAddresses: [to] },
+    Message: {
+      Subject: { Data: `Payment reminder: ${invoiceTitle}` },
+      Body: { Html: { Data: html }, Text: { Data: text } },
+    },
+  });
+  await sesBreaker.fire(command);
+}

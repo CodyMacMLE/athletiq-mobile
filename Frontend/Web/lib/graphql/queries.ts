@@ -1002,3 +1002,81 @@ export const GET_RECENT_RECOGNITIONS = gql`
     }
   }
 `;
+
+// ============================================
+// Payments (#27)
+// ============================================
+
+export const INVOICE_FRAGMENT = gql`
+  fragment InvoiceFields on Invoice {
+    id
+    organizationId
+    userId
+    title
+    description
+    amountCents
+    currency
+    dueDate
+    status
+    sentAt
+    paidAt
+    totalPaidCents
+    balanceCents
+    createdAt
+    updatedAt
+    user {
+      id
+      firstName
+      lastName
+      email
+    }
+    creator {
+      id
+      firstName
+      lastName
+    }
+    payments {
+      id
+      amountCents
+      currency
+      method
+      note
+      paidAt
+      recorder {
+        id
+        firstName
+        lastName
+      }
+    }
+  }
+`;
+
+export const GET_ORG_INVOICES = gql`
+  query GetOrgInvoices($organizationId: ID!, $status: InvoiceStatus, $userId: ID) {
+    orgInvoices(organizationId: $organizationId, status: $status, userId: $userId) {
+      ...InvoiceFields
+    }
+  }
+  ${INVOICE_FRAGMENT}
+`;
+
+export const GET_MEMBER_INVOICES = gql`
+  query GetMemberInvoices($userId: ID!, $organizationId: ID!) {
+    memberInvoices(userId: $userId, organizationId: $organizationId) {
+      ...InvoiceFields
+    }
+  }
+  ${INVOICE_FRAGMENT}
+`;
+
+export const GET_ORG_BALANCE_SUMMARY = gql`
+  query GetOrgBalanceSummary($organizationId: ID!) {
+    orgBalanceSummary(organizationId: $organizationId) {
+      totalOutstandingCents
+      totalPaidCents
+      overdueCount
+      draftCount
+      sentCount
+    }
+  }
+`;

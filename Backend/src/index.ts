@@ -17,6 +17,7 @@ import { startAutoCheckoutCron, stopAutoCheckoutCron } from "./cron/autoCheckout
 import { startEventReminderCron, stopEventReminderCron } from "./cron/eventReminders.js";
 import { startEmailReportCron, stopEmailReportCron } from "./cron/emailReportScheduler.js";
 import { startScheduledAnnouncementCron, stopScheduledAnnouncementCron } from "./cron/scheduledAnnouncements.js";
+import Stripe from "stripe";
 import { userRateLimiter } from "./utils/rateLimit.js";
 import { auditLog } from "./utils/audit.js";
 import { logger, captureError } from "./utils/logger.js";
@@ -145,6 +146,75 @@ async function main() {
     } catch (err) {
       res.status(503).json({ status: "not ready", db: "unreachable" });
     }
+  });
+
+  // ─── Stripe webhook — MUST be raw body, before express.json() ────────────────
+  const stripeClient = process.env.STRIPE_SECRET_KEY
+    ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2026-02-25.clover" })
+    : null;
+
+  app.post("/webhooks/stripe", express.raw({ type: "application/json" }), async (req, res) => {
+    if (!stripeClient || !process.env.STRIPE_WEBHOOK_SECRET) {
+      res.status(400).json({ error: "Stripe not configured" });
+      return;
+    }
+    const sig = req.headers["stripe-signature"];
+    let event: Stripe.Event;
+    try {
+      event = stripeClient.webhooks.constructEvent(req.body, sig as string, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err: any) {
+      logger.warn({ err: err.message }, "Stripe webhook signature verification failed");
+      res.status(400).json({ error: `Webhook error: ${err.message}` });
+      return;
+    }
+
+    if (event.type === "payment_intent.succeeded") {
+      const intent = event.data.object as Stripe.PaymentIntent;
+      const invoiceId = intent.metadata?.invoiceId;
+      if (invoiceId) {
+        try {
+          await prisma.$transaction(async (tx) => {
+            const invoice = await tx.invoice.findUnique({
+              where: { id: invoiceId },
+              include: { payments: { select: { amountCents: true } } },
+            });
+            if (!invoice) return;
+            // Avoid double-recording — check if a Stripe payment already exists for this intent
+            const existing = await tx.payment.findFirst({
+              where: { invoiceId, stripePaymentIntentId: intent.id },
+            });
+            if (existing) return;
+            const totalPaid = invoice.payments.reduce((s, p) => s + p.amountCents, 0);
+            const amountCents = intent.amount_received;
+            await tx.payment.create({
+              data: {
+                invoiceId,
+                organizationId: invoice.organizationId,
+                userId: invoice.userId,
+                amountCents,
+                currency: invoice.currency,
+                method: "STRIPE",
+                stripePaymentIntentId: intent.id,
+                stripeChargeId: (intent.latest_charge as string) ?? undefined,
+                paidAt: new Date(),
+                recordedBy: invoice.userId, // self-payment
+              },
+            });
+            if (totalPaid + amountCents >= invoice.amountCents) {
+              await tx.invoice.update({
+                where: { id: invoiceId },
+                data: { status: "PAID", paidAt: new Date() },
+              });
+            }
+          });
+          logger.info({ intentId: intent.id, invoiceId }, "Stripe payment recorded");
+        } catch (err) {
+          captureError(err, { event: event.type, intentId: intent.id });
+        }
+      }
+    }
+
+    res.json({ received: true });
   });
 
   app.use(

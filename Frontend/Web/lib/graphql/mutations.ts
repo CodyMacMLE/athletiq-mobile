@@ -904,3 +904,85 @@ export const DELETE_ATHLETE_RECOGNITION = gql`
     deleteAthleteRecognition(id: $id)
   }
 `;
+
+// ============================================
+// Payments (#27)
+// ============================================
+
+export const CREATE_INVOICE = gql`
+  mutation CreateInvoice(
+    $organizationId: ID!
+    $userId: ID!
+    $title: String!
+    $description: String
+    $amountCents: Int!
+    $currency: String
+    $dueDate: String
+  ) {
+    createInvoice(
+      organizationId: $organizationId
+      userId: $userId
+      title: $title
+      description: $description
+      amountCents: $amountCents
+      currency: $currency
+      dueDate: $dueDate
+    ) {
+      id
+      title
+      amountCents
+      status
+      totalPaidCents
+      balanceCents
+      createdAt
+    }
+  }
+`;
+
+export const UPDATE_INVOICE = gql`
+  mutation UpdateInvoice($id: ID!, $title: String, $description: String, $amountCents: Int, $dueDate: String, $status: InvoiceStatus) {
+    updateInvoice(id: $id, title: $title, description: $description, amountCents: $amountCents, dueDate: $dueDate, status: $status) {
+      id
+      title
+      amountCents
+      dueDate
+      status
+      totalPaidCents
+      balanceCents
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_INVOICE = gql`
+  mutation DeleteInvoice($id: ID!) {
+    deleteInvoice(id: $id)
+  }
+`;
+
+export const SEND_INVOICE = gql`
+  mutation SendInvoice($id: ID!) {
+    sendInvoice(id: $id) {
+      id
+      status
+      sentAt
+    }
+  }
+`;
+
+export const RECORD_PAYMENT = gql`
+  mutation RecordPayment($invoiceId: ID!, $amountCents: Int!, $method: PaymentMethod, $note: String, $paidAt: String) {
+    recordPayment(invoiceId: $invoiceId, amountCents: $amountCents, method: $method, note: $note, paidAt: $paidAt) {
+      id
+      amountCents
+      method
+      paidAt
+    }
+  }
+`;
+
+export const SEND_PAYMENT_REMINDER = gql`
+  mutation SendPaymentReminder($invoiceId: ID!) {
+    sendPaymentReminder(invoiceId: $invoiceId)
+  }
+`;

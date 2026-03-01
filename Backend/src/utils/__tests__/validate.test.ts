@@ -10,6 +10,9 @@ import {
   upsertMedicalInfoInputSchema,
   createCustomRoleInputSchema,
   createTeamChallengeInputSchema,
+  createInvoiceInputSchema,
+  updateInvoiceInputSchema,
+  recordPaymentInputSchema,
 } from "../validate.js";
 
 // ─── validate() helper ────────────────────────────────────────────────────────
@@ -248,5 +251,78 @@ describe("createTeamChallengeInputSchema", () => {
     expect(() =>
       validate(createTeamChallengeInputSchema, { ...valid, title: "" })
     ).toThrow(/Validation error/);
+  });
+});
+
+// ─── createInvoice ────────────────────────────────────────────────────────────
+
+describe("createInvoiceInputSchema", () => {
+  const valid = {
+    organizationId: "org_1",
+    userId: "user_1",
+    title: "Season Dues 2025",
+    amountCents: 15000,
+  };
+
+  it("accepts valid input", () => {
+    expect(() => validate(createInvoiceInputSchema, valid)).not.toThrow();
+  });
+
+  it("rejects empty title", () => {
+    expect(() => validate(createInvoiceInputSchema, { ...valid, title: "" })).toThrow(/Validation error/);
+  });
+
+  it("rejects amountCents below 1", () => {
+    expect(() => validate(createInvoiceInputSchema, { ...valid, amountCents: 0 })).toThrow(/Validation error/);
+  });
+
+  it("rejects non-integer amountCents", () => {
+    expect(() => validate(createInvoiceInputSchema, { ...valid, amountCents: 150.50 })).toThrow(/Validation error/);
+  });
+
+  it("rejects amountCents over maximum", () => {
+    expect(() => validate(createInvoiceInputSchema, { ...valid, amountCents: 100_000_01 })).toThrow(/Validation error/);
+  });
+
+  it("accepts optional description", () => {
+    expect(() => validate(createInvoiceInputSchema, { ...valid, description: "Equipment fee" })).not.toThrow();
+  });
+});
+
+// ─── updateInvoice ────────────────────────────────────────────────────────────
+
+describe("updateInvoiceInputSchema", () => {
+  it("accepts empty object (all optional)", () => {
+    expect(() => validate(updateInvoiceInputSchema, {})).not.toThrow();
+  });
+
+  it("accepts valid status", () => {
+    expect(() => validate(updateInvoiceInputSchema, { status: "PAID" })).not.toThrow();
+  });
+
+  it("rejects invalid status", () => {
+    expect(() => validate(updateInvoiceInputSchema, { status: "UNKNOWN" })).toThrow(/Validation error/);
+  });
+});
+
+// ─── recordPayment ────────────────────────────────────────────────────────────
+
+describe("recordPaymentInputSchema", () => {
+  const valid = { invoiceId: "inv_1", amountCents: 5000 };
+
+  it("accepts valid input", () => {
+    expect(() => validate(recordPaymentInputSchema, valid)).not.toThrow();
+  });
+
+  it("rejects amountCents below 1", () => {
+    expect(() => validate(recordPaymentInputSchema, { ...valid, amountCents: 0 })).toThrow(/Validation error/);
+  });
+
+  it("accepts valid payment method", () => {
+    expect(() => validate(recordPaymentInputSchema, { ...valid, method: "STRIPE" })).not.toThrow();
+  });
+
+  it("rejects invalid payment method", () => {
+    expect(() => validate(recordPaymentInputSchema, { ...valid, method: "BITCOIN" })).toThrow(/Validation error/);
   });
 });

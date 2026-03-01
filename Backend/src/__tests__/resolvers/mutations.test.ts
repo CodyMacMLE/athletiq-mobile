@@ -24,10 +24,29 @@ vi.mock("../../db.js", () => ({
     customRole: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
     teamChallenge: { create: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
     athleteRecognition: { create: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn(), delete: vi.fn() },
+    invoice: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      count: vi.fn(),
+    },
+    payment: { create: vi.fn(), findFirst: vi.fn() },
+    $transaction: vi.fn((fn: (tx: any) => Promise<any>) => fn({
+      invoice: { findUnique: vi.fn(), update: vi.fn() },
+      payment: { create: vi.fn(), findFirst: vi.fn() },
+    })),
   },
 }));
 
-vi.mock("../../email.js", () => ({ sendInviteEmail: vi.fn(), sendFeedbackEmail: vi.fn() }));
+vi.mock("../../email.js", () => ({
+  sendInviteEmail: vi.fn(),
+  sendFeedbackEmail: vi.fn(),
+  sendInvoiceEmail: vi.fn().mockResolvedValue(undefined),
+  sendPaymentReminderEmail: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../../s3.js", () => ({ generateProfilePictureUploadUrl: vi.fn() }));
 vi.mock("../../utils/time.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../utils/time.js")>();
@@ -43,6 +62,9 @@ vi.mock("@aws-sdk/client-cognito-identity-provider", () => ({
   CognitoIdentityProviderClient: class { send = vi.fn(); },
   AdminDeleteUserCommand: vi.fn(),
   ListUsersCommand: vi.fn(),
+}));
+vi.mock("stripe", () => ({
+  default: class { paymentIntents = { create: vi.fn() }; webhooks = { constructEvent: vi.fn() }; },
 }));
 
 import { resolvers } from "../../resolvers/index.js";
@@ -62,6 +84,9 @@ const mockCustomRoleFindUnique = vi.mocked(prisma.customRole.findUnique);
 const mockTeamChallengeCreate = vi.mocked(prisma.teamChallenge.create);
 const mockAthleteRecognitionCreate = vi.mocked(prisma.athleteRecognition.create);
 const mockAthleteRecognitionDeleteMany = vi.mocked(prisma.athleteRecognition.deleteMany);
+const mockInvoiceCreate = vi.mocked(prisma.invoice.create);
+const mockInvoiceFindUniqueOrThrow = vi.mocked(prisma.invoice.findUniqueOrThrow);
+const mockInvoiceUpdate = vi.mocked(prisma.invoice.update);
 
 const makeContext = (userId?: string) => ({
   userId,
@@ -413,6 +438,123 @@ describe("Mutation.createAthleteRecognition", () => {
     ).rejects.toThrow(
       expect.objectContaining({ extensions: expect.objectContaining({ code: "FORBIDDEN" }) })
     );
+  });
+});
+
+// ─── createInvoice ────────────────────────────────────────────────────────────
+
+describe("Mutation.createInvoice", () => {
+  const invoiceArgs = {
+    organizationId: "org-1",
+    userId: "athlete-1",
+    title: "Season Dues 2025",
+    amountCents: 15000,
+  };
+
+  const mockInvoice = {
+    id: "inv-1",
+    organizationId: "org-1",
+    userId: "athlete-1",
+    title: "Season Dues 2025",
+    amountCents: 15000,
+    currency: "usd",
+    status: "DRAFT",
+    createdBy: "coach-1",
+    user: { id: "athlete-1", firstName: "Jane", lastName: "Doe", email: "jane@test.com" },
+    creator: { id: "coach-1", firstName: "Coach", lastName: "Smith", email: "coach@test.com" },
+    payments: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  it("creates an invoice when called by a coach", async () => {
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "COACH" } as any);
+    mockInvoiceCreate.mockResolvedValue(mockInvoice as any);
+
+    const result = await resolvers.Mutation.createInvoice(
+      null,
+      invoiceArgs,
+      makeContext("coach-1")
+    );
+
+    expect(mockInvoiceCreate).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      id: "inv-1",
+      title: "Season Dues 2025",
+      amountCents: 15000,
+      totalPaidCents: 0,
+      balanceCents: 15000,
+    });
+  });
+
+  it("throws when unauthenticated", async () => {
+    await expect(
+      resolvers.Mutation.createInvoice(null, invoiceArgs, makeContext())
+    ).rejects.toThrow("Authentication required");
+    expect(mockInvoiceCreate).not.toHaveBeenCalled();
+  });
+
+  it("throws FORBIDDEN when called by an athlete", async () => {
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "ATHLETE" } as any);
+    await expect(
+      resolvers.Mutation.createInvoice(null, invoiceArgs, makeContext("athlete-1"))
+    ).rejects.toThrow(
+      expect.objectContaining({ extensions: expect.objectContaining({ code: "FORBIDDEN" }) })
+    );
+  });
+
+  it("rejects amountCents of zero", async () => {
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "COACH" } as any);
+    await expect(
+      resolvers.Mutation.createInvoice(
+        null,
+        { ...invoiceArgs, amountCents: 0 },
+        makeContext("coach-1")
+      )
+    ).rejects.toThrow(/Validation error/);
+  });
+});
+
+// ─── sendInvoice ──────────────────────────────────────────────────────────────
+
+describe("Mutation.sendInvoice", () => {
+  const mockInvoice = {
+    id: "inv-1",
+    organizationId: "org-1",
+    userId: "athlete-1",
+    title: "Dues",
+    amountCents: 5000,
+    currency: "usd",
+    status: "DRAFT",
+    dueDate: null,
+    user: { id: "athlete-1", firstName: "Jane", lastName: "Doe", email: "jane@test.com" },
+    creator: { id: "coach-1", firstName: "Coach", lastName: "Smith", email: "coach@test.com" },
+    payments: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  it("marks invoice as SENT and sends email", async () => {
+    mockOrgMemberFindUnique.mockResolvedValue({ role: "COACH" } as any);
+    mockInvoiceFindUniqueOrThrow.mockResolvedValue(mockInvoice as any);
+    mockInvoiceUpdate.mockResolvedValue({ ...mockInvoice, status: "SENT", payments: [] } as any);
+
+    const result = await resolvers.Mutation.sendInvoice(
+      null,
+      { id: "inv-1" },
+      makeContext("coach-1")
+    );
+
+    expect(mockInvoiceUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "SENT" }) })
+    );
+    expect(result).toMatchObject({ status: "SENT" });
+  });
+
+  it("throws when unauthenticated", async () => {
+    await expect(
+      resolvers.Mutation.sendInvoice(null, { id: "inv-1" }, makeContext())
+    ).rejects.toThrow("Authentication required");
   });
 });
 

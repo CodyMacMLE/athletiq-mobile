@@ -25,6 +25,7 @@ import {
   TrendingUp,
   Briefcase,
   FileCheck,
+  Receipt,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -62,9 +63,10 @@ const NAV: NavEntry[] = [
     name: "Organization",
     icon: Building2,
     children: [
-      { name: "Users",   href: "/users",   icon: Users },
-      { name: "Teams",   href: "/teams",   icon: UserCog },
-      { name: "Events",  href: "/events",  icon: Calendar },
+      { name: "Users",    href: "/users",    icon: Users },
+      { name: "Teams",    href: "/teams",    icon: UserCog },
+      { name: "Events",   href: "/events",   icon: Calendar },
+      { name: "Payments", href: "/payments", icon: Receipt },
     ],
   },
   {
