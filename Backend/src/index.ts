@@ -117,6 +117,8 @@ async function main() {
         ) {
           return { message: formattedError.message };
         }
+        // Log the real error to CloudWatch before masking it
+        logger.error({ err: error, msg: formattedError.message }, "GraphQL internal error");
         return { message: "Internal server error" };
       }
       return formattedError;
