@@ -92,6 +92,10 @@ function playgroundAuth(
 async function main() {
   const app = express();
 
+  // Trust the ALB/reverse-proxy so express-rate-limit and req.ip work correctly
+  // with the X-Forwarded-For header set by AWS ALB.
+  app.set("trust proxy", 1);
+
   const server = new ApolloServer<Context>({
     typeDefs,
     resolvers,
