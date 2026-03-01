@@ -209,6 +209,8 @@ export default function Register() {
                 placeholder="123456"
                 placeholderTextColor="rgba(255,255,255,0.3)"
                 keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                autoComplete="one-time-code"
                 value={confirmationCode}
                 onChangeText={(text) => {
                   setConfirmationCode(text);
@@ -259,6 +261,21 @@ export default function Register() {
                 <Text style={styles.registerLink}>
                   {resending ? "Sending..." : "Resend code"}
                 </Text>
+              </Text>
+            </Pressable>
+
+            {/* Back / use different email */}
+            <Pressable
+              style={[styles.registerRow, { marginTop: 8 }]}
+              onPress={() => {
+                setNeedsConfirmation(false);
+                setConfirmationCode("");
+                setError("");
+              }}
+            >
+              <Text style={styles.registerText}>
+                Wrong email?{" "}
+                <Text style={styles.registerLink}>Use a different email</Text>
               </Text>
             </Pressable>
           </ScrollView>
